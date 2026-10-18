@@ -1,9 +1,8 @@
-using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class PauseMenuUI : MonoBehaviour
+public class PauseMenuUI : MonoBehaviour, IUIPanel
 {
     [Header("System References")]
     [SerializeField] private LevelFlowController flowController;
@@ -18,34 +17,38 @@ public class PauseMenuUI : MonoBehaviour
     [SerializeField] private Button resumeButton;
     [SerializeField] private Button restartButton;
     [SerializeField] private Button quitToMenuButton;
-    [SerializeField] private Button settingsButton;
+    [SerializeField] private Button soundButton;
+    [SerializeField] private Button musicButton;
 
-    public event Action OnSettingsRequested;
+    [Header("Image")]
+    [SerializeField] private Image soundIcon;
+    [SerializeField] private Image musicIcon;
 
+    [Header("Sprites")]
+    [SerializeField] private Sprite soundOnSprite;
+    [SerializeField] private Sprite soundOffSprite;
+    [SerializeField] private Sprite musicOnSprite;
+    [SerializeField] private Sprite musicOffSprite;
+
+    [Header("Volume")]
+    [SerializeField] private int soundVolume = 5;
+    [SerializeField] private int musicVolume = 5;
     public bool IsPaused => UIManager.Instance != null &&
                             UIManager.Instance.IsPanelOpen(UIPanelType.Pause);
 
+    private UIPanelAnimator panelAnimator;
+    private UIPanelAnimator PanelAnimator =>
+        panelAnimator != null ? panelAnimator
+            : (panelAnimator = (pausePanel != null ? pausePanel : gameObject).GetComponent<UIPanelAnimator>());
+
     private void Awake()
     {
-        if (flowController == null)
-            flowController = FindAnyObjectByType<LevelFlowController>();
-
-        if (resumeButton != null)
-            resumeButton.onClick.AddListener(OnResumeClicked);
-
-        if (restartButton != null)
-            restartButton.onClick.AddListener(OnRestartClicked);
-
-        if (quitToMenuButton != null)
-            quitToMenuButton.onClick.AddListener(OnQuitClicked);
-
-        if (settingsButton != null)
-            settingsButton.onClick.AddListener(OnSettingsClicked);
-
-        if (flowController != null && flowController.CurrentLevelData != null && levelTitleText != null)
-            levelTitleText.text = flowController.CurrentLevelData.DisplayName;
-
-        Hide();
+        flowController = FindAnyObjectByType<LevelFlowController>();
+        resumeButton.onClick.AddListener(OnResumeClicked);
+        restartButton.onClick.AddListener(OnRestartClicked);
+        quitToMenuButton.onClick.AddListener(OnQuitClicked);
+        soundButton.onClick.AddListener(OnSoundClicked);
+        musicButton.onClick.AddListener(OnMusicClicked);
     }
 
     private void OnDestroy()
@@ -58,19 +61,31 @@ public class PauseMenuUI : MonoBehaviour
 
         if (quitToMenuButton != null)
             quitToMenuButton.onClick.RemoveListener(OnQuitClicked);
-
-        if (settingsButton != null)
-            settingsButton.onClick.RemoveListener(OnSettingsClicked);
     }
 
     public void Show()
     {
-        pausePanel.SetActive(true);
+        if (flowController != null && flowController.CurrentLevelData != null && levelTitleText != null)
+            levelTitleText.text = flowController.CurrentLevelData.DisplayName;
+
+        RefreshAudioIcon();
+
+        if (PanelAnimator != null)
+            PanelAnimator.PlayIn();
+        else if (pausePanel != null)
+            pausePanel.SetActive(true);
     }
 
     public void Hide()
     {
-        pausePanel.SetActive(false);
+        if (PanelAnimator != null) PanelAnimator.PlayOut(FinishHide);
+        else FinishHide();
+    }
+
+    private void FinishHide()
+    {
+        if (pausePanel != null)
+            pausePanel.SetActive(false);
     }
 
     private void OnResumeClicked()
@@ -97,7 +112,54 @@ public class PauseMenuUI : MonoBehaviour
 
     private void OnSettingsClicked()
     {
-        OnSettingsRequested?.Invoke();
+        if (UIManager.Instance != null)
+            UIManager.Instance.OpenPanel(UIPanelType.Setting);
     }
 
+    private void OnSoundClicked()
+    {
+        var sm = SoundManager.Instance;
+        if (sm.GetSoundVolume() > 0)
+        {
+            soundVolume = sm.GetSoundVolume();
+            sm.SetSoundVolume(0);
+        }
+
+        else
+        {
+            sm.SetSoundVolume(soundVolume);
+        }
+
+        sm.SaveVolume();
+        RefreshAudioIcon();
+    }
+
+    private void OnMusicClicked()
+    {
+        var mm = MusicManager.Instance;
+        if (mm.GetMusicVolume() > 0)
+        {
+            musicVolume = mm.GetMusicVolume();
+            mm.SetMusicVolume(0);
+        }
+
+        else
+        {
+            mm.SetMusicVolume(musicVolume);
+        }
+
+        mm.SaveVolume();
+        RefreshAudioIcon();
+    }
+
+    private void RefreshAudioIcon()
+    {
+        var sm = SoundManager.Instance;
+        var mm = MusicManager.Instance;
+
+        if (soundIcon != null)
+            soundIcon.sprite = (sm != null && sm.GetSoundVolume() > 0) ? soundOnSprite : soundOffSprite;
+        if (musicIcon != null)
+            musicIcon.sprite = (mm != null && mm.GetMusicVolume() > 0) ? musicOnSprite : musicOffSprite;
+    }
 }

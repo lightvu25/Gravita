@@ -1,21 +1,10 @@
 using System;
 using System.Collections;
+using DG.Tweening;
 using UnityEngine;
 using UnityEngine.Audio;
 using UnityEngine.SceneManagement;
-using DG.Tweening;
 
-[System.Serializable]
-public struct MusicTrack
-{
-    public string trackName;
-    public AudioClip clip;
-}
-
-/// <summary>
-/// Links a scene name to music and ambient tracks that should play automatically.
-/// Configure these in the MusicManager Inspector — no hardcoded strings needed!
-/// </summary>
 [System.Serializable]
 public struct SceneMusicEntry
 {
@@ -52,9 +41,6 @@ public class MusicManager : MonoBehaviour
     [SerializeField] private AudioMixer audioMixer;
     [SerializeField] private AudioMixerGroup musicMixerGroup;
     [SerializeField] private string musicVolumeParam = "MusicVolume";
-
-    [Header("Tracks")]
-    [SerializeField] private MusicTrack[] tracks;
 
     [Header("Scene Music (assign clips per scene — no code needed!)")]
     [SerializeField] private SceneMusicEntry[] sceneMusicEntries;
@@ -135,42 +121,6 @@ public class MusicManager : MonoBehaviour
     {
         if (musicSource != null && musicSource.isPlaying)
             musicTime = musicSource.time;
-    }
-
-    // ------------------------------------------------------------------ //
-    //  Public API — name-based (legacy / manual control)                  //
-    // ------------------------------------------------------------------ //
-
-    public AudioClip GetClipFromName(string trackName)
-    {
-        foreach (var track in tracks)
-        {
-            if (track.trackName == trackName)
-                return track.clip;
-        }
-        return null;
-    }
-
-    public void PlayMusic(string trackName, float fadeDuration = 0.5f)
-    {
-        AudioClip clip = GetClipFromName(trackName);
-        if (clip == null)
-        {
-            Debug.LogWarning($"MusicManager: Track '{trackName}' not found.");
-            return;
-        }
-        PlayMusicClip(clip, fadeDuration);
-    }
-
-    public void PlayAmbient(string trackName, float fadeDuration = 0.5f)
-    {
-        AudioClip clip = GetClipFromName(trackName);
-        if (clip == null)
-        {
-            Debug.LogWarning($"MusicManager: Ambient Track '{trackName}' not found.");
-            return;
-        }
-        PlayAmbientClip(clip, fadeDuration);
     }
 
     // ------------------------------------------------------------------ //
@@ -268,7 +218,6 @@ public class MusicManager : MonoBehaviour
     //  Volume control                                                      //
     // ------------------------------------------------------------------ //
 
-    public void ChangeMusicVolume() { SetMusicVolume((musicVolume + 1) % MUSIC_VOLUME_MAX); }
     public void SetMusicVolume(int newVolume)
     {
         musicVolume = Mathf.Clamp(newVolume, 0, MUSIC_VOLUME_MAX);
@@ -293,4 +242,5 @@ public class MusicManager : MonoBehaviour
         float targetVolume = isDucking ? 0.3f : 1f;
         musicSource.DOFade(targetVolume, 0.5f).SetUpdate(true);
     }
+
 }

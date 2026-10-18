@@ -36,6 +36,10 @@ public class CoinBonusUI : MonoBehaviour, IUIPanel
     private EconomyManager economy;
     private AdRewardService adService;
     private bool subscribed;
+    private UIPanelAnimator panelAnimator;
+    private UIPanelAnimator PanelAnimator =>
+        panelAnimator != null ? panelAnimator
+            : (panelAnimator = (panelRoot != null ? panelRoot : gameObject).GetComponent<UIPanelAnimator>());
 
     private void Awake()
     {
@@ -43,11 +47,6 @@ public class CoinBonusUI : MonoBehaviour, IUIPanel
         if (backButton != null) backButton.onClick.AddListener(CloseCoinBonus);
         if (collectButton != null) collectButton.onClick.AddListener(OnCollectClicked);
         if (collectAdButton != null) collectAdButton.onClick.AddListener(OnCollectAdClicked);
-    }
-
-    private void Start()
-    {
-        panelRoot.SetActive(false);
     }
 
     private void OnEnable()
@@ -94,11 +93,18 @@ public class CoinBonusUI : MonoBehaviour, IUIPanel
 
     public void OpenCoinBonus()
     {
-        panelRoot.SetActive(true);
+        if (PanelAnimator != null) PanelAnimator.PlayIn();
+        else panelRoot.SetActive(true);
         RefreshAll();
     }
 
     public void CloseCoinBonus()
+    {
+        if (PanelAnimator != null) PanelAnimator.PlayOut(FinishCloseCoinBonus);
+        else FinishCloseCoinBonus();
+    }
+
+    private void FinishCloseCoinBonus()
     {
         panelRoot.SetActive(false);
         OnCoinBonusClosed?.Invoke();

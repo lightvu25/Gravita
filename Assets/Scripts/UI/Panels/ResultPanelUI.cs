@@ -3,48 +3,37 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-/// <summary>
-/// Post-game result screens — completion panel (star icons, coins earned,
-/// next/retry/map) and failure panel (reason + retry). Lives on a separate
-/// GameObject from <see cref="InGameHUD"/> so in-run HUD and result flow are
-/// fully independent. The blind-box button is owned by <see cref="BlindBoxUI"/>
-/// on the same completion panel.
-/// </summary>
 public class ResultPanelUI : MonoBehaviour, IUIPanel
 {
     private enum PendingResult { None, Completed, Failed }
 
     private PendingResult pendingResult = PendingResult.None;
     private string pendingFailReason;
+    private UIPanelAnimator panelAnimator;
+    private UIPanelAnimator PanelAnimator =>
+        panelAnimator != null ? panelAnimator : (panelAnimator = GetComponent<UIPanelAnimator>());
+
     [Header("System References")]
     [SerializeField] private LevelFlowController flowController;
 
     [Header("Completion Panel")]
     [SerializeField] private GameObject completionPanel;
-    [Tooltip("Result header art slot — assign your 'Level Complete' image.")]
-    [SerializeField] private Image completionTitleImage;
     [SerializeField] private TMP_Text completionTitleText;
-    [SerializeField] private TMP_Text starsEarnedText;
-    [Tooltip("Exactly 3 star icons — filled color when earned, dimmed when not.")]
-    [SerializeField] private Image[] starSlots;
     [SerializeField] private TMP_Text coinsEarnedText;
-    [SerializeField] private Image coinIconImage;
-
-    [Header("Completion Buttons")]
     [SerializeField] private Button nextLevelButton;
     [SerializeField] private Button completionRestartButton;
     [SerializeField] private Button completionMapButton;
+    [SerializeField] private Image[] stars;
+    [SerializeField] private Sprite starFilled;
+    [SerializeField] private Sprite starEmpty;
 
     [Header("Failure Panel")]
     [SerializeField] private GameObject failurePanel;
-    [SerializeField] private Image failureTitleImage;
+    [SerializeField] private TMP_Text failTitleText;
+
     [SerializeField] private TMP_Text failureReasonText;
     [SerializeField] private Button retryButton;
     [SerializeField] private Button failureMapButton;
-
-    [Header("Star Slot Colors")]
-    [SerializeField] private Color starFilledColor = new Color(1f, 0.85f, 0.2f);
-    [SerializeField] private Color starEmptyColor = new Color(1f, 1f, 1f, 0.25f);
 
     // ─────────────────────────────────────────────────────────────
     //  Unity Lifecycle
@@ -58,38 +47,30 @@ public class ResultPanelUI : MonoBehaviour, IUIPanel
 
     private void Start()
     {
-        if (flowController != null)
-        {
-            flowController.OnLevelCompleted += HandleLevelCompleted;
-            flowController.OnLevelFailed += HandleLevelFailed;
-            flowController.OnLevelRestarted += HandleResultClosed;
-            flowController.OnReturnToMapRequested += HandleResultClosed;
-        }
+        flowController.OnLevelCompleted += HandleLevelCompleted;
+        flowController.OnLevelFailed += HandleLevelFailed;
+        flowController.OnLevelRestarted += HandleResultClosed;
+        flowController.OnReturnToMapRequested += HandleResultClosed;
 
         BindButton(nextLevelButton, OnNextLevel);
         BindButton(completionRestartButton, OnRestart);
         BindButton(completionMapButton, OnReturnToMap);
         BindButton(retryButton, OnRestart);
         BindButton(failureMapButton, OnReturnToMap);
-
-        HideAll();
     }
 
     private void OnDestroy()
     {
-        if (flowController != null)
-        {
-            flowController.OnLevelCompleted -= HandleLevelCompleted;
-            flowController.OnLevelFailed -= HandleLevelFailed;
-            flowController.OnLevelRestarted -= HandleResultClosed;
-            flowController.OnReturnToMapRequested -= HandleResultClosed;
-        }
+        flowController.OnLevelCompleted -= HandleLevelCompleted;
+        flowController.OnLevelFailed -= HandleLevelFailed;
+        flowController.OnLevelRestarted -= HandleResultClosed;
+        flowController.OnReturnToMapRequested -= HandleResultClosed;
+
     }
 
     private void BindButton(Button button, Action callback)
     {
-        if (button != null)
-            button.onClick.AddListener(() => callback());
+        button.onClick.AddListener(() => callback());
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -98,17 +79,37 @@ public class ResultPanelUI : MonoBehaviour, IUIPanel
 
     public void Show()
     {
-        if (pendingResult == PendingResult.Failed)
-            ShowFailure(pendingFailReason);
+        // This GameObject is the mapped overlay root and is saved inactive —
+        // activate it before driving the sub-panels.
+        if (PanelAnimator != null) PanelAnimator.PlayIn();
+        else gameObject.SetActive(true);
+
+        // Prefer the state captured by the event handler; when the panel was
+        // inactive at the time (no subscriptions), fall back to the flow state.
+        PendingResult result = pendingResult;
+        if (result == PendingResult.None && flowController != null)
+            result = flowController.CurrentState == LevelState.Failed
+                ? PendingResult.Failed
+                : PendingResult.Completed;
+
+        if (result == PendingResult.Failed)
+            ShowFailure(pendingFailReason ?? (flowController != null ? flowController.LastFailReason : null));
         else
             ShowCompletion();
     }
 
     public void Hide()
     {
+        if (PanelAnimator != null) PanelAnimator.PlayOut(FinishHide);
+        else FinishHide();
+    }
+
+    private void FinishHide()
+    {
         HideAll();
         pendingResult = PendingResult.None;
         pendingFailReason = null;
+        gameObject.SetActive(false);
     }
 
     private void HandleLevelCompleted()
@@ -125,10 +126,7 @@ public class ResultPanelUI : MonoBehaviour, IUIPanel
     {
         pendingResult = PendingResult.Failed;
         pendingFailReason = reason;
-        if (UIManager.Instance != null)
-            UIManager.Instance.OpenPanel(UIPanelType.Result);
-        else
-            ShowFailure(reason);
+        UIManager.Instance.OpenPanel(UIPanelType.Result);
     }
 
     private void HandleResultClosed()
@@ -145,29 +143,19 @@ public class ResultPanelUI : MonoBehaviour, IUIPanel
 
     private void ShowCompletion()
     {
-        int stars = Mathf.Clamp(flowController != null ? flowController.LastCompletedStars : 1, 1, 3);
+        var level = flowController != null ? flowController.CurrentLevelData : null;
+        int earnedStars = Mathf.Clamp(flowController != null ? flowController.LastCompletedStars : 1, 1, 3);
 
-        if (failurePanel != null) failurePanel.SetActive(false);
-        if (completionPanel != null) completionPanel.SetActive(true);
+        failurePanel.SetActive(false);
+        completionPanel.SetActive(true);
 
-        if (completionTitleText != null)
-            completionTitleText.text = "LEVEL COMPLETE";
-
-        if (starsEarnedText != null)
-            starsEarnedText.text = $"{stars} ★";
-
-        if (starSlots != null)
-        {
-            for (int i = 0; i < starSlots.Length; i++)
-            {
-                if (starSlots[i] != null)
-                    starSlots[i].color = i < stars ? starFilledColor : starEmptyColor;
-            }
-        }
+        int stage = GetStageNumber(level);
+        completionTitleText.text = $"STAGE {stage}";
+            
+        SetStars(earnedStars);
 
         RewardBundle clearReward = flowController != null ? flowController.LastClearReward : null;
-        if (coinsEarnedText != null)
-            coinsEarnedText.text = clearReward != null ? $"+{clearReward.CoinCount}" : "";
+        coinsEarnedText.text = clearReward != null ? $"+{clearReward.CoinCount}" : "";
 
         if (nextLevelButton != null)
         {
@@ -180,8 +168,43 @@ public class ResultPanelUI : MonoBehaviour, IUIPanel
         }
     }
 
+    public void SetStars(int earnedStars)
+    {
+        earnedStars = Mathf.Clamp(earnedStars, 0, 3);
+        if (stars == null) return;
+    
+        for (int i = 0; i < stars.Length; i++)
+        {
+            if (stars[i] == null) continue;
+            stars[i].sprite = i < earnedStars ? starFilled : starEmpty;
+        }
+    }
+
+    private static int GetStageNumber(LevelData level)
+{
+    var db = ProgressionManager.Instance != null ? ProgressionManager.Instance.Database : null;
+    if (level == null || db == null) return 0;
+ 
+    int index = 0;
+    foreach (var world in db.Worlds)
+    {
+        if (world.levels == null) continue;
+        foreach (var lvl in world.levels)
+        {
+            if (lvl == null) continue;
+            index++;
+            if (lvl == level) return index;
+        }
+    }
+    return 0;
+}
+
     private void ShowFailure(string reason)
     {
+        var failedlevel = flowController != null ? flowController.CurrentLevelData : null;
+        int failedstage = GetStageNumber(failedlevel);
+        failTitleText.text = $"STAGE {failedstage}";
+
         if (completionPanel != null) completionPanel.SetActive(false);
         if (failurePanel != null) failurePanel.SetActive(true);
         if (failureReasonText != null)

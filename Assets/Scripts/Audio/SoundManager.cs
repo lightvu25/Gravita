@@ -26,9 +26,6 @@ public class SoundManager : MonoBehaviour
     private List<AudioSource> sfxPool = new List<AudioSource>();
     private Transform poolContainer;
 
-    [Header("Global Sounds")]
-    [SerializeField] private List<AudioClip> evolutionSounds = new List<AudioClip>();
-
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -127,23 +124,6 @@ public class SoundManager : MonoBehaviour
             source.pitch = 1f;
 
         source.Play();
-    }
-
-    public void PlayEvolutionSound()
-    {
-        if (evolutionSounds != null && evolutionSounds.Count > 0)
-        {
-            AudioClip clip = evolutionSounds[UnityEngine.Random.Range(0, evolutionSounds.Count)];
-            if (clip != null)
-            {
-                PlaySFX(clip, 1f, false);
-            }
-        }
-    }
-
-    public void ChangeSoundVolume()
-    {
-        SetSoundVolume((soundVolume + 1) % SOUND_VOLUME_MAX);
     }
 
     public void SetSoundVolume(int newVolume)

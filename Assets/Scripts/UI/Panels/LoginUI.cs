@@ -3,18 +3,7 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 
-/// <summary>
-/// Simple email/password login panel — a test-friendly implementation of
-/// the auth flow end to end:
-///
-///   Button click → client-side validation → IAuthService async call
-///   → AuthResult → status text + view refresh.
-///
-/// Uses legacy uGUI (InputField/Text/Button) like the rest of the project's
-/// UI. Not registered with UIManager — auth is infrastructure, not a
-/// gameplay panel, so it manages itself.
-/// </summary>
-public class LoginUI : MonoBehaviour
+public class LoginUI : MonoBehaviour, IUIPanel
 {
     [Header("Inputs")]
     [SerializeField] private InputField emailInput;
@@ -23,47 +12,67 @@ public class LoginUI : MonoBehaviour
     [Header("Buttons")]
     [SerializeField] private Button loginButton;
     [SerializeField] private Button registerButton;
-    [SerializeField] private Button logoutButton;
+    [SerializeField] private Button googleLoginButton;
 
     [Header("Labels")]
     [SerializeField] private TMP_Text statusText;
-    [SerializeField] private TMP_Text userText;
-
-    [Header("Shown only while signed out")]
-    [SerializeField] private GameObject signInGroup;
 
     private bool busy;
-
-    /// <summary>Shortcut to the auth service — null until FirebaseService finishes initializing.</summary>
+    private bool subscribed;
+    private UIPanelAnimator panelAnimator;
+    private UIPanelAnimator PanelAnimator =>
+        panelAnimator != null ? panelAnimator : (panelAnimator = GetComponent<UIPanelAnimator>());
     private IAuthService Auth => FirebaseService.Instance != null ? FirebaseService.Instance.Auth : null;
 
     private void Awake()
     {
         loginButton.onClick.AddListener(OnLoginClicked);
         registerButton.onClick.AddListener(OnRegisterClicked);
-        logoutButton.onClick.AddListener(OnLogoutClicked);
+        googleLoginButton.onClick.AddListener(OnGoogleLoginClicked);
     }
 
-    private void Start()
+    private void OnEnable()
     {
-        // Firebase initializes asynchronously — wait for it before wiring up,
-        // so a fast click can never reach a half-built auth service.
+        // The wait runs per-activation — UIManager's Hide() deactivates this
+        // panel, which kills any in-flight coroutine, so it must restart.
         StartCoroutine(WaitForAuth());
+    }
+
+    private void OnDisable()
+    {
+        var auth = Auth;
+        if (subscribed && auth != null)
+        {
+            auth.OnStateChanged -= HandleStateChanged;
+            subscribed = false;
+        }
     }
 
     private void OnDestroy()
     {
         var auth = Auth;
-        if (auth != null) auth.OnStateChanged -= HandleStateChanged;
+        if (subscribed && auth != null) auth.OnStateChanged -= HandleStateChanged;
     }
+
+    public void Show()
+    {
+        if (PanelAnimator != null) PanelAnimator.PlayIn();
+        else gameObject.SetActive(true);
+    }
+
+    public void Hide()
+    {
+        if (PanelAnimator != null) PanelAnimator.PlayOut(FinishHide);
+        else FinishHide();
+    }
+
+    private void FinishHide() => gameObject.SetActive(false);
 
     private IEnumerator WaitForAuth()
     {
         ShowStatus("Connecting to Firebase…");
         SetInteractable(false);
 
-        // Poll until the service exists and auth has left the Loading state —
-        // or give up with a clear message.
         float waited = 0f;
         const float timeout = 30f;
         while (waited < timeout)
@@ -72,6 +81,7 @@ public class LoginUI : MonoBehaviour
             if (auth != null && auth.State != AuthState.Loading)
             {
                 auth.OnStateChanged += HandleStateChanged;
+                subscribed = true;
                 RefreshView();
                 yield break;
             }
@@ -82,12 +92,6 @@ public class LoginUI : MonoBehaviour
         ShowStatus("Firebase is unavailable — playing offline.");
     }
 
-    // ---------------------------------------------------------------
-    //  Button handlers — async void is correct ONLY here: Unity event
-    //  handlers are "fire and forget" entry points, and we catch every
-    //  outcome through AuthResult instead of throwing.
-    // ---------------------------------------------------------------
-
     private async void OnLoginClicked()
     {
         if (!ValidateInputs(out string email, out string password)) return;
@@ -97,7 +101,6 @@ public class LoginUI : MonoBehaviour
         SetBusy(false, null);
 
         if (!result.Success) ShowStatus(result.ErrorMessage);
-        // On success nothing else is needed — OnStateChanged refreshes the view.
     }
 
     private async void OnRegisterClicked()
@@ -111,10 +114,13 @@ public class LoginUI : MonoBehaviour
         if (!result.Success) ShowStatus(result.ErrorMessage);
     }
 
-    private void OnLogoutClicked()
+    private async void OnGoogleLoginClicked()
     {
-        Auth?.SignOut();
-        ShowStatus("Signed out.");
+        SetBusy(true, "Opening Google sign-in…");
+        AuthResult result = await Auth.SignInWithGoogleAsync();
+        SetBusy(false, null);
+
+        if (!result.Success) ShowStatus(result.ErrorMessage);
     }
 
     // ---------------------------------------------------------------
@@ -168,36 +174,29 @@ public class LoginUI : MonoBehaviour
             return;
         }
 
-        switch (auth.State)
+        if (auth.State == AuthState.Loading)
         {
-            case AuthState.Loading:
-                ShowStatus("Connecting to Firebase…");
-                SetInteractable(false);
-                break;
-
-            case AuthState.Error:
-                ShowStatus("Authentication is unavailable.");
-                SetInteractable(false);
-                break;
-
-            case AuthState.SignedIn:
-                ShowStatus("");
-                if (signInGroup != null) signInGroup.SetActive(false);
-                if (userText != null)
-                    userText.text = string.IsNullOrEmpty(auth.Email)
-                        ? $"Signed in as guest ({auth.UserId})"
-                        : $"Signed in as {auth.Email}";
-                if (logoutButton != null) logoutButton.gameObject.SetActive(true);
-                SetInteractable(true);
-                break;
-
-            default: // SignedOut
-                if (signInGroup != null) signInGroup.SetActive(true);
-                if (userText != null) userText.text = "";
-                if (logoutButton != null) logoutButton.gameObject.SetActive(false);
-                SetInteractable(true);
-                break;
+            ShowStatus("Connecting to Firebase…");
+            SetInteractable(false);
+            return;
         }
+ 
+        if (auth.State == AuthState.SignedIn)
+        {
+            CloseSelf();
+            return;
+        }
+
+        ShowStatus("");
+        SetInteractable(true);
+    }
+    
+    private void CloseSelf()
+    {
+        if (UIManager.Instance != null && UIManager.Instance.IsPanelOpen(UIPanelType.Login))
+            UIManager.Instance.ClosePanelIfOpen(UIPanelType.Login);
+        else
+            gameObject.SetActive(false);
     }
 
     private void SetBusy(bool value, string message)
@@ -212,6 +211,7 @@ public class LoginUI : MonoBehaviour
         if (busy && value) return;
         loginButton.interactable = value;
         registerButton.interactable = value;
+        if (googleLoginButton != null) googleLoginButton.interactable = value;
         emailInput.interactable = value;
         passwordInput.interactable = value;
     }

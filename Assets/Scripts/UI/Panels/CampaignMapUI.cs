@@ -53,6 +53,9 @@ public class CampaignMapUI : MonoBehaviour, IUIPanel
     private CampaignDatabase database;
     private int currentWorldIndex = 0;
     private bool subscribedToFlow;
+    private UIPanelAnimator panelAnimator;
+    private UIPanelAnimator PanelAnimator =>
+        panelAnimator != null ? panelAnimator : (panelAnimator = GetComponent<UIPanelAnimator>());
     private readonly List<LevelNodeWidget> spawnedLevelWidgets = new List<LevelNodeWidget>();
 
     // ─────────────────────────────────────────────────────────────
@@ -120,12 +123,19 @@ public class CampaignMapUI : MonoBehaviour, IUIPanel
 
     public void OpenMap()
     {
-        gameObject.SetActive(true);
+        if (PanelAnimator != null) PanelAnimator.PlayIn();
+        else gameObject.SetActive(true);
         ShowWorldMap();
         RefreshUI();
     }
 
     public void CloseMap()
+    {
+        if (PanelAnimator != null) PanelAnimator.PlayOut(FinishCloseMap);
+        else FinishCloseMap();
+    }
+
+    private void FinishCloseMap()
     {
         if (worldMapPanel != null) worldMapPanel.SetActive(false);
         if (levelSelectPanel != null) levelSelectPanel.SetActive(false);
@@ -257,7 +267,7 @@ public class CampaignMapUI : MonoBehaviour, IUIPanel
         }
         else if (!string.IsNullOrEmpty(gameplaySceneName) && SceneManager.GetActiveScene().name != gameplaySceneName)
         {
-            SceneManager.LoadScene(gameplaySceneName);
+            SceneLoader.Load(gameplaySceneName);
         }
 
         RequestClose();

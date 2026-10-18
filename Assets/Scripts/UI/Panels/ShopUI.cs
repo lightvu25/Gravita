@@ -15,14 +15,12 @@ public class ShopUI : MonoBehaviour, IUIPanel
     [SerializeField] private TMP_Text coinsText;
     [SerializeField] private TMP_Text gemsText;
     [FormerlySerializedAs("acclaimText")]
-    [SerializeField] private TMP_Text starsText;
 
     [Header("Items")]
     [SerializeField] private Transform itemsContainer;
     [SerializeField] private GameObject itemCardTemplate;
     [SerializeField] private TMP_Text feedbackText;
 
-    /// <summary>Fired when the player closes the shop (back button).</summary>
     public event Action OnShopClosed;
 
     private readonly List<GameObject> spawnedCards = new List<GameObject>();
@@ -31,18 +29,14 @@ public class ShopUI : MonoBehaviour, IUIPanel
     private IAPManager iapManager;
     private ProgressionManager progression;
     private bool subscribed;
+    private UIPanelAnimator panelAnimator;
+    private UIPanelAnimator PanelAnimator =>
+        panelAnimator != null ? panelAnimator
+            : (panelAnimator = (shopPanel != null ? shopPanel : gameObject).GetComponent<UIPanelAnimator>());
 
     private void Awake()
     {
         if (backButton != null) backButton.onClick.AddListener(OnBackClicked);
-    }
-
-    private void Start()
-    {
-        // Panel stays active in the saved scene so Awake/Start execute;
-        // hide until the player opens the shop.
-        if (shopPanel != null && shopPanel.activeSelf)
-            shopPanel.SetActive(false);
     }
 
     private void OnEnable()
@@ -94,12 +88,19 @@ public class ShopUI : MonoBehaviour, IUIPanel
 
     public void OpenShop()
     {
-        if (shopPanel != null) shopPanel.SetActive(true);
+        if (PanelAnimator != null) PanelAnimator.PlayIn();
+        else if (shopPanel != null) shopPanel.SetActive(true);
         AnalyticsService.Track(AnalyticsEvents.ShopOpened);
         // OnEnable performs RefreshAll; no extra work needed here.
     }
 
     public void CloseShop()
+    {
+        if (PanelAnimator != null) PanelAnimator.PlayOut(FinishCloseShop);
+        else FinishCloseShop();
+    }
+
+    private void FinishCloseShop()
     {
         if (shopPanel != null) shopPanel.SetActive(false);
         OnShopClosed?.Invoke();
@@ -128,8 +129,6 @@ public class ShopUI : MonoBehaviour, IUIPanel
             if (coinsText != null) coinsText.text = economy.Coins.ToString();
             if (gemsText != null) gemsText.text = economy.Gems.ToString();
         }
-        if (starsText != null)
-            starsText.text = progression != null ? $"{progression.TotalStars} ★" : "0 ★";
     }
 
     private void HandleCoinsChanged(int oldValue, int newValue) => UpdateCurrencyTexts();

@@ -97,21 +97,6 @@ public class LevelLoader : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Convenience method: unload then reload the current LevelData.
-    /// Use this for a full prefab re-instantiation reset (when in-place reset is insufficient).
-    /// </summary>
-    public LevelRoot ReloadCurrentLevel()
-    {
-        if (currentLevelData == null)
-        {
-            Debug.LogWarning("[LevelLoader] ReloadCurrentLevel called but no level is currently loaded.", this);
-            return null;
-        }
-
-        return LoadLevel(currentLevelData);
-    }
-
     // ─────────────────────────────────────────────────────────────
     //  Unity Lifecycle
     // ─────────────────────────────────────────────────────────────

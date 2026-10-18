@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ac362e3d69a26554899979c6014bd996, type: 3}
+  m_Name: CampaignDatabase
+  m_EditorClassIdentifier: Assembly-CSharp::CampaignDatabase
+  worlds:
+  - worldNumber: 0
+    worldName: Lab
+    description: The lab
+    requiredCompletedLevelsToUnlock: 0
+    levels:
+    - {fileID: 11400000, guid: 85262b18575e8ec4f8a64773b0c9b39d, type: 2}

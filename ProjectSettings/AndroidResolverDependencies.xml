@@ -3,7 +3,7 @@
     <package>androidx.constraintlayout:constraintlayout:2.1.4</package>
     <package>androidx.fragment:fragment:1.7.1</package>
     <package>androidx.lifecycle:lifecycle-process:2.6.2</package>
-    <package>com.google.android.gms:play-services-ads:25.4.0</package>
+    <package>com.google.android.gms:play-services-ads:25.5.0</package>
     <package>com.google.android.gms:play-services-base:18.10.1</package>
     <package>com.google.android.ump:user-messaging-platform:4.0.0</package>
     <package>com.google.firebase:firebase-analytics:23.2.0</package>
@@ -60,15 +60,11 @@
   <settings>
     <setting name="androidAbis" value="arm64-v8a" />
     <setting name="bundleId" value="com.game.firebasedb" />
-    <setting name="explodeAars" value="True" />
     <setting name="gradleBuildEnabled" value="True" />
     <setting name="gradlePropertiesTemplateEnabled" value="True" />
     <setting name="gradleTemplateEnabled" value="True" />
-    <setting name="installAndroidPackages" value="True" />
     <setting name="localMavenRepoDir" value="Assets/GeneratedLocalRepo" />
-    <setting name="packageDir" value="Assets/Plugins/Android" />
     <setting name="patchAndroidManifest" value="True" />
-    <setting name="patchMainTemplateGradle" value="True" />
     <setting name="projectExportEnabled" value="False" />
     <setting name="useFullCustomMavenRepoPathWhenExport" value="True" />
     <setting name="useFullCustomMavenRepoPathWhenNotExport" value="False" />

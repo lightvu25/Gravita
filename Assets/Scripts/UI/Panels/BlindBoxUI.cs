@@ -34,6 +34,11 @@ public class BlindBoxUI : MonoBehaviour
     [Tooltip("Delay between tapping the box and revealing the reward.")]
     [SerializeField, Min(0f)] private float revealDelay = 0.5f;
 
+    private UIPanelAnimator panelAnimator;
+    private UIPanelAnimator PanelAnimator =>
+        panelAnimator != null ? panelAnimator
+            : (panelAnimator = (blindBoxPanel != null ? blindBoxPanel : gameObject).GetComponent<UIPanelAnimator>());
+
     private void Awake()
     {
         if (flowController == null)
@@ -94,7 +99,8 @@ public class BlindBoxUI : MonoBehaviour
     {
         if (blindBoxPanel == null) return;
 
-        blindBoxPanel.SetActive(true);
+        if (PanelAnimator != null) PanelAnimator.PlayIn();
+        else blindBoxPanel.SetActive(true);
 
         if (blindBoxService != null && blindBoxService.IsOpened)
             SetOpenedVisuals();
@@ -190,7 +196,8 @@ public class BlindBoxUI : MonoBehaviour
 
     private void ClosePanel()
     {
-        if (blindBoxPanel != null) blindBoxPanel.SetActive(false);
+        if (PanelAnimator != null) PanelAnimator.PlayOut(() => blindBoxPanel.SetActive(false));
+        else if (blindBoxPanel != null) blindBoxPanel.SetActive(false);
         // The completion-panel button stays so the box can be revisited —
         // it hides for good once a new level starts (HandleLevelStarted).
     }

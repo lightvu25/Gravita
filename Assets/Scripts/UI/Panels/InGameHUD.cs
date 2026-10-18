@@ -1,9 +1,8 @@
-using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class InGameHUD : MonoBehaviour
+public class InGameHUD : MonoBehaviour, IUIPanel
 {
     [Header("System References")]
     [SerializeField] private LevelFlowController flowController;
@@ -18,12 +17,18 @@ public class InGameHUD : MonoBehaviour
     [SerializeField] private TMP_Text coinsText;
     [SerializeField] private Image[] starImages;
 
+    [SerializeField] private Sprite starEmpty;
+    [SerializeField] private Sprite starFilled;
+
     [Header("Run Info")]
     [SerializeField] private TMP_Text movesText;
+    [SerializeField] private int moveLimit = 0;
 
     [Header("Power-up Counter")]
     [SerializeField] private Button shieldButton;
     [SerializeField] private TMP_Text shieldCountText;
+
+    private int movesUsed;
 
     private void Awake()
     {
@@ -39,33 +44,25 @@ public class InGameHUD : MonoBehaviour
 
     private void Start()
     {
-        if (PlayerMovement.Instance != null)
-        {
-            PlayerMovement.Instance.OnTileCrossed += UpdateMoves;
-        }
-
         if (flowController != null)
         {
             flowController.OnLevelStarted += HandleLevelStarted;
             flowController.OnStateChanged += HandleStateChanged;
-        }
-
-        if (EconomyManager.Instance != null)
-        {
-            EconomyManager.Instance.OnCoinsChanged += UpdateCoins;
-        }
-
-        if (ProgressionManager.Instance != null)
-        {
-            ProgressionManager.Instance.OnProgressionChanged += RefreshPowerUp;
-        }
-
-        RefreshHUD();
-
-        if (flowController != null)
-        {
             HandleStateChanged(flowController.CurrentState);
         }
+
+        if (PlayerMovement.Instance != null)
+            PlayerMovement.Instance.OnMoveStopped += HandleMoveCompleted;
+
+        if (EconomyManager.Instance != null)
+            EconomyManager.Instance.OnCoinsChanged += UpdateCoins;
+
+        if (ProgressionManager.Instance != null)
+            ProgressionManager.Instance.OnProgressionChanged += RefreshPowerUp;
+
+        StarCollectible.OnAnyStarCollected += HandleStarCollected;
+
+        RefreshHUD();
     }
 
     private void OnDestroy()
@@ -82,8 +79,10 @@ public class InGameHUD : MonoBehaviour
 
         if (PlayerMovement.Instance != null)
         {
-            PlayerMovement.Instance.OnTileCrossed -= UpdateMoves;
+            PlayerMovement.Instance.OnMoveStopped -= HandleMoveCompleted;
         }
+
+        StarCollectible.OnAnyStarCollected -= HandleStarCollected;
 
         if (flowController != null)
         {
@@ -105,7 +104,8 @@ public class InGameHUD : MonoBehaviour
     private void HandleLevelStarted()
     {
         SetHudVisible(true);
-        UpdateMoves(0);
+        movesUsed = 0;
+        RefreshMovesText();
         SetStars(0);
         RefreshHUD();
     }
@@ -114,6 +114,37 @@ public class InGameHUD : MonoBehaviour
     {
         bool show = state == LevelState.Playing;
         SetHudVisible(show);
+    }
+
+    private void HandleStarCollected(StarCollectible star)
+    {
+        int count = (flowController != null && flowController.CurrentRoot != null) ? flowController.CurrentRoot.CollectedStarCount : 0;
+        SetStars(count);
+    }
+
+    private void HandleMoveCompleted()
+    {
+        movesUsed++;
+        RefreshMovesText();
+    }
+
+    private void RefreshMovesText()
+    {
+        if (movesText == null) return;
+        movesText.text = moveLimit > 0
+            ? Mathf.Max(0, moveLimit - movesUsed).ToString()
+            : movesUsed.ToString();
+    }
+
+    // IUIPanel — HUD visibility is owned by LevelState (HandleStateChanged).
+    // UIManager may "close" this panel when opening Pause/Settings on top, so
+    // Hide() only takes effect when the game is not actually Playing.
+    public void Show() => SetHudVisible(true);
+
+    public void Hide()
+    {
+        if (flowController == null || flowController.CurrentState != LevelState.Playing)
+            SetHudVisible(false);
     }
 
     private void SetHudVisible(bool visible)
@@ -125,6 +156,17 @@ public class InGameHUD : MonoBehaviour
             target.SetActive(visible);
         }
     }
+    public void SetStars(int earnedStars)
+    {
+        earnedStars = Mathf.Clamp(earnedStars, 0, 3);
+        if (starImages == null) return;
+    
+        for (int i = 0; i < starImages.Length; i++)
+        {
+            if (starImages[i] == null) continue;
+            starImages[i].sprite = i < earnedStars ? starFilled : starEmpty;
+        }
+    }
 
     public void RefreshHUD()
     {
@@ -133,37 +175,12 @@ public class InGameHUD : MonoBehaviour
             UpdateCoins(EconomyManager.Instance.Coins, 0);
         }
 
-        UpdateMoves(0);
+        RefreshMovesText();
         RefreshPowerUp();
         SetStars(0);
     }
 
     private void UpdateCoins(int amount, int delta) { if (coinsText != null) coinsText.text = amount.ToString(); }
-    
-    public void SetStars(int earnedStars)
-    {
-        earnedStars = Mathf.Clamp(earnedStars, 0, 3);
-
-        if (starImages == null)
-        {
-            return;
-        }
-
-        for (int i = 0; i < starImages.Length; i++)
-        {
-            if (starImages[i] == null)
-            {
-                continue;
-            }
-
-            starImages[i].gameObject.SetActive(i < earnedStars);
-        }
-    }
-
-    private void UpdateMoves(int tiles)
-    {
-        if (movesText != null) movesText.text = tiles.ToString();
-    }
 
     private void RefreshPowerUp()
     {

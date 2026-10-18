@@ -35,17 +35,16 @@ public class DailyRewardUI : MonoBehaviour, IUIPanel
     private DailyRewardService dailyService;
     private EconomyManager economy;
     private bool subscribed;
+    private UIPanelAnimator panelAnimator;
+    private UIPanelAnimator PanelAnimator =>
+        panelAnimator != null ? panelAnimator
+            : (panelAnimator = (panelRoot != null ? panelRoot : gameObject).GetComponent<UIPanelAnimator>());
 
     private void Awake()
     {
         if (panelRoot == null) panelRoot = gameObject;
         if (backButton != null) backButton.onClick.AddListener(CloseDailyReward);
         if (claimButton != null) claimButton.onClick.AddListener(OnClaimClicked);
-    }
-
-    private void Start()
-    {
-        panelRoot.SetActive(false);
     }
 
     private void OnEnable()
@@ -97,11 +96,18 @@ public class DailyRewardUI : MonoBehaviour, IUIPanel
 
     public void OpenDailyReward()
     {
-        panelRoot.SetActive(true);
+        if (PanelAnimator != null) PanelAnimator.PlayIn();
+        else panelRoot.SetActive(true);
         RefreshAll();
     }
 
     public void CloseDailyReward()
+    {
+        if (PanelAnimator != null) PanelAnimator.PlayOut(FinishCloseDailyReward);
+        else FinishCloseDailyReward();
+    }
+
+    private void FinishCloseDailyReward()
     {
         panelRoot.SetActive(false);
         OnDailyRewardClosed?.Invoke();

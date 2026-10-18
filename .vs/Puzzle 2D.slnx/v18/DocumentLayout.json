@@ -3,20 +3,32 @@
   "WorkspaceRootPath": "D:\\UnityProject\\Puzzle 2D\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|d:\\unityproject\\puzzle 2d\\assets\\scripts\\ui\\gameplay\\ingamehud.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\ui\\gameplay\\ingamehud.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|d:\\unityproject\\puzzle 2d\\assets\\scripts\\ui\\core\\uimanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\ui\\core\\uimanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|d:\\unityproject\\puzzle 2d\\assets\\scripts\\ui\\gameplay\\pausemenuui.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\ui\\gameplay\\pausemenuui.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|d:\\unityproject\\puzzle 2d\\assets\\scripts\\ui\\panels\\bootstrapui.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\ui\\panels\\bootstrapui.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|d:\\unityproject\\puzzle 2d\\assets\\scripts\\core\\managers\\gamemanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\core\\managers\\gamemanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|d:\\unityproject\\puzzle 2d\\assets\\scripts\\ui\\panels\\settingui.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\ui\\panels\\settingui.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|d:\\unityproject\\puzzle 2d\\assets\\scripts\\core\\managers\\gamesession.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\core\\managers\\gamesession.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|D:\\UnityProject\\Puzzle 2D\\Assets\\Scripts\\UI\\Gameplay\\InGameHUD.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:Assets\\Scripts\\UI\\Gameplay\\InGameHUD.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|D:\\UnityProject\\Puzzle 2D\\Assets\\Scripts\\UI\\Gameplay\\PauseMenuUI.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:Assets\\Scripts\\UI\\Gameplay\\PauseMenuUI.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|D:\\UnityProject\\Puzzle 2D\\Assets\\Scripts\\Core\\Managers\\GameSession.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:Assets\\Scripts\\Core\\Managers\\GameSession.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|D:\\UnityProject\\Puzzle 2D\\Assets\\Scripts\\Core\\Managers\\GameManager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:Assets\\Scripts\\Core\\Managers\\GameManager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     }
   ],
   "DocumentGroupContainers": [
@@ -31,19 +43,59 @@
             {
               "$type": "Document",
               "DocumentIndex": 0,
+              "Title": "UIManager.cs",
+              "DocumentMoniker": "D:\\UnityProject\\Puzzle 2D\\Assets\\Scripts\\UI\\Core\\UIManager.cs",
+              "RelativeDocumentMoniker": "Assets\\Scripts\\UI\\Core\\UIManager.cs",
+              "ToolTip": "D:\\UnityProject\\Puzzle 2D\\Assets\\Scripts\\UI\\Core\\UIManager.cs",
+              "RelativeToolTip": "Assets\\Scripts\\UI\\Core\\UIManager.cs",
+              "ViewState": "AgIAAIQAAAAAAAAAAAAuwCAAAAAFAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-10-17T13:35:33.606Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{34e76e81-ee4a-11d0-ae2e-00a0c90fffc3}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "BootstrapUI.cs",
+              "DocumentMoniker": "D:\\UnityProject\\Puzzle 2D\\Assets\\Scripts\\UI\\Panels\\BootstrapUI.cs",
+              "RelativeDocumentMoniker": "Assets\\Scripts\\UI\\Panels\\BootstrapUI.cs",
+              "ToolTip": "D:\\UnityProject\\Puzzle 2D\\Assets\\Scripts\\UI\\Panels\\BootstrapUI.cs",
+              "RelativeToolTip": "Assets\\Scripts\\UI\\Panels\\BootstrapUI.cs",
+              "ViewState": "AgIAABsAAAAAAAAAAAAywCoAAAAaAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-10-15T10:45:03.694Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "SettingUI.cs",
+              "DocumentMoniker": "D:\\UnityProject\\Puzzle 2D\\Assets\\Scripts\\UI\\Panels\\SettingUI.cs",
+              "RelativeDocumentMoniker": "Assets\\Scripts\\UI\\Panels\\SettingUI.cs",
+              "ToolTip": "D:\\UnityProject\\Puzzle 2D\\Assets\\Scripts\\UI\\Panels\\SettingUI.cs",
+              "RelativeToolTip": "Assets\\Scripts\\UI\\Panels\\SettingUI.cs",
+              "ViewState": "AgIAAAsAAAAAAAAAAAA5wBIAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-10-05T04:55:32.352Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
               "Title": "InGameHUD.cs",
               "DocumentMoniker": "D:\\UnityProject\\Puzzle 2D\\Assets\\Scripts\\UI\\Gameplay\\InGameHUD.cs",
               "RelativeDocumentMoniker": "Assets\\Scripts\\UI\\Gameplay\\InGameHUD.cs",
               "ToolTip": "D:\\UnityProject\\Puzzle 2D\\Assets\\Scripts\\UI\\Gameplay\\InGameHUD.cs",
               "RelativeToolTip": "Assets\\Scripts\\UI\\Gameplay\\InGameHUD.cs",
-              "ViewState": "AgIAAI8AAAAAAAAAAAAwwJ4AAAAgAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-10-01T12:45:58.772Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-10-01T12:45:58.772Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
+              "DocumentIndex": 5,
               "Title": "GameSession.cs",
               "DocumentMoniker": "D:\\UnityProject\\Puzzle 2D\\Assets\\Scripts\\Core\\Managers\\GameSession.cs",
               "RelativeDocumentMoniker": "Assets\\Scripts\\Core\\Managers\\GameSession.cs",
@@ -55,7 +107,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 6,
               "Title": "GameManager.cs",
               "DocumentMoniker": "D:\\UnityProject\\Puzzle 2D\\Assets\\Scripts\\Core\\Managers\\GameManager.cs",
               "RelativeDocumentMoniker": "Assets\\Scripts\\Core\\Managers\\GameManager.cs",
@@ -67,7 +119,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 4,
               "Title": "PauseMenuUI.cs",
               "DocumentMoniker": "D:\\UnityProject\\Puzzle 2D\\Assets\\Scripts\\UI\\Gameplay\\PauseMenuUI.cs",
               "RelativeDocumentMoniker": "Assets\\Scripts\\UI\\Gameplay\\PauseMenuUI.cs",
@@ -75,8 +127,7 @@
               "RelativeToolTip": "Assets\\Scripts\\UI\\Gameplay\\PauseMenuUI.cs",
               "ViewState": "AgIAACsAAAAAAAAAAAAawDIAAAArAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-10-01T12:14:53.089Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-10-01T12:14:53.089Z"
             }
           ]
         }

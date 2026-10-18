@@ -62,6 +62,36 @@ public class FirebaseAuthService : IAuthService
         }
     }
 
+    public async Task<AuthResult> SignInWithGoogleAsync()
+    {
+        if (auth == null) return AuthResult.Fail("Firebase is not initialized yet — try again in a moment.");
+
+        try
+        {
+            var providerData = new FederatedOAuthProviderData
+            {
+                ProviderId = "google.com"
+            };
+            var provider = new FederatedOAuthProvider(providerData);
+            Firebase.Auth.AuthResult result = await auth.SignInWithProviderAsync(provider);
+            string uid = result != null && result.User != null ? result.User.UserId : null;
+            if (string.IsNullOrEmpty(uid))
+                return AuthResult.Fail("Google sign-in returned no user.");
+
+            OnUserSignedIn?.Invoke(uid);
+            return AuthResult.Ok(uid);
+        }
+        catch (FirebaseException e)
+        {
+            return AuthResult.Fail(ToFriendlyMessage(e));
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[FirebaseAuthService] Google sign-in failed: {e}");
+            return AuthResult.Fail("Google sign-in failed — please try again.");
+        }
+    }
+
     public async Task<AuthResult> SignInAsync(string email, string password)
     {
         if (auth == null) return AuthResult.Fail("Firebase is not initialized yet — try again in a moment.");
@@ -170,6 +200,8 @@ public class FirebaseAuthService : IAuthService
                 return "Too many attempts — wait a moment and try again.";
             case AuthError.NetworkRequestFailed:
                 return "No connection — check your internet and try again.";
+            case AuthError.WebContextCancelled:
+                return "Sign-in was cancelled.";
             default:
                 return $"Sign-in failed ({(AuthError)e.ErrorCode}).";
         }

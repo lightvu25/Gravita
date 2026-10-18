@@ -8,12 +8,12 @@ TagManager:
   - Default
   - TransparentFX
   - Ignore Raycast
-  - 
+  - Player
   - Water
   - UI
   - Wall
   - Lava
-  - 
+  - Background
   - 
   - 
   - 
@@ -38,8 +38,23 @@ TagManager:
   - 
   - 
   m_SortingLayers:
+  - name: Background
+    uniqueID: 957147229
+    locked: 0
   - name: Default
     uniqueID: 0
+    locked: 0
+  - name: Player
+    uniqueID: 2810062355
+    locked: 0
+  - name: Particle
+    uniqueID: 523088087
+    locked: 0
+  - name: Effect
+    uniqueID: 4066623771
+    locked: 0
+  - name: UI
+    uniqueID: 1870845219
     locked: 0
   m_RenderingLayers:
   - Default

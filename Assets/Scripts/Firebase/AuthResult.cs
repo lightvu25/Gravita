@@ -1,11 +1,3 @@
-/// <summary>
-/// The outcome of one authentication attempt (login or register).
-///
-/// Firebase calls either return a user or throw — UI code shouldn't have
-/// to catch exceptions, so the auth service converts every outcome into
-/// this small object: read <see cref="Success"/>, show
-/// <see cref="ErrorMessage"/> when it failed.
-/// </summary>
 public class AuthResult
 {
     /// <summary>True when the operation completed and a user is signed in.</summary>

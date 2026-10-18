@@ -1,6 +1,3 @@
-/// <summary>
-/// Designer-facing difficulty rating for a level.
-/// </summary>
 public enum LevelDifficulty
 {
     Tutorial  = 0,

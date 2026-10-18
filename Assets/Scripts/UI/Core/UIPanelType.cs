@@ -13,5 +13,5 @@ public enum UIPanelType
     Tutorial,
     Login,
     DailyReward,
-    CoinBonus
+    CoinBonus,
 }

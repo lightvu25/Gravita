@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.Serialization;
 using UnityEngine.UI;
 
-public class MainMenuUI : MonoBehaviour
+public class MainMenuUI : MonoBehaviour, IUIPanel
 {
     private enum Tab { Map, Shop, Powerups, Missions, Settings }
 
@@ -48,22 +48,15 @@ public class MainMenuUI : MonoBehaviour
     [SerializeField] private Image settingsTabIcon;
     [SerializeField, Min(1f)] private float selectedTabScale = 1.3f;
 
-    [Header("Tab Panels")]
-    [SerializeField] private GameObject powerupsPanel;
-    [SerializeField] private GameObject missionsPanel;
-    [SerializeField] private GameObject settingsPanel;
-
     [Header("Side Buttons (Map Screen)")]
     [SerializeField] private Button dailyRewardButton;
     [FormerlySerializedAs("visitorButton")]
     [SerializeField] private Button bonusButton;
 
-    [Header("Placeholders")]
-    [SerializeField] private GameObject comingSoonModal;
-    [SerializeField] private TMP_Text comingSoonText;
-    [SerializeField] private Button closeComingSoonButton;
-
     private Tab currentTab = Tab.Map;
+    private UIPanelAnimator panelAnimator;
+    private UIPanelAnimator PanelAnimator =>
+        panelAnimator != null ? panelAnimator : (panelAnimator = GetComponent<UIPanelAnimator>());
 
     private void Awake()
     {
@@ -86,8 +79,6 @@ public class MainMenuUI : MonoBehaviour
         if (settingsTabButton != null) settingsTabButton.onClick.AddListener(() => SelectTab(Tab.Settings));
         if (dailyRewardButton != null) dailyRewardButton.onClick.AddListener(OnDailyRewardClicked);
         if (bonusButton != null) bonusButton.onClick.AddListener(OnBonusClicked);
-        if (closeComingSoonButton != null)
-            closeComingSoonButton.onClick.AddListener(() => { if (comingSoonModal != null) comingSoonModal.SetActive(false); });
 
         if (campaignMapUI != null) campaignMapUI.OnMapClosed += HandleMapClosed;
         if (shopUI != null) shopUI.OnShopClosed += HandleShopClosed;
@@ -121,10 +112,29 @@ public class MainMenuUI : MonoBehaviour
             flowController.OnStateChanged -= HandleStateChanged;
     }
 
+    // IUIPanel — the menu shell is lifecycle-driven (Start / OnStateChanged).
+    // Hide() only deactivates when the game has left Idle: while the player is
+    // in the menu, other panels (Map/Shop/…) open on top of this shell, which
+    // must stay visible behind them.
+    public void Show()
+    {
+        if (PanelAnimator != null) PanelAnimator.PlayIn();
+        else gameObject.SetActive(true);
+    }
+
+    public void Hide()
+    {
+        if (flowController == null || flowController.CurrentState != LevelState.Idle)
+        {
+            if (PanelAnimator != null) PanelAnimator.PlayOut(FinishHide);
+            else FinishHide();
+        }
+    }
+
+    private void FinishHide() => gameObject.SetActive(false);
+
     private void Start()
     {
-        if (comingSoonModal != null) comingSoonModal.SetActive(false);
-
         bool showMenu = flowController == null || flowController.CurrentState == LevelState.Idle;
         if (tapToPlayPanel != null) tapToPlayPanel.SetActive(showMenu);
         if (mainMenuPanel != null) mainMenuPanel.SetActive(false);
@@ -152,11 +162,8 @@ public class MainMenuUI : MonoBehaviour
 
         // UIManager owns single-active-panel switching — opening the new
         // tab's panel closes the previous one.
-        UIPanelType type = TabToPanelType(tab);
-        if (UIManager.Instance != null && UIManager.Instance.GetPanel<IUIPanel>(type) != null)
-            UIManager.Instance.OpenPanel(type);
-        else
-            SetPanelVisibleFallback(tab);
+        if (UIManager.Instance != null)
+            UIManager.Instance.OpenPanel(TabToPanelType(tab));
 
         UpdateTabVisuals();
         RefreshHeader();
@@ -172,26 +179,6 @@ public class MainMenuUI : MonoBehaviour
             case Tab.Missions: return UIPanelType.Mission;
             default: return UIPanelType.Setting;
         }
-    }
-
-    // Direct SetActive fallback used only when a panel is not registered
-    // with UIManager (kept so unmapped scenes keep working).
-    private void SetPanelVisibleFallback(Tab tab)
-    {
-        if (campaignMapUI != null)
-        {
-            if (tab == Tab.Map) campaignMapUI.OpenMap();
-            else campaignMapUI.CloseMap();
-        }
-        if (shopUI != null)
-        {
-            if (tab == Tab.Shop) shopUI.OpenShop();
-            else shopUI.CloseShop();
-        }
-        if (powerupsPanel != null) powerupsPanel.SetActive(tab == Tab.Powerups);
-        if (missionsPanel != null) missionsPanel.SetActive(tab == Tab.Missions);
-        if (settingsPanel != null) settingsPanel.SetActive(tab == Tab.Settings);
-        else if (tab == Tab.Settings) ShowComingSoon("Settings coming soon!");
     }
 
     private void UpdateTabVisuals()
@@ -224,9 +211,24 @@ public class MainMenuUI : MonoBehaviour
 
         if (levelText != null && ProgressionManager.Instance != null && ProgressionManager.Instance.Database != null)
         {
-            var next = ProgressionManager.Instance.Database.GetNextLevel(null);
-            levelText.text = next != null ? next.DisplayName : "";
+            levelText.text = FindNextUncompletedLevel()?.DisplayName ?? "";
         }
+    }
+
+    /// <summary>First campaign level the player has not completed yet, or null when all are done.</summary>
+    private static LevelData FindNextUncompletedLevel()
+    {
+        var db = ProgressionManager.Instance.Database;
+        foreach (var world in db.Worlds)
+        {
+            if (world.levels == null) continue;
+            foreach (var lvl in world.levels)
+            {
+                if (lvl != null && !ProgressionManager.Instance.IsLevelCompleted(lvl))
+                    return lvl;
+            }
+        }
+        return null;
     }
 
     private void UpdateCoins(int amount, int delta) { if (coinsText != null) coinsText.text = amount.ToString(); }
@@ -238,18 +240,14 @@ public class MainMenuUI : MonoBehaviour
 
     private void OnDailyRewardClicked()
     {
-        if (UIManager.Instance != null && UIManager.Instance.GetPanel<IUIPanel>(UIPanelType.DailyReward) != null)
+        if (UIManager.Instance != null)
             UIManager.Instance.OpenPanel(UIPanelType.DailyReward);
-        else if (dailyRewardUI != null) dailyRewardUI.OpenDailyReward();
-        else ShowComingSoon("Daily rewards opening soon!");
     }
 
     private void OnBonusClicked()
     {
-        if (UIManager.Instance != null && UIManager.Instance.GetPanel<IUIPanel>(UIPanelType.CoinBonus) != null)
+        if (UIManager.Instance != null)
             UIManager.Instance.OpenPanel(UIPanelType.CoinBonus);
-        else if (coinBonusUI != null) coinBonusUI.OpenCoinBonus();
-        else ShowComingSoon("Coin bonus opening soon!");
     }
 
     private void HandleSubPanelClosed()
@@ -289,19 +287,6 @@ public class MainMenuUI : MonoBehaviour
         else if (state == LevelState.Idle && mainMenuPanel != null && tapToPlayPanel != null && !tapToPlayPanel.activeSelf)
         {
             mainMenuPanel.SetActive(true);
-        }
-    }
-
-    private void ShowComingSoon(string message)
-    {
-        if (comingSoonModal != null)
-        {
-            comingSoonModal.SetActive(true);
-            if (comingSoonText != null) comingSoonText.text = message;
-        }
-        else
-        {
-            Debug.Log($"[MainMenuUI] {message}");
         }
     }
 }

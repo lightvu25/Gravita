@@ -17,7 +17,7 @@ using UnityEngine.UI;
 /// Completion or Skip persists ProfileData.tutorialCompleted.
 /// The overlay re-arms on restart as long as the flag is unset.
 /// </summary>
-public class TutorialUI : MonoBehaviour
+public class TutorialUI : MonoBehaviour, IUIPanel
 {
     [Header("Config")]
     [Tooltip("The level that hosts the tutorial (Level 1).")]
@@ -56,6 +56,13 @@ public class TutorialUI : MonoBehaviour
         Subscribe();
         HideOverlay();
     }
+
+    // IUIPanel — tutorial visibility is driven by the gameplay flow
+    // (TryBegin/SetStep), not by UIManager navigation. Show() intentionally
+    // does nothing; Hide() dismisses the overlay content only so the
+    // flow observer on this GameObject keeps running.
+    public void Show() { }
+    public void Hide() => HideOverlay();
 
     private void OnDestroy()
     {

@@ -2,7 +2,6 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Serialization;
-using System.Linq;
 
 /// <summary>
 /// Displays completion rewards, stars, and handles the '2x Coins' Ad button.
@@ -28,6 +27,10 @@ public class RewardOverlayUI : MonoBehaviour
     private LevelData lastBundleLevel;
     private bool hasClaimedDouble = false;
     private bool rewardServiceSubscribed = false;
+    private UIPanelAnimator panelAnimator;
+    private UIPanelAnimator PanelAnimator =>
+        panelAnimator != null ? panelAnimator
+            : (panelAnimator = (panel != null ? panel : gameObject).GetComponent<UIPanelAnimator>());
 
     private void Awake()
     {
@@ -104,7 +107,8 @@ public class RewardOverlayUI : MonoBehaviour
         {
             lastBundle = bundle;
             lastBundleLevel = flowController.CurrentLevelData;
-            if (panel != null) panel.SetActive(true);
+            if (PanelAnimator != null) PanelAnimator.PlayIn();
+            else if (panel != null) panel.SetActive(true);
             AnalyticsService.Track(AnalyticsEvents.RewardShown, RewardParams());
             
             if (coinsText != null) coinsText.text = $"+{bundle.CoinCount}";
@@ -131,7 +135,8 @@ public class RewardOverlayUI : MonoBehaviour
 
     private void OnContinueClicked()
     {
-        if (panel != null) panel.SetActive(false);
+        if (PanelAnimator != null) PanelAnimator.PlayOut(() => panel.SetActive(false));
+        else if (panel != null) panel.SetActive(false);
         if (flowController != null)
         {
             flowController.ReturnToMap();

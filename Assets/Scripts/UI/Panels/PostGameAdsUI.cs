@@ -31,6 +31,11 @@ public class PostGameAdsUI : MonoBehaviour
     [Tooltip("Also offer after a failed run.")]
     [SerializeField] private bool showOnFailure = true;
 
+    private UIPanelAnimator panelAnimator;
+    private UIPanelAnimator PanelAnimator =>
+        panelAnimator != null ? panelAnimator
+            : (panelAnimator = (adOfferPanel != null ? adOfferPanel : gameObject).GetComponent<UIPanelAnimator>());
+
     private void Awake()
     {
         if (flowController == null)
@@ -77,7 +82,8 @@ public class PostGameAdsUI : MonoBehaviour
         if (offerText != null)
             offerText.text = $"+{bonusCoins} coins!";
 
-        adOfferPanel.SetActive(true);
+        if (PanelAnimator != null) PanelAnimator.PlayIn();
+        else adOfferPanel.SetActive(true);
     }
 
     private void OnWatchAd()
@@ -96,6 +102,7 @@ public class PostGameAdsUI : MonoBehaviour
     private void HideOffer()
     {
         if (watchAdButton != null) watchAdButton.interactable = true;
-        if (adOfferPanel != null) adOfferPanel.SetActive(false);
+        if (PanelAnimator != null) PanelAnimator.PlayOut(() => adOfferPanel.SetActive(false));
+        else if (adOfferPanel != null) adOfferPanel.SetActive(false);
     }
 }

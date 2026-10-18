@@ -47,6 +47,10 @@ public class LevelFlowController : MonoBehaviour
     [Tooltip("What happens when the player touches a Hazard. InstantRespawn matches the GDD 'death → respawn on start tile' flow.")]
     [SerializeField] private HazardResponse hazardResponse = HazardResponse.FailLevel;
 
+    [Header("Cutscenes")]
+    [Tooltip("Runs the Opening/Death/Goal sequences around level lifecycle transitions. Optional — sequences are skipped when unassigned.")]
+    [SerializeField] private CutsceneManager cutsceneManager;
+
     // ─────────────────────────────────────────────────────────────
     //  Events
     // ─────────────────────────────────────────────────────────────
@@ -90,6 +94,9 @@ public class LevelFlowController : MonoBehaviour
     /// <summary>Reward bundle granted by the most recent level clear (null until first completion).</summary>
     public RewardBundle LastClearReward { get; private set; }
 
+    /// <summary>Failure reason passed to the most recent FailLevel call.</summary>
+    public string LastFailReason { get; private set; }
+
     // ─────────────────────────────────────────────────────────────
     //  Unity Lifecycle
     // ─────────────────────────────────────────────────────────────
@@ -106,6 +113,9 @@ public class LevelFlowController : MonoBehaviour
             objectiveSystem = GetComponent<ObjectiveSystem>();
         if (objectiveSystem == null)
             objectiveSystem = FindAnyObjectByType<ObjectiveSystem>();
+
+        if (cutsceneManager == null)
+            cutsceneManager = FindAnyObjectByType<CutsceneManager>();
 
         ValidateReferences();
     }
@@ -172,6 +182,9 @@ public class LevelFlowController : MonoBehaviour
         SetState(LevelState.Playing);
         OnLevelStarted?.Invoke();
 
+        // Opening sequence — covers the level load, reveals, unlocks input.
+        cutsceneManager?.PlayOpening();
+
         Debug.Log($"[LevelFlowController] Level '{levelData.LevelId}' started.");
     }
 
@@ -221,8 +234,17 @@ public class LevelFlowController : MonoBehaviour
         if (currentState != LevelState.Playing) return;
 
         FreezePlayer();
+        LastFailReason = reason;
         SetState(LevelState.Failed);
         OnLevelFailed?.Invoke(reason);
+
+        // Death sequence, then the result UI opens under the screen cover.
+        int lostShards = currentRoot != null ? currentRoot.CollectedCount : 0;
+        if (cutsceneManager != null)
+            cutsceneManager.PlayDeath(lostShards, OpenResultPanel);
+        else
+            OpenResultPanel();
+
         Debug.Log($"[LevelFlowController] Level '{levelData?.LevelId}' FAILED: {reason}");
     }
 
@@ -234,6 +256,9 @@ public class LevelFlowController : MonoBehaviour
         levelLoader?.UnloadCurrentLevel();
         SetState(LevelState.Idle);
         OnReturnToMapRequested?.Invoke();
+        // MainMenuScreen is inactive at boot — UIManager activation is the
+        // only reliable way to bring the menu shell back up.
+        UIManager.Instance?.OpenPanel(UIPanelType.MainMenu);
     }
 
     /// <summary>
@@ -351,7 +376,34 @@ public class LevelFlowController : MonoBehaviour
         }
 
         OnLevelCompleted?.Invoke();
+
+        // Goal sequence — player slides into the exit, then the result UI
+        // opens under the screen cover. Rewards above already granted once.
+        if (cutsceneManager != null)
+            cutsceneManager.PlayGoal(ResolveGoalPosition(), OpenResultPanel);
+        else
+            OpenResultPanel();
+
         Debug.Log($"[LevelFlowController] Level '{levelData.LevelId}' COMPLETED!");
+    }
+
+    private void OpenResultPanel()
+    {
+        UIManager.Instance?.OpenPanel(UIPanelType.Result);
+    }
+
+    /// <summary>World position of the level exit for the Goal sequence slide-in.</summary>
+    private Vector3 ResolveGoalPosition()
+    {
+        if (currentRoot != null && currentRoot.Exits != null && currentRoot.Exits.Length > 0
+            && currentRoot.Exits[0] != null)
+        {
+            return currentRoot.Exits[0].transform.position;
+        }
+
+        return PlayerMovement.Instance != null
+            ? PlayerMovement.Instance.transform.position
+            : Vector3.zero;
     }
 
     private void SetState(LevelState newState)

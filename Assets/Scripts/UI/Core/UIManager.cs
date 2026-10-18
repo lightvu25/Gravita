@@ -1,13 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
 
-/// <summary>
-/// Scene-driven panel registry and navigation. Panels are assigned in the
-/// Inspector as scene GameObjects — the manager never instantiates prefabs
-/// and never searches the scene. One panel is "active" at a time; opening a
-/// panel closes the current one. Mappings can opt into freezing time while
-/// open (Pause, Result).
-/// </summary>
 public class UIManager : MonoBehaviour
 {
     public static UIManager Instance { get; private set; }
@@ -45,23 +38,31 @@ public class UIManager : MonoBehaviour
 
         foreach (var mapping in panelMappings)
         {
-            if (mapping.panelObject == null) continue;
+            if (mapping.panelObject == null)
+            {
+                Debug.LogError($"[UIManager] Panel mapping '{mapping.panelType}' has no GameObject assigned — registration skipped.");
+                continue;
+            }
 
             if (!mapping.panelObject.scene.IsValid())
             {
-                Debug.LogWarning($"[UIManager] {mapping.panelObject.name} is not a scene object — panels must be scene GameObjects.");
+                Debug.LogError($"[UIManager] Panel '{mapping.panelType}' → '{mapping.panelObject.name}' is not a scene object — registration skipped.");
                 continue;
             }
 
             IUIPanel panel = mapping.panelObject.GetComponent<IUIPanel>();
-            if (panel != null)
+            if (panel == null)
             {
-                panelsDict[mapping.panelType] = panel;
+                Debug.LogError($"[UIManager] Panel '{mapping.panelType}' → '{mapping.panelObject.name}' has no IUIPanel component — registration skipped.");
+                continue;
             }
-            else
+
+            if (panelsDict.ContainsKey(mapping.panelType))
             {
-                Debug.LogWarning($"[UIManager] {mapping.panelObject.name} does not implement IUIPanel.");
+                Debug.LogError($"[UIManager] Duplicate mapping for '{mapping.panelType}' — '{mapping.panelObject.name}' overrides the earlier registration.");
             }
+
+            panelsDict[mapping.panelType] = panel;
         }
     }
 
@@ -86,8 +87,6 @@ public class UIManager : MonoBehaviour
 
         CloseCurrentPanel();
 
-        // Mark the panel active before Show() so callbacks fired during Show()
-        // (button events, close-handlers) see a consistent state.
         currentActivePanel = type;
         panel.Show();
 
@@ -104,8 +103,6 @@ public class UIManager : MonoBehaviour
             return;
         }
 
-        // Clear the active panel before Hide() so a nested OpenPanel() call
-        // from a Hide() callback doesn't recurse back into this close.
         UIPanelType closing = currentActivePanel;
         currentActivePanel = UIPanelType.None;
         Time.timeScale = 1f;
