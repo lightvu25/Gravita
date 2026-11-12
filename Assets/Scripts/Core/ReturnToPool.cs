@@ -1,34 +1,43 @@
-using UnityEngine;
 using System.Collections;
+using UnityEngine;
 
 public class ReturnToPool : MonoBehaviour
 {
-    [Tooltip("If true, it will wait for 'time' seconds instead of detecting animation end.")]
+    [Tooltip("If true, it will wait for 'time' seconds instead of detecting animation/particle end.")]
     [SerializeField] private bool useFixedDelay = false;
     [SerializeField] private float time = 1f;
 
     private Animator animator;
-    private ParticleSystem particleSys;
+    private ParticleSystem[] particleSystems;
     private Coroutine routine;
+    private bool isReturned;
 
     private void Awake()
     {
-        animator = GetComponentInChildren<Animator>();
-        particleSys = GetComponentInChildren<ParticleSystem>();
+        animator = GetComponentInChildren<Animator>(true);
+        particleSystems = GetComponentsInChildren<ParticleSystem>(true);
     }
 
     private void OnEnable()
     {
+        isReturned = false;
+
+        if (particleSystems != null && particleSystems.Length > 0)
+        {
+            for (int i = 0; i < particleSystems.Length; i++)
+            {
+                ParticleSystem ps = particleSystems[i];
+                if (ps == null) continue;
+                ps.Clear(false);
+                ps.Play(false);
+            }
+        }
+
         if (useFixedDelay)
         {
             routine = StartCoroutine(Routine(time));
         }
-        else if (animator == null && particleSys != null)
-        {
-            // Fallback for particles if we just want to rely on ParticleSystem duration
-            routine = StartCoroutine(Routine(particleSys.main.duration));
-        }
-        else if (animator == null)
+        else if (animator == null && (particleSystems == null || particleSystems.Length == 0))
         {
             // Sprite-only VFX still need a deterministic lifetime.
             routine = StartCoroutine(Routine(time));
@@ -46,29 +55,37 @@ public class ReturnToPool : MonoBehaviour
 
     private void Update()
     {
-        if (!useFixedDelay)
+        if (isReturned || useFixedDelay) return;
+
+        if (animator != null && animator.runtimeAnimatorController != null)
         {
-            if (animator != null && animator.runtimeAnimatorController != null)
+            AnimatorStateInfo stateInfo = animator.GetCurrentAnimatorStateInfo(0);
+            if (!stateInfo.loop && stateInfo.normalizedTime >= 1f && !animator.IsInTransition(0))
             {
-                AnimatorStateInfo stateInfo = animator.GetCurrentAnimatorStateInfo(0);
-                // Return to pool when the animation finishes playing
-                if (stateInfo.normalizedTime >= 1f && !animator.IsInTransition(0))
+                ReturnNow();
+            }
+        }
+        else if (animator != null && animator.runtimeAnimatorController == null)
+        {
+            useFixedDelay = true;
+            routine = StartCoroutine(Routine(time));
+        }
+        else if (particleSystems != null && particleSystems.Length > 0)
+        {
+            bool anyAlive = false;
+            for (int i = 0; i < particleSystems.Length; i++)
+            {
+                ParticleSystem ps = particleSystems[i];
+                if (ps != null && ps.IsAlive(false))
                 {
-                    ObjectPoolManager.ReturnObjectToPool(gameObject);
+                    anyAlive = true;
+                    break;
                 }
             }
-            else if (animator != null && animator.runtimeAnimatorController == null)
+
+            if (!anyAlive)
             {
-                // If there's an Animator but no controller, it will never finish. Fallback to fixed delay.
-                useFixedDelay = true;
-                routine = StartCoroutine(Routine(time));
-            }
-            else if (particleSys != null)
-            {
-                if (!particleSys.IsAlive(true))
-                {
-                    ObjectPoolManager.ReturnObjectToPool(gameObject);
-                }
+                ReturnNow();
             }
         }
     }
@@ -85,6 +102,13 @@ public class ReturnToPool : MonoBehaviour
     private IEnumerator Routine(float delay)
     {
         yield return new WaitForSeconds(delay);
+        ReturnNow();
+    }
+
+    private void ReturnNow()
+    {
+        if (isReturned) return;
+        isReturned = true;
         ObjectPoolManager.ReturnObjectToPool(gameObject);
     }
 }

@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a964c4d0ba9e872468021ba89e083af0, type: 3}
+  m_Name: Level_008
+  m_EditorClassIdentifier: Assembly-CSharp::LevelData
+  levelId: Level_008
+  displayName: 8
+  difficulty: 2
+  world: 1
+  layoutPrefab: {fileID: 8388185663220927929, guid: 6c8d3aaf97f63054587b3c80b2191fd1, type: 3}
+  primaryObjective:
+    objectiveType: 0
+    requiredCount: 1
+    description: Mid-Sector Navigation I
+  optionalObjectives:
+  - objectiveType: 1
+    requiredCount: 2
+    description: Collect bonus stars along the route
+  baseCoinReward: 25
+  optionalCoinBonus: 5
+  baseExpReward: 75
+  expBonusPerStar: 15
+  replayExpReward: 20

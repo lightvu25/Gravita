@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: c1a2211e11d524f0ba039c067432c688
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 320664
+  packageName: Mobile Haptic Feedback
+  packageVersion: 1.2.0
+  assetPath: Assets/MOST_HapticFeedback/Scripts/MOST_HapticFeedback.cs
+  uploadId: 926110

@@ -14,6 +14,10 @@ public class SoundManager : MonoBehaviour
 
     public event EventHandler OnSoundVolumeChanged;
 
+    [Header("Audio Catalog (ScriptableObject)")]
+    [SerializeField] private SoundConfig soundConfig;
+    public SoundConfig Config => soundConfig;
+
     [Header("Mixer Routing")]
     [SerializeField] private AudioMixer audioMixer;
     [SerializeField] private AudioMixerGroup sfxMixerGroup;
@@ -21,25 +25,34 @@ public class SoundManager : MonoBehaviour
     public AudioMixerGroup SfxMixerGroup => sfxMixerGroup;
     [SerializeField] private string sfxVolumeParam = "SFXVolume";
 
-    [Header("SFX Pooling")]
+    [Header("SFX Pooling (Inspector Wired)")]
+    [Tooltip("Optional parent container for pooled AudioSources.")]
+    [SerializeField] private Transform poolContainer;
+    [Tooltip("Prefab with an AudioSource component used to populate/expand the SFX pool.")]
+    [SerializeField] private AudioSource pooledAudioSourcePrefab;
+    [Tooltip("Fallback or pre-wired AudioSource on this object.")]
+    [SerializeField] private AudioSource fallbackAudioSource;
     [SerializeField] private int initialPoolSize = 10;
-    private List<AudioSource> sfxPool = new List<AudioSource>();
-    private Transform poolContainer;
+    [SerializeField] private List<AudioSource> sfxPool = new List<AudioSource>();
+
+    private readonly Dictionary<AudioClip, float> lastPlayedTimeByClip = new Dictionary<AudioClip, float>();
 
     private void Awake()
     {
         if (Instance != null && Instance != this)
         {
-            Destroy(this);
+            if (GetComponent<MusicManager>() != null)
+                Destroy(gameObject);
+            else
+                Destroy(this);
             return;
         }
 
         Instance = this;
         DontDestroyOnLoad(gameObject);
-        
-        // Load volume from PlayerPrefs
+
         soundVolume = PlayerPrefs.GetInt(PREF_KEY, 6);
-        
+
         InitializePool();
     }
 
@@ -56,74 +69,152 @@ public class SoundManager : MonoBehaviour
 
     private void InitializePool()
     {
-        poolContainer = new GameObject("SFX_Pool").transform;
-        poolContainer.SetParent(transform);
+        if (fallbackAudioSource == null)
+            fallbackAudioSource = GetComponent<AudioSource>();
 
-        for (int i = 0; i < initialPoolSize; i++)
+        Transform container = poolContainer != null ? poolContainer : transform;
+        AudioSource[] existingSources = container.GetComponentsInChildren<AudioSource>(true);
+        for (int i = 0; i < existingSources.Length; i++)
         {
-            CreateNewAudioSource();
+            AudioSource existing = existingSources[i];
+            if (existing != null && !sfxPool.Contains(existing))
+            {
+                ConfigureAudioSource(existing);
+                sfxPool.Add(existing);
+            }
+        }
+
+        if (pooledAudioSourcePrefab != null)
+        {
+            while (sfxPool.Count < initialPoolSize)
+            {
+                SpawnPooledAudioSource();
+            }
         }
     }
 
-    private AudioSource CreateNewAudioSource()
+    private AudioSource SpawnPooledAudioSource()
     {
-        if (poolContainer == null) return null;
-        
-        GameObject go = new GameObject("PooledAudioSource");
-        go.transform.SetParent(poolContainer);
-        AudioSource source = go.AddComponent<AudioSource>();
-        
-        // Setup for 2D generic sounds
-        source.spatialBlend = 0f; 
-        source.playOnAwake = false;
-        
-        if (sfxMixerGroup != null)
-            source.outputAudioMixerGroup = sfxMixerGroup;
+        if (pooledAudioSourcePrefab == null)
+            return null;
 
+        Transform parent = poolContainer != null ? poolContainer : transform;
+        AudioSource source = Instantiate(pooledAudioSourcePrefab, parent);
+        ConfigureAudioSource(source);
         sfxPool.Add(source);
         return source;
+    }
+
+    private void ConfigureAudioSource(AudioSource source)
+    {
+        if (source == null)
+            return;
+
+        source.spatialBlend = 0f;
+        source.playOnAwake = false;
+
+        if (sfxMixerGroup != null)
+            source.outputAudioMixerGroup = sfxMixerGroup;
     }
 
     private AudioSource GetAvailableAudioSource()
     {
         for (int i = sfxPool.Count - 1; i >= 0; i--)
         {
-            var source = sfxPool[i];
+            AudioSource source = sfxPool[i];
             if (source == null)
             {
                 sfxPool.RemoveAt(i);
                 continue;
             }
+
             if (!source.isPlaying)
-            {
                 return source;
-            }
         }
-        
-        // If all are playing, expand the pool
-        return CreateNewAudioSource();
+
+        if (pooledAudioSourcePrefab != null)
+            return SpawnPooledAudioSource();
+
+        return fallbackAudioSource != null ? fallbackAudioSource : (sfxPool.Count > 0 ? sfxPool[0] : null);
     }
 
     /// <summary>
-    /// Plays a global 2D SFX (e.g., UI, Game Over, Item Pickups).
+    /// Plays a configured <see cref="SoundEntry"/> with pitch variance and anti-spam cooldown.
+    /// </summary>
+    public void PlaySFX(SoundEntry entry)
+    {
+        if (!entry.HasClips)
+            return;
+
+        AudioClip clip = entry.GetRandomClip();
+        if (clip == null)
+            return;
+
+        float minInterval = Mathf.Max(0.01f, entry.minInterval);
+        float now = Time.unscaledTime;
+        if (lastPlayedTimeByClip.TryGetValue(clip, out float lastTime) && now - lastTime < minInterval)
+            return;
+
+        lastPlayedTimeByClip[clip] = now;
+        PlayResolvedClip(clip, entry.GetResolvedVolume(), entry.GetResolvedPitch());
+    }
+
+    /// <summary>
+    /// Plays a semantic UI sound from <see cref="Config"/> (or an override <see cref="SoundConfig"/>).
+    /// </summary>
+    public void PlayUISound(UISoundType soundType, SoundConfig overrideConfig = null)
+    {
+        if (soundType == UISoundType.None)
+            return;
+
+        SoundConfig activeConfig = overrideConfig != null ? overrideConfig : soundConfig;
+        if (activeConfig == null)
+            return;
+
+        if (activeConfig.TryGetUISound(soundType, out SoundEntry entry))
+        {
+            PlaySFX(entry);
+        }
+    }
+
+    /// <summary>
+    /// Plays a global 2D SFX clip directly (e.g., world items, hazards, or custom clip references).
     /// </summary>
     public void PlaySFX(AudioClip clip, float volume = 1f, bool randomPitch = true)
     {
-        if (clip == null) return;
-        if (this == null || !gameObject.activeInHierarchy) return;
+        if (clip == null)
+            return;
+
+        float now = Time.unscaledTime;
+        if (lastPlayedTimeByClip.TryGetValue(clip, out float lastTime) && now - lastTime < 0.015f)
+            return;
+
+        lastPlayedTimeByClip[clip] = now;
+        float pitch = randomPitch ? AudioPitchUtility.GetRandomPitch() : 1f;
+        PlayResolvedClip(clip, Mathf.Clamp01(volume), pitch);
+    }
+
+    private void PlayResolvedClip(AudioClip clip, float volume, float pitch)
+    {
+        if (clip == null || this == null || !gameObject.activeInHierarchy)
+            return;
 
         AudioSource source = GetAvailableAudioSource();
-        if (source == null) return;
-        
-        source.clip = clip;
-        source.volume = volume;
+        if (source == null)
+            return;
 
-        if (randomPitch)
-            source.pitch = AudioPitchUtility.GetRandomPitch();
+        source.pitch = pitch;
+
+        if (source.isPlaying)
+        {
+            source.PlayOneShot(clip, volume);
+        }
         else
-            source.pitch = 1f;
-
-        source.Play();
+        {
+            source.clip = clip;
+            source.volume = volume;
+            source.Play();
+        }
     }
 
     public void SetSoundVolume(int newVolume)

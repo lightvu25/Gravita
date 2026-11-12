@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 686d52e6e9e62174388956afd462c277, type: 3}
+  m_Name: ShopItem_Charge_Freeze
+  m_EditorClassIdentifier: Assembly-CSharp::ShopItemDefinition
+  itemId: shop_charge_freeze_1
+  displayName: Freeze Charge
+  description: 'Adds +1 Freeze charge (Max Cap: 12).'
+  icon: {fileID: 8991669763242023314, guid: 83ca2ff00fc231743961308a05867c43, type: 3}
+  category: 0
+  shopTab: 3
+  costType: 0
+  costAmount: 150
+  customCostText: 
+  costIcon: {fileID: 9129518976865312520, guid: 6bb91eb172f65c54db725588800d7c94, type: 3}
+  realMoneyProductId: 
+  iapProductType: 0
+  storeProductIdAndroid: 
+  storeProductIdIOS: 
+  baseGemsAmount: 0
+  bonusGemsAmount: 0
+  isOneTimePurchase: 0
+  grantsRemoveInterstitialAds: 0
+  rewards:
+  - type: 2
+    amount: 1
+    itemId: freeze

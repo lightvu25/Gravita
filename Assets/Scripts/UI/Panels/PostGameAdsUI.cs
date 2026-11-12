@@ -1,13 +1,9 @@
-using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Random post-game ad prompt — after a level ends (win or fail), rolls
-/// <see cref="showChance"/>; on success shows a small offer panel: watch a
-/// rewarded ad for a coin bonus, or dismiss. Keep the panel inactive in the
-/// scene; attach this component to an always-active object.
+/// Optional post-game ad prompt — gated behind <see cref="EconomyBalanceConfig.EnableLegacyExtraRewardSystems"/>.
 /// </summary>
 public class PostGameAdsUI : MonoBehaviour
 {
@@ -17,8 +13,6 @@ public class PostGameAdsUI : MonoBehaviour
 
     [Header("Panel")]
     [SerializeField] private GameObject adOfferPanel;
-    [Tooltip("Offer art slot — assign your ad/bonus image.")]
-    [SerializeField] private Image offerImage;
     [SerializeField] private TMP_Text offerText;
     [SerializeField] private Button watchAdButton;
     [SerializeField] private Button dismissButton;
@@ -32,6 +26,8 @@ public class PostGameAdsUI : MonoBehaviour
     [SerializeField] private bool showOnFailure = true;
 
     private UIPanelAnimator panelAnimator;
+    private bool buttonsBound;
+
     private UIPanelAnimator PanelAnimator =>
         panelAnimator != null ? panelAnimator
             : (panelAnimator = (adOfferPanel != null ? adOfferPanel : gameObject).GetComponent<UIPanelAnimator>());
@@ -43,9 +39,9 @@ public class PostGameAdsUI : MonoBehaviour
         if (adRewardService == null)
             adRewardService = AdRewardService.Instance != null ? AdRewardService.Instance : FindAnyObjectByType<AdRewardService>();
 
-        if (watchAdButton != null) watchAdButton.onClick.AddListener(OnWatchAd);
-        if (dismissButton != null) dismissButton.onClick.AddListener(HideOffer);
-        if (adOfferPanel != null) adOfferPanel.SetActive(false);
+        BindButtons();
+        if (adOfferPanel != null)
+            adOfferPanel.SetActive(false);
     }
 
     private void OnEnable()
@@ -68,6 +64,33 @@ public class PostGameAdsUI : MonoBehaviour
         }
     }
 
+    private void OnDestroy()
+    {
+        UnbindButtons();
+    }
+
+    private void BindButtons()
+    {
+        if (buttonsBound) return;
+        buttonsBound = true;
+
+        if (watchAdButton != null)
+            watchAdButton.onClick.AddListener(OnWatchAd);
+        if (dismissButton != null)
+            dismissButton.onClick.AddListener(OnDismissClicked);
+    }
+
+    private void UnbindButtons()
+    {
+        if (!buttonsBound) return;
+        buttonsBound = false;
+
+        if (watchAdButton != null)
+            watchAdButton.onClick.RemoveListener(OnWatchAd);
+        if (dismissButton != null)
+            dismissButton.onClick.RemoveListener(OnDismissClicked);
+    }
+
     private void HandleLevelFailed(string reason)
     {
         if (showOnFailure) HandleLevelEnded();
@@ -75,8 +98,14 @@ public class PostGameAdsUI : MonoBehaviour
 
     private void HandleLevelEnded()
     {
+        if (!EconomyBalanceConfig.Active.EnableLegacyExtraRewardSystems)
+        {
+            if (adOfferPanel != null) adOfferPanel.SetActive(false);
+            return;
+        }
+
         if (adOfferPanel == null) return;
-        if (UnityEngine.Random.value > showChance) return;
+        if (Random.value > showChance) return;
         if (adRewardService != null && !adRewardService.IsAdAvailable(RewardedAdPlacement.PostGameBonus)) return;
 
         if (offerText != null)
@@ -88,21 +117,40 @@ public class PostGameAdsUI : MonoBehaviour
 
     private void OnWatchAd()
     {
-        if (adRewardService == null) { HideOffer(); return; }
+        GameHaptics.Play(HapticEvent.UISelect);
+        UIAudio.Play(UISoundType.ButtonClick);
 
-        if (watchAdButton != null) watchAdButton.interactable = false;
+        if (adRewardService == null)
+        {
+            HideOffer();
+            return;
+        }
 
-        adRewardService.WatchAdForReward(RewardedAdPlacement.PostGameBonus, bonusCoins, success =>
+        if (watchAdButton != null)
+            watchAdButton.interactable = false;
+
+        adRewardService.WatchAdForReward(RewardedAdPlacement.PostGameBonus, bonusCoins, _ =>
         {
             if (!isActiveAndEnabled) return;
             HideOffer();
         });
     }
 
+    private void OnDismissClicked()
+    {
+        GameHaptics.Play(HapticEvent.UISelect);
+        UIAudio.Play(UISoundType.ButtonClick);
+        HideOffer();
+    }
+
     private void HideOffer()
     {
-        if (watchAdButton != null) watchAdButton.interactable = true;
-        if (PanelAnimator != null) PanelAnimator.PlayOut(() => adOfferPanel.SetActive(false));
-        else if (adOfferPanel != null) adOfferPanel.SetActive(false);
+        if (watchAdButton != null)
+            watchAdButton.interactable = true;
+
+        if (PanelAnimator != null)
+            PanelAnimator.PlayOut(() => { if (adOfferPanel != null) adOfferPanel.SetActive(false); });
+        else if (adOfferPanel != null)
+            adOfferPanel.SetActive(false);
     }
 }

@@ -1,29 +1,45 @@
-using UnityEngine;
 using Unity.Cinemachine;
+using UnityEngine;
+using UnityEngine.Serialization;
 
 public class CinemachineCameraZoom2D : MonoBehaviour
 {
     public static CinemachineCameraZoom2D Instance { get; private set; }
 
-    [SerializeField] private float NORMAL_ORTHOGRAPHIC_SIZE;
+    [FormerlySerializedAs("NORMAL_ORTHOGRAPHIC_SIZE")]
+    [SerializeField] private float normalOrthographicSize;
     [SerializeField] private CinemachineCamera cinemachineCamera;
     [SerializeField] private float targetOrthographicSize;
     [SerializeField] private float zoomSpeed = 4f;
 
     private void Awake()
     {
-        if (Instance != null && Instance != this) { Destroy(this); return; }
+        if (Instance != null && Instance != this)
+        {
+            Destroy(this);
+            return;
+        }
+
         Instance = this;
+        if (cinemachineCamera == null)
+            cinemachineCamera = GetComponent<CinemachineCamera>();
     }
 
     private void OnDestroy()
     {
-        if (Instance == this) Instance = null;
+        if (Instance == this)
+            Instance = null;
     }
 
     private void Update()
     {
-        cinemachineCamera.Lens.OrthographicSize = Mathf.Lerp(cinemachineCamera.Lens.OrthographicSize, targetOrthographicSize, Time.deltaTime * zoomSpeed);
+        if (cinemachineCamera == null)
+            return;
+
+        cinemachineCamera.Lens.OrthographicSize = Mathf.Lerp(
+            cinemachineCamera.Lens.OrthographicSize,
+            targetOrthographicSize,
+            Time.deltaTime * zoomSpeed);
     }
 
     public void SetTargetOrthographicSize(float targetOrthographicSize)
@@ -33,6 +49,6 @@ public class CinemachineCameraZoom2D : MonoBehaviour
 
     public void SetNormalOrthographicSize()
     {
-        SetTargetOrthographicSize(NORMAL_ORTHOGRAPHIC_SIZE);
+        SetTargetOrthographicSize(normalOrthographicSize);
     }
 }

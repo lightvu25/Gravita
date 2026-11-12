@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 686d52e6e9e62174388956afd462c277, type: 3}
+  m_Name: ShopItem_Charge_Teleport
+  m_EditorClassIdentifier: Assembly-CSharp::ShopItemDefinition
+  itemId: shop_charge_teleport_1
+  displayName: Teleport Charge
+  description: 'Adds +1 Teleport charge (Max Cap: 8).'
+  icon: {fileID: -4765593614856404733, guid: 81134d1f6f7bbe043a40c40cc558e957, type: 3}
+  category: 0
+  shopTab: 3
+  costType: 0
+  costAmount: 200
+  customCostText: 
+  costIcon: {fileID: -6800446978444421107, guid: 8b99daf0ffd210a439592b1f71368268, type: 3}
+  realMoneyProductId: 
+  iapProductType: 0
+  storeProductIdAndroid: 
+  storeProductIdIOS: 
+  baseGemsAmount: 0
+  bonusGemsAmount: 0
+  isOneTimePurchase: 0
+  grantsRemoveInterstitialAds: 0
+  rewards:
+  - type: 2
+    amount: 1
+    itemId: teleport

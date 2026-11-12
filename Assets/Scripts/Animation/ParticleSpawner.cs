@@ -1,14 +1,10 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Spawns one-shot particle effect prefabs (root or child ParticleSystems)
-/// and returns each instance to the pool once every particle has died.
-///
-/// Reused instances get Clear()+Play() so no leftover particles carry over
-/// from the previous life, and a maxLifetime cap prevents looping or
-/// misconfigured systems from leaking pooled objects.
+/// Spawns particle effect prefabs (root or child ParticleSystems)
+/// and delegates per-instance reset, child particle lifetime checks, looping handling,
+/// and pool return to <see cref="PooledParticlePlayer"/>.
 /// </summary>
 public class ParticleSpawner : MonoBehaviour
 {
@@ -57,12 +53,44 @@ public class ParticleSpawner : MonoBehaviour
     private void OnDisable()
     {
         foreach (GameObject go in tracked)
-            ReleaseInstance(go);
+        {
+            if (go == null) continue;
+            if (go.TryGetComponent(out PooledParticlePlayer player))
+                player.StopAndReturn();
+            else
+                ReleaseInstance(go);
+        }
         tracked.Clear();
+    }
+
+    /// <summary>
+    /// Static convenience API: spawns a particle prefab at a position, rotation, and optional parent
+    /// via <see cref="Instance"/> if present, or directly via <see cref="PooledParticlePlayer.Spawn"/>.
+    /// </summary>
+    public static ParticleSystem SpawnEffect(
+        GameObject prefab,
+        Vector3 position,
+        Quaternion rotation = default,
+        Transform parent = null)
+    {
+        if (prefab == null) return null;
+        if (rotation == default) rotation = Quaternion.identity;
+
+        if (Instance != null)
+            return Instance.Spawn(prefab, position, rotation, parent);
+
+        PooledParticlePlayer player = PooledParticlePlayer.Spawn(prefab, position, rotation, parent);
+        return player != null ? player.PrimaryParticleSystem : null;
     }
 
     /// <summary>Spawns a configured effect by id.</summary>
     public ParticleSystem Spawn(string effectId, Vector3 position, Quaternion rotation)
+    {
+        return Spawn(effectId, position, rotation, null);
+    }
+
+    /// <summary>Spawns a configured effect by id at a position, rotation, and optional parent.</summary>
+    public ParticleSystem Spawn(string effectId, Vector3 position, Quaternion rotation, Transform parent)
     {
         EffectEntry entry = effects.Find(e => e != null && e.id == effectId);
         if (entry == null || entry.prefab == null)
@@ -70,7 +98,7 @@ public class ParticleSpawner : MonoBehaviour
             Debug.LogWarning($"[ParticleSpawner] No configured effect with id '{effectId}'.", this);
             return null;
         }
-        return Spawn(entry.prefab, position, rotation);
+        return Spawn(entry.prefab, position, rotation, parent);
     }
 
     /// <summary>Spawns a configured effect at an Inspector-defined spawn point.</summary>
@@ -91,6 +119,14 @@ public class ParticleSpawner : MonoBehaviour
     /// </summary>
     public ParticleSystem Spawn(GameObject prefab, Vector3 position, Quaternion rotation)
     {
+        return Spawn(prefab, position, rotation, null);
+    }
+
+    /// <summary>
+    /// Spawns any particle prefab directly at the given position, rotation, and optional parent.
+    /// </summary>
+    public ParticleSystem Spawn(GameObject prefab, Vector3 position, Quaternion rotation, Transform parent)
+    {
         if (prefab == null)
         {
             Debug.LogWarning("[ParticleSpawner] Spawn called with a null prefab.", this);
@@ -104,70 +140,35 @@ public class ParticleSpawner : MonoBehaviour
         }
 
         GameObject go = usePooling
-            ? ObjectPoolManager.SpawnObject(prefab, position, rotation, poolType)
-            : Instantiate(prefab, position, rotation);
-        if (go == null) return null;   // pool rejected the prefab (already logged)
+            ? ObjectPoolManager.SpawnObject(prefab, position, rotation, parent, poolType)
+            : (parent != null ? Instantiate(prefab, position, rotation, parent) : Instantiate(prefab, position, rotation));
+        if (go == null) return null;
 
-        // The pool already positioned + activated the instance; Clear+Play now
-        // so emission starts at the NEW spot instead of leaving a streak from
-        // where the object was parked in the pool.
+        if (usePooling && go.GetComponent<ReturnToPool>() == null)
+        {
+            if (!go.TryGetComponent(out PooledParticlePlayer player))
+            {
+                player = go.AddComponent<PooledParticlePlayer>();
+                player.ConfigureLoopMaxLifetime(maxLifetime);
+            }
+
+            tracked.Add(go);
+            player.Play(p =>
+            {
+                if (p != null)
+                    tracked.Remove(p.gameObject);
+            });
+            return player.PrimaryParticleSystem;
+        }
+
         ParticleSystem[] systems = go.GetComponentsInChildren<ParticleSystem>(true);
         foreach (ParticleSystem ps in systems)
         {
-            ps.Clear(true);   // wipe particles left over from the previous life
-            ps.Play(true);    // restart this system and its child emitters
+            ps.Clear(true);
+            ps.Play(true);
         }
 
-        if (go.GetComponent<ReturnToPool>() == null)
-        {
-            tracked.Add(go);
-            StartCoroutine(ReturnWhenFinished(go, systems));
-        }
-
-        return systems[0];
-    }
-
-    /// <summary>
-    /// Polls until every ParticleSystem reports dead (IsAlive includes child
-    /// emitters), then releases the instance. A timed-out looping system is
-    /// force-stopped so its leftovers can't flash on the next reuse.
-    /// </summary>
-    private IEnumerator ReturnWhenFinished(GameObject go, ParticleSystem[] systems)
-    {
-        float startTime = Time.time;
-        bool timedOut = false;
-
-        while (go != null)
-        {
-            if (maxLifetime > 0f && Time.time - startTime >= maxLifetime)
-            {
-                timedOut = true;
-                break;
-            }
-
-            bool anyAlive = false;
-            foreach (ParticleSystem ps in systems)
-            {
-                if (ps != null && ps.IsAlive(true))
-                {
-                    anyAlive = true;
-                    break;
-                }
-            }
-            if (!anyAlive) break;
-
-            yield return null;
-        }
-
-        if (timedOut && go != null)
-        {
-            foreach (ParticleSystem ps in systems)
-                if (ps != null)
-                    ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-        }
-
-        tracked.Remove(go);
-        ReleaseInstance(go);
+        return systems.Length > 0 ? systems[0] : null;
     }
 
     private void ReleaseInstance(GameObject go)

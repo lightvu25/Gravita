@@ -11,9 +11,20 @@ public class GameDataManager : MonoBehaviour
 
     private void Awake()
     {
-        if (Instance != null && Instance != this) { Destroy(gameObject); return; }
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
         Instance = this;
         DontDestroyOnLoad(gameObject);
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this)
+            Instance = null;
     }
 
     private void Start()
@@ -30,12 +41,12 @@ public class GameDataManager : MonoBehaviour
         if (string.IsNullOrEmpty(key) || persistenceKeys.Contains(key)) return;
 
         persistenceKeys.Add(key);
-        
+
         if (Profile != null)
         {
             if (!Profile.persistenceKeys.Contains(key))
                 Profile.persistenceKeys.Add(key);
-                
+
             SaveManager.saveProfile(Profile);
         }
     }

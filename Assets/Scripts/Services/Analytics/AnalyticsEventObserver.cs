@@ -2,14 +2,8 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Observes existing game/service events and forwards them to the analytics
-/// service. Contains no gameplay logic and owns no gameplay state — it only
-/// translates reliable runtime events into TrackEvent calls.
-///
-/// Subscribes in Awake (not Start) so events fired by other components'
-/// Start methods (e.g. auto-started levels) are not missed. Services are
-/// resolved via FindAnyObjectByType rather than .Instance so subscription
-/// does not depend on Awake ordering.
+/// Central observer bridging gameplay, progression, currency ledger, Power Skills,
+/// Ads, IAP, and Mission events into <see cref="AnalyticsService"/> (Gravita Economy GDD §13).
 /// </summary>
 public class AnalyticsEventObserver : MonoBehaviour
 {
@@ -19,7 +13,6 @@ public class AnalyticsEventObserver : MonoBehaviour
     private AdRewardService adRewardService;
     private DailyRewardService dailyRewardService;
     private CoinBonusService coinBonusService;
-    private TutorialUI tutorialUI;
 
     private LevelState lastLevelState = LevelState.Idle;
     private bool subscribed;
@@ -32,7 +25,6 @@ public class AnalyticsEventObserver : MonoBehaviour
         adRewardService    = FindAnyObjectByType<AdRewardService>();
         dailyRewardService = FindAnyObjectByType<DailyRewardService>();
         coinBonusService   = FindAnyObjectByType<CoinBonusService>();
-        tutorialUI         = FindAnyObjectByType<TutorialUI>();
 
         Subscribe();
     }
@@ -73,13 +65,22 @@ public class AnalyticsEventObserver : MonoBehaviour
         if (coinBonusService != null)
             coinBonusService.OnCoinBonusClaimed += HandleCoinBonusCollected;
 
-        if (tutorialUI != null)
-        {
-            tutorialUI.OnTutorialStarted       += HandleTutorialStarted;
-            tutorialUI.OnTutorialStepCompleted += HandleTutorialStepCompleted;
-            tutorialUI.OnTutorialSkipped       += HandleTutorialSkipped;
-            tutorialUI.OnTutorialCompleted     += HandleTutorialCompleted;
-        }
+        // Economy GDD §13 static domain hooks
+        EconomyManager.OnCurrencyLedgerEvent              += HandleCurrencyLedgerEvent;
+        CampaignEconomyService.OnLevelEconomySettled      += HandleLevelEconomySettled;
+        ProgressionManager.OnSkillInventoryChanged        += HandleSkillInventoryChanged;
+        PowerUpController.OnSkillActivationAttempted      += HandleSkillActivationAttempted;
+        AdPolicyCoordinator.OnRewardedAdOffered           += HandleRewardedAdOffered;
+        AdPolicyCoordinator.OnRewardedAdStarted           += HandleRewardedAdStarted;
+        AdPolicyCoordinator.OnRewardedAdCompleted         += HandleRewardedAdCompleted;
+        AdPolicyCoordinator.OnRewardedAdSkippedOrFailed   += HandleRewardedAdSkippedOrFailed;
+        AdPolicyCoordinator.OnInterstitialShownEvent      += HandleInterstitialShown;
+        AdPolicyCoordinator.OnInterstitialSuppressedEvent += HandleInterstitialSuppressed;
+        IAPManager.OnIapPurchaseInitiated                 += HandleIapInitiated;
+        IAPManager.OnIapPurchaseCompleted                 += HandleIapCompleted;
+        IAPManager.OnIapPurchaseFailedEvent               += HandleIapFailed;
+        IAPManager.OnIapRestoreCompleted                  += HandleIapRestored;
+        MissionService.OnMissionRewardClaimed             += HandleMissionRewardClaimed;
     }
 
     private void Unsubscribe()
@@ -112,13 +113,21 @@ public class AnalyticsEventObserver : MonoBehaviour
         if (coinBonusService != null)
             coinBonusService.OnCoinBonusClaimed -= HandleCoinBonusCollected;
 
-        if (tutorialUI != null)
-        {
-            tutorialUI.OnTutorialStarted       -= HandleTutorialStarted;
-            tutorialUI.OnTutorialStepCompleted -= HandleTutorialStepCompleted;
-            tutorialUI.OnTutorialSkipped       -= HandleTutorialSkipped;
-            tutorialUI.OnTutorialCompleted     -= HandleTutorialCompleted;
-        }
+        EconomyManager.OnCurrencyLedgerEvent              -= HandleCurrencyLedgerEvent;
+        CampaignEconomyService.OnLevelEconomySettled      -= HandleLevelEconomySettled;
+        ProgressionManager.OnSkillInventoryChanged        -= HandleSkillInventoryChanged;
+        PowerUpController.OnSkillActivationAttempted      -= HandleSkillActivationAttempted;
+        AdPolicyCoordinator.OnRewardedAdOffered           -= HandleRewardedAdOffered;
+        AdPolicyCoordinator.OnRewardedAdStarted           -= HandleRewardedAdStarted;
+        AdPolicyCoordinator.OnRewardedAdCompleted         -= HandleRewardedAdCompleted;
+        AdPolicyCoordinator.OnRewardedAdSkippedOrFailed   -= HandleRewardedAdSkippedOrFailed;
+        AdPolicyCoordinator.OnInterstitialShownEvent      -= HandleInterstitialShown;
+        AdPolicyCoordinator.OnInterstitialSuppressedEvent -= HandleInterstitialSuppressed;
+        IAPManager.OnIapPurchaseInitiated                 -= HandleIapInitiated;
+        IAPManager.OnIapPurchaseCompleted                 -= HandleIapCompleted;
+        IAPManager.OnIapPurchaseFailedEvent               -= HandleIapFailed;
+        IAPManager.OnIapRestoreCompleted                  -= HandleIapRestored;
+        MissionService.OnMissionRewardClaimed             -= HandleMissionRewardClaimed;
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -136,10 +145,14 @@ public class AnalyticsEventObserver : MonoBehaviour
         var level = flowController != null ? flowController.CurrentLevelData : null;
         var p = LevelParams(level);
 
-        // ProgressionManager.CompleteLevel has already run at this point,
-        // so the persisted star value is the authoritative result.
         if (level != null && ProgressionManager.Instance != null)
             p["stars"] = ProgressionManager.Instance.GetLevelStars(level.LevelId);
+
+        if (flowController != null)
+        {
+            p["moves_used"] = flowController.MovesUsedThisRun;
+            p["used_skill"] = flowController.UsedAnySkillThisRun;
+        }
 
         AnalyticsService.Track(AnalyticsEvents.LevelCompleted, p);
     }
@@ -160,18 +173,12 @@ public class AnalyticsEventObserver : MonoBehaviour
 
     private void HandleLevelStateChanged(LevelState state)
     {
-        // ReturnToMap sets Idle BEFORE firing OnReturnToMapRequested, so Idle
-        // must not overwrite the remembered state — it holds the state being
-        // exited, which is what distinguishes abandon from normal completion.
         if (state != LevelState.Idle)
             lastLevelState = state;
     }
 
     private void HandleReturnToMap()
     {
-        // Returning to map while a level was Playing = abandon.
-        // Returning after Completed (Continue/Map on the reward overlay) is
-        // normal flow, not abandonment.
         if (lastLevelState == LevelState.Playing)
         {
             var level = flowController != null ? flowController.CurrentLevelData : null;
@@ -186,7 +193,185 @@ public class AnalyticsEventObserver : MonoBehaviour
     }
 
     // ─────────────────────────────────────────────────────────────
-    //  Shop / Reward / Meta
+    //  Economy Ledger & Campaign Settlement (GDD §13)
+    // ─────────────────────────────────────────────────────────────
+
+    private void HandleCurrencyLedgerEvent(EconomyCurrencyType currency, int signedDelta, int newBalance, string tag)
+    {
+        if (signedDelta == 0) return;
+
+        string eventName;
+        if (currency == EconomyCurrencyType.Coins)
+            eventName = signedDelta > 0 ? AnalyticsEvents.CoinEarned : AnalyticsEvents.CoinSpent;
+        else
+            eventName = signedDelta > 0 ? AnalyticsEvents.GemEarned : AnalyticsEvents.GemSpent;
+
+        AnalyticsService.Track(eventName, new Dictionary<string, object>
+        {
+            ["amount"]  = Mathf.Abs(signedDelta),
+            ["balance"] = newBalance,
+            ["source"]  = tag ?? string.Empty
+        });
+    }
+
+    private void HandleLevelEconomySettled(LevelEconomySettlement s)
+    {
+        AnalyticsService.Track(AnalyticsEvents.LevelEconomySettled, new Dictionary<string, object>
+        {
+            ["level_id"]            = s.LevelId,
+            ["sector"]              = s.SectorNumber,
+            ["is_first_clear"]      = s.IsFirstClear,
+            ["earned_stars"]        = s.EarnedStars,
+            ["newly_unlocked_stars"] = s.NewlyUnlockedStarsCount,
+            ["moves_used"]          = s.MovesUsed,
+            ["best_moves"]          = s.BestMoves,
+            ["used_any_skill"]      = s.UsedAnySkill,
+            ["coins_granted"]       = s.TotalCoinsGranted,
+            ["gems_granted"]        = s.TotalGemsGranted
+        });
+
+        if (s.SectorCompletedThisRun)
+        {
+            AnalyticsService.Track(AnalyticsEvents.SectorCompleted, new Dictionary<string, object>
+            {
+                ["sector"] = s.SectorNumber,
+                ["coins"]  = s.SectorCompletionCoinsGranted,
+                ["gems"]   = s.SectorCompletionGemsGranted
+            });
+        }
+
+        if (s.CampaignCompletedThisRun)
+        {
+            ProfileData profile = SaveManager.loadProfile();
+            AnalyticsService.Track(AnalyticsEvents.CampaignCompleted, new Dictionary<string, object>
+            {
+                ["watched_any_ad"]      = profile != null && profile.hasWatchedAnyAdInCampaign,
+                ["made_any_iap"]        = profile != null && profile.hasMadeAnyIapInCampaign,
+                ["no_skill_clears"]     = profile != null ? profile.lifetimeNoSkillLevelClears : 0,
+                ["total_deaths"]        = profile != null ? profile.deaths : 0
+            });
+        }
+    }
+
+    private void HandleSkillInventoryChanged(string skillId, int signedDelta, int remaining, int cap, string reason)
+    {
+        AnalyticsService.Track(AnalyticsEvents.SkillChargeChanged, new Dictionary<string, object>
+        {
+            ["skill_id"]  = skillId ?? string.Empty,
+            ["delta"]     = signedDelta,
+            ["remaining"] = remaining,
+            ["cap"]       = cap,
+            ["reason"]    = reason ?? string.Empty
+        });
+    }
+
+    private void HandleSkillActivationAttempted(PowerUpType skillType, bool succeeded, string reason)
+    {
+        AnalyticsService.Track(AnalyticsEvents.SkillActivationAttempted, new Dictionary<string, object>
+        {
+            ["skill_type"] = skillType.ToString(),
+            ["succeeded"]  = succeeded,
+            ["reason"]     = reason ?? string.Empty
+        });
+    }
+
+    private void HandleRewardedAdOffered(RewardedAdPlacement placement)
+    {
+        AnalyticsService.Track(AnalyticsEvents.RewardedAdOffered, new Dictionary<string, object>
+        {
+            ["placement"] = placement.ToString()
+        });
+    }
+
+    private void HandleRewardedAdStarted(RewardedAdPlacement placement)
+    {
+        AnalyticsService.Track(AnalyticsEvents.RewardedAdStarted, new Dictionary<string, object>
+        {
+            ["placement"] = placement.ToString()
+        });
+    }
+
+    private void HandleRewardedAdCompleted(RewardedAdPlacement placement, RewardItem item)
+    {
+        AnalyticsService.Track(AnalyticsEvents.RewardedAdCompleted, new Dictionary<string, object>
+        {
+            ["placement"]   = placement.ToString(),
+            ["reward_type"] = item.Type.ToString(),
+            ["amount"]      = item.Amount,
+            ["item_id"]     = item.ItemId ?? string.Empty
+        });
+    }
+
+    private void HandleRewardedAdSkippedOrFailed(RewardedAdPlacement placement, string reason)
+    {
+        AnalyticsService.Track(AnalyticsEvents.RewardedAdSkipped, new Dictionary<string, object>
+        {
+            ["placement"] = placement.ToString(),
+            ["reason"]    = reason ?? string.Empty
+        });
+    }
+
+    private void HandleInterstitialShown()
+    {
+        AnalyticsService.Track(AnalyticsEvents.InterstitialShown);
+    }
+
+    private void HandleInterstitialSuppressed(string reason)
+    {
+        AnalyticsService.Track(AnalyticsEvents.InterstitialSuppressed, new Dictionary<string, object>
+        {
+            ["reason"] = reason ?? string.Empty
+        });
+    }
+
+    private void HandleIapInitiated(string productId)
+    {
+        AnalyticsService.Track(AnalyticsEvents.IapInitiated, new Dictionary<string, object>
+        {
+            ["product_id"] = productId ?? string.Empty
+        });
+    }
+
+    private void HandleIapCompleted(string productId, string transactionId)
+    {
+        AnalyticsService.Track(AnalyticsEvents.IapCompleted, new Dictionary<string, object>
+        {
+            ["product_id"]     = productId ?? string.Empty,
+            ["transaction_id"] = transactionId ?? string.Empty
+        });
+    }
+
+    private void HandleIapFailed(string productId, string reason)
+    {
+        AnalyticsService.Track(AnalyticsEvents.IapFailed, new Dictionary<string, object>
+        {
+            ["product_id"] = productId ?? string.Empty,
+            ["reason"]     = reason ?? string.Empty
+        });
+    }
+
+    private void HandleIapRestored(bool succeeded, int restoredCount)
+    {
+        AnalyticsService.Track(AnalyticsEvents.IapRestored, new Dictionary<string, object>
+        {
+            ["succeeded"]      = succeeded,
+            ["restored_count"] = restoredCount
+        });
+    }
+
+    private void HandleMissionRewardClaimed(string missionId, MissionCategory category, RewardBundle bundle)
+    {
+        AnalyticsService.Track(AnalyticsEvents.MissionRewardClaimed, new Dictionary<string, object>
+        {
+            ["mission_id"] = missionId ?? string.Empty,
+            ["category"]   = category.ToString(),
+            ["coins"]      = bundle != null ? bundle.CoinCount : 0,
+            ["gems"]       = bundle != null ? bundle.GemCount : 0
+        });
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    //  Shop / Legacy Meta
     // ─────────────────────────────────────────────────────────────
 
     private void HandleItemPurchased(ShopItemDefinition item)
@@ -195,6 +380,7 @@ public class AnalyticsEventObserver : MonoBehaviour
         AnalyticsService.Track(AnalyticsEvents.ShopPurchaseSuccess, new Dictionary<string, object>
         {
             ["item_id"]     = item.ItemId,
+            ["category"]    = item.Category.ToString(),
             ["cost_type"]   = item.CostType.ToString(),
             ["cost_amount"] = item.CostAmount
         });
@@ -202,12 +388,10 @@ public class AnalyticsEventObserver : MonoBehaviour
 
     private void HandleAdRewardGranted(RewardedAdPlacement placement, int contextValue)
     {
-        // Only fires after the rewarded flow actually completed and granted
-        // its benefit — never logged for failed/cancelled mock ads.
         AnalyticsService.Track(AnalyticsEvents.RewardDoubled, new Dictionary<string, object>
         {
             ["placement"] = placement.ToString(),
-            ["coins"]     = contextValue
+            ["amount"]    = contextValue
         });
     }
 
@@ -229,33 +413,6 @@ public class AnalyticsEventObserver : MonoBehaviour
     }
 
     // ─────────────────────────────────────────────────────────────
-    //  Tutorial
-    // ─────────────────────────────────────────────────────────────
-
-    private void HandleTutorialStarted()
-    {
-        AnalyticsService.Track(AnalyticsEvents.TutorialStarted);
-    }
-
-    private void HandleTutorialStepCompleted(int stepIndex)
-    {
-        AnalyticsService.Track(AnalyticsEvents.TutorialStepCompleted, new Dictionary<string, object>
-        {
-            ["step"] = stepIndex
-        });
-    }
-
-    private void HandleTutorialSkipped()
-    {
-        AnalyticsService.Track(AnalyticsEvents.TutorialSkipped);
-    }
-
-    private void HandleTutorialCompleted()
-    {
-        AnalyticsService.Track(AnalyticsEvents.TutorialCompleted);
-    }
-
-    // ─────────────────────────────────────────────────────────────
     //  Helpers
     // ─────────────────────────────────────────────────────────────
 
@@ -270,4 +427,3 @@ public class AnalyticsEventObserver : MonoBehaviour
         return p;
     }
 }
-

@@ -1,28 +1,19 @@
-using TMPro;
 using System;
 using System.Text;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Daily Reward screen. Exposes DailyRewardService state: streak day,
-/// reward preview, availability, and countdown. All claim logic stays in
-/// DailyRewardService / RewardService — this panel only reads state and
-/// forwards the claim call.
+/// Daily Reward popup. Disabled in standard Campaign when
+/// <see cref="EconomyBalanceConfig.EnableLegacyExtraRewardSystems"/> is false (GDD v1.0 uses Daily Missions instead).
 /// </summary>
 public class DailyRewardUI : MonoBehaviour, IUIPanel
 {
-
     public event Action OnDailyRewardClosed;
 
-    [Header("Panel")]
-    [SerializeField] private GameObject panelRoot;
+    [Header("Navigation")]
     [SerializeField] private Button backButton;
-    [SerializeField] private TMP_Text titleText;
-
-    [Header("Currency")]
-    [SerializeField] private TMP_Text coinsText;
-    [SerializeField] private TMP_Text gemsText;
 
     [Header("Reward Display")]
     [SerializeField] private TMP_Text dayText;
@@ -33,32 +24,56 @@ public class DailyRewardUI : MonoBehaviour, IUIPanel
     [SerializeField] private TMP_Text feedbackText;
 
     private DailyRewardService dailyService;
-    private EconomyManager economy;
-    private bool subscribed;
     private UIPanelAnimator panelAnimator;
+    private bool buttonsBound;
+    private bool subscribed;
+
     private UIPanelAnimator PanelAnimator =>
-        panelAnimator != null ? panelAnimator
-            : (panelAnimator = (panelRoot != null ? panelRoot : gameObject).GetComponent<UIPanelAnimator>());
+        panelAnimator != null ? panelAnimator : (panelAnimator = GetComponent<UIPanelAnimator>());
 
     private void Awake()
     {
-        if (panelRoot == null) panelRoot = gameObject;
-        if (backButton != null) backButton.onClick.AddListener(CloseDailyReward);
-        if (claimButton != null) claimButton.onClick.AddListener(OnClaimClicked);
+        BindButtons();
     }
 
     private void OnEnable()
     {
-        if (dailyService == null) dailyService = DailyRewardService.Instance ?? FindAnyObjectByType<DailyRewardService>();
-        if (economy == null) economy = EconomyManager.Instance ?? FindAnyObjectByType<EconomyManager>();
+        if (dailyService == null)
+            dailyService = DailyRewardService.Instance ?? FindAnyObjectByType<DailyRewardService>();
+
+        BindButtons();
         Subscribe();
         RefreshAll();
     }
 
     private void OnDisable() => Unsubscribe();
+
     private void OnDestroy()
     {
         Unsubscribe();
+        UnbindButtons();
+    }
+
+    private void BindButtons()
+    {
+        if (buttonsBound) return;
+        buttonsBound = true;
+
+        if (backButton != null)
+            backButton.onClick.AddListener(OnBackClicked);
+        if (claimButton != null)
+            claimButton.onClick.AddListener(OnClaimClicked);
+    }
+
+    private void UnbindButtons()
+    {
+        if (!buttonsBound) return;
+        buttonsBound = false;
+
+        if (backButton != null)
+            backButton.onClick.RemoveListener(OnBackClicked);
+        if (claimButton != null)
+            claimButton.onClick.RemoveListener(OnClaimClicked);
     }
 
     private void Subscribe()
@@ -68,12 +83,6 @@ public class DailyRewardUI : MonoBehaviour, IUIPanel
 
         if (dailyService != null)
             dailyService.OnDailyRewardClaimed += HandleDailyRewardClaimed;
-
-        if (economy != null)
-        {
-            economy.OnCoinsChanged += HandleCurrencyChanged;
-            economy.OnGemsChanged += HandleCurrencyChanged;
-        }
     }
 
     private void Unsubscribe()
@@ -83,21 +92,27 @@ public class DailyRewardUI : MonoBehaviour, IUIPanel
 
         if (dailyService != null)
             dailyService.OnDailyRewardClaimed -= HandleDailyRewardClaimed;
-
-        if (economy != null)
-        {
-            economy.OnCoinsChanged -= HandleCurrencyChanged;
-            economy.OnGemsChanged -= HandleCurrencyChanged;
-        }
     }
 
     public void Show() => OpenDailyReward();
     public void Hide() => CloseDailyReward();
 
+    private void OnBackClicked()
+    {
+        GameHaptics.Play(HapticEvent.UISelect);
+        UIAudio.Play(UISoundType.ButtonClick);
+
+        if (UIManager.Instance != null && UIManager.Instance.IsPanelOpen(UIPanelType.DailyReward))
+            UIManager.Instance.ClosePanelIfOpen(UIPanelType.DailyReward);
+        else
+            CloseDailyReward();
+    }
+
     public void OpenDailyReward()
     {
+        BindButtons();
         if (PanelAnimator != null) PanelAnimator.PlayIn();
-        else panelRoot.SetActive(true);
+        else gameObject.SetActive(true);
         RefreshAll();
     }
 
@@ -109,13 +124,18 @@ public class DailyRewardUI : MonoBehaviour, IUIPanel
 
     private void FinishCloseDailyReward()
     {
-        panelRoot.SetActive(false);
+        gameObject.SetActive(false);
         OnDailyRewardClosed?.Invoke();
     }
 
     private void RefreshAll()
     {
-        UpdateCurrencyTexts();
+        if (!EconomyBalanceConfig.Active.EnableLegacyExtraRewardSystems)
+        {
+            if (statusText != null) statusText.text = "See Daily Missions for daily rewards.";
+            if (claimButton != null) claimButton.interactable = false;
+            return;
+        }
 
         if (dailyService == null)
         {
@@ -162,19 +182,18 @@ public class DailyRewardUI : MonoBehaviour, IUIPanel
         return sb.ToString();
     }
 
-    private void UpdateCurrencyTexts()
-    {
-        if (economy == null) return;
-        if (coinsText != null) coinsText.text = economy.Coins.ToString();
-        if (gemsText != null) gemsText.text = economy.Gems.ToString();
-    }
-
     private void OnClaimClicked()
     {
         if (dailyService == null) return;
-        // ClaimDailyReward guards double-claim internally; UI only forwards.
-        if (!dailyService.ClaimDailyReward())
+
+        GameHaptics.Play(HapticEvent.UISelect);
+        if (dailyService.ClaimDailyReward())
         {
+            UIAudio.Play(UISoundType.RewardClaim);
+        }
+        else
+        {
+            UIAudio.Play(UISoundType.ErrorOrLocked);
             if (feedbackText != null) feedbackText.text = "Already claimed today.";
         }
     }
@@ -185,7 +204,4 @@ public class DailyRewardUI : MonoBehaviour, IUIPanel
             feedbackText.text = $"Claimed Day {day}: {FormatBundle(bundle)}";
         RefreshAll();
     }
-
-    private void HandleCurrencyChanged(int oldValue, int newValue) => UpdateCurrencyTexts();
 }
-

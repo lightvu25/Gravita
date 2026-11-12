@@ -4,18 +4,6 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
-/// <summary>
-/// Reusable full-screen fade curtain. Created lazily (no scene wiring needed),
-/// persists across scene loads, and renders above all other UI.
-///
-/// FadeOut covers the screen and blocks raycasts; FadeIn reveals it and
-/// restores interaction. Timing runs on unscaled time so transitions work
-/// while <see cref="Time.timeScale"/> is zero (pause, hit-stop).
-///
-/// A pending completion callback is dropped when a newer fade supersedes it —
-/// callers own their sequencing. As a safety net the curtain auto-reveals on
-/// scene load so a cover can never outlive the sequence that created it.
-/// </summary>
 public class ScreenTransition : MonoBehaviour
 {
     public static ScreenTransition Instance { get; private set; }

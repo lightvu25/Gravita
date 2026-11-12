@@ -2,12 +2,18 @@ using UnityEngine;
 
 /// <summary>
 /// Mud/Tar brake tile: absorbs all momentum and forces a dead stop at the
-/// tile centre. Lets a level offer mid-corridor turns without a wall.
+/// tile centre, requiring fresh directional input to move again.
+/// Resolved deterministically at the cell centre by <see cref="PlayerMovement"/>.
 /// </summary>
-public class BrakeTile : MazeTile
+public class BrakeTile : MazeTile, ICellInteraction
 {
-    protected override void OnPlayerEnter(PlayerMovement player)
+    public virtual int Priority => CellInteractionPriority.Brake;
+
+    public bool BlocksEntryFrom(Vector2 incomingDirection) => false;
+
+    public virtual CellOutcome ResolveAtCenter(PlayerMovement player, Vector2 incomingDirection)
     {
-        player.HaltAt(CellCenter);
+        RaisePlayerInteracted(InteractionKind.Brake, incomingDirection);
+        return CellOutcome.Stop(requireFreshInput: true);
     }
 }

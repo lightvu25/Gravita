@@ -5,13 +5,11 @@ using GoogleMobileAds.Samples;
 using UnityEngine;
 
 /// <summary>
-/// AdMob-backed <see cref="IInterstitialAdService"/>. Waits for the one-time
-/// SDK initialization owned by <see cref="GoogleMobileAdsController"/>, keeps
-/// one interstitial loaded, and reloads after every close or failure.
-///
-/// Interstitials never grant rewards. The built-in trigger shows one when the
-/// game returns to the map (a safe transition point — never during active
-/// gameplay), throttled by <see cref="minIntervalSeconds"/>.
+/// AdMob-backed <see cref="IInterstitialAdService"/> aligned with Gravita Economy GDD §8:
+///   - Permanently disabled when <c>Remove Ads</c> is owned (<see cref="AdPolicyCoordinator.IsRemoveAdsActive"/>).
+///   - Never triggers during active puzzle gameplay, deaths, restarts, or failed runs.
+///   - Counts completed levels via <see cref="AdPolicyCoordinator.RecordCompletedLevelForInterstitialCadence"/>
+///     and presents on Result Screen exit transitions every 2–3 completed levels (unless suppressed by a Result Rewarded Ad).
 /// </summary>
 public class GoogleMobileAdsInterstitialService : MonoBehaviour, IInterstitialAdService
 {
@@ -20,19 +18,20 @@ public class GoogleMobileAdsInterstitialService : MonoBehaviour, IInterstitialAd
     [Header("Ad Unit IDs")]
     [Tooltip("Android interstitial ad unit — Google's public test unit by default.")]
     [SerializeField] private string androidAdUnitId = "ca-app-pub-3940256099942544/1033173712";
-#pragma warning disable CS0414 // field only referenced under UNITY_IOS
+#pragma warning disable CS0414
     [Tooltip("iOS interstitial ad unit — Google's public test unit by default.")]
     [SerializeField] private string iosAdUnitId = "ca-app-pub-3940256099942544/4411468910";
-#pragma warning restore CS0414 // field only referenced under UNITY_IOS
+#pragma warning restore CS0414
 
-    [Header("Trigger")]
-    [Tooltip("Attempt an interstitial whenever the game returns to the map.")]
-    [SerializeField] private bool showOnReturnToMap = true;
-    [Tooltip("Minimum seconds between shown interstitials.")]
-    [SerializeField, Min(0f)] private float minIntervalSeconds = 120f;
+    [Header("Trigger (Managed by AdPolicyCoordinator per GDD §8)")]
+    [Tooltip("Legacy unconditional map-return trigger. Disabled per GDD §8.2–§8.3.")]
+    [SerializeField] private bool showOnReturnToMap = false;
+    [Tooltip("Tracks completed level cadence toward the 2–3 completed-level interstitial schedule.")]
+    [SerializeField] private bool showAfterRandomLevelCount = true;
+    [SerializeField] private bool bypassCooldownForLevelCounter = false;
+    [SerializeField, Min(0f)] private float minIntervalSeconds = 30f;
 
     [Header("Reload")]
-    [Tooltip("Seconds to wait before retrying after a failed load.")]
     [SerializeField, Min(1f)] private float loadRetryDelay = 10f;
 
     private string AdUnitId =>
@@ -48,38 +47,80 @@ public class GoogleMobileAdsInterstitialService : MonoBehaviour, IInterstitialAd
     private float lastShowTime = float.NegativeInfinity;
     private Action<bool> pendingCallback;
     private LevelFlowController flowController;
+    private bool flowSubscribed;
 
     private void Awake()
     {
         if (Instance != null && Instance != this)
         {
-            Destroy(gameObject);
+            Destroy(this);
             return;
         }
 
         Instance = this;
     }
 
+    private void Start()
+    {
+        SubscribeFlowController();
+    }
+
     private void OnEnable()
     {
         GoogleMobileAdsController.OnInitialized += HandleSdkInitialized;
-        if (GoogleMobileAdsController.IsInitialized)
+        if (GoogleMobileAdsController.IsInitialized && !AdPolicyCoordinator.IsRemoveAdsActive())
             LoadAd();
 
-        if (flowController == null)
-            flowController = FindAnyObjectByType<LevelFlowController>();
-        if (flowController != null)
-            flowController.OnReturnToMapRequested += HandleReturnToMap;
+        SubscribeFlowController();
     }
 
     private void OnDisable()
     {
         GoogleMobileAdsController.OnInitialized -= HandleSdkInitialized;
-        if (flowController != null)
-            flowController.OnReturnToMapRequested -= HandleReturnToMap;
+        UnsubscribeFlowController();
 
         if (pendingCallback != null)
             Resolve(false);
+    }
+
+    private void SubscribeFlowController()
+    {
+        if (flowController == null)
+            flowController = FindAnyObjectByType<LevelFlowController>();
+
+        if (flowController != null && !flowSubscribed)
+        {
+            flowSubscribed = true;
+            flowController.OnReturnToMapRequested += HandleReturnToMap;
+            flowController.OnLevelCompleted += HandleLevelCompleted;
+            flowController.OnLevelFailed += HandleLevelFailed;
+        }
+    }
+
+    private void UnsubscribeFlowController()
+    {
+        if (flowController != null && flowSubscribed)
+        {
+            flowSubscribed = false;
+            flowController.OnReturnToMapRequested -= HandleReturnToMap;
+            flowController.OnLevelCompleted -= HandleLevelCompleted;
+            flowController.OnLevelFailed -= HandleLevelFailed;
+        }
+    }
+
+    private void HandleLevelCompleted()
+    {
+        if (!showAfterRandomLevelCount || AdPolicyCoordinator.IsRemoveAdsActive())
+            return;
+
+        // Only record completion cadence here; actual presentation happens on Result Screen exit
+        // via AdPolicyCoordinator.TryShowPostResultTransitionInterstitial() so Goal cutscene & Result UI are never interrupted!
+        AdPolicyCoordinator.RecordCompletedLevelForInterstitialCadence();
+    }
+
+    private void HandleLevelFailed(string reason)
+    {
+        // GDD §8.3: Never count deaths/failed runs toward interstitial cadence.
     }
 
     private void OnDestroy()
@@ -89,32 +130,57 @@ public class GoogleMobileAdsInterstitialService : MonoBehaviour, IInterstitialAd
         CleanupAd();
     }
 
-    private void HandleSdkInitialized() => LoadAd();
+    private void HandleSdkInitialized()
+    {
+        if (!AdPolicyCoordinator.IsRemoveAdsActive())
+            LoadAd();
+    }
 
     private void HandleReturnToMap()
     {
-        if (showOnReturnToMap) TryShow();
+        if (showOnReturnToMap && EconomyBalanceConfig.Active.EnableLegacyExtraRewardSystems && !AdPolicyCoordinator.IsRemoveAdsActive())
+        {
+            TryShow();
+        }
     }
 
     public bool IsAdAvailable()
     {
+        if (AdPolicyCoordinator.IsRemoveAdsActive())
+            return false;
+
         return isActiveAndEnabled && !showing
             && interstitialAd != null && interstitialAd.CanShowAd();
     }
 
-    /// <summary>
-    /// Shows an interstitial if one is loaded, the cooldown has elapsed, and no
-    /// other full-screen ad is up. Returns false without side effects otherwise.
-    /// </summary>
     public bool TryShow()
     {
+        if (AdPolicyCoordinator.IsRemoveAdsActive())
+            return false;
+
+        return TryShowInternal(ignoreCooldown: false);
+    }
+
+    internal bool TryShowFromCoordinator()
+    {
+        return TryShowInternal(ignoreCooldown: bypassCooldownForLevelCounter);
+    }
+
+    private bool TryShowInternal(bool ignoreCooldown)
+    {
+        if (AdPolicyCoordinator.IsRemoveAdsActive())
+            return false;
+
         if (!isActiveAndEnabled || GoogleMobileAdsController.AnyFullScreenAdShowing)
             return false;
-        if (Time.unscaledTime - lastShowTime < minIntervalSeconds)
+
+        float effectiveCooldown = Mathf.Max(minIntervalSeconds, EconomyBalanceConfig.Active.InterstitialCooldownSeconds);
+        if (!ignoreCooldown && Time.unscaledTime - lastShowTime < effectiveCooldown)
             return false;
+
         if (!IsAdAvailable())
         {
-            LoadAd();   // nothing ready — prime the load for the next transition
+            LoadAd();
             return false;
         }
 
@@ -125,7 +191,7 @@ public class GoogleMobileAdsInterstitialService : MonoBehaviour, IInterstitialAd
 
     public void ShowInterstitial(Action<bool> onComplete = null)
     {
-        if (!IsAdAvailable() || GoogleMobileAdsController.AnyFullScreenAdShowing)
+        if (AdPolicyCoordinator.IsRemoveAdsActive() || !IsAdAvailable() || GoogleMobileAdsController.AnyFullScreenAdShowing)
         {
             onComplete?.Invoke(false);
             return;
@@ -139,7 +205,7 @@ public class GoogleMobileAdsInterstitialService : MonoBehaviour, IInterstitialAd
 
     private void LoadAd()
     {
-        if (interstitialAd != null || loading || !GoogleMobileAdsController.IsInitialized)
+        if (AdPolicyCoordinator.IsRemoveAdsActive() || interstitialAd != null || loading || !GoogleMobileAdsController.IsInitialized)
             return;
 
         loading = true;
@@ -148,12 +214,15 @@ public class GoogleMobileAdsInterstitialService : MonoBehaviour, IInterstitialAd
         InterstitialAd.Load(AdUnitId, new AdRequest(), (InterstitialAd ad, LoadAdError error) =>
         {
             loading = false;
-            if (this == null) { ad?.Destroy(); return; }
+            if (this == null || AdPolicyCoordinator.IsRemoveAdsActive())
+            {
+                ad?.Destroy();
+                return;
+            }
 
             if (error != null || ad == null)
             {
-                Debug.LogWarning($"[GoogleMobileAdsInterstitialService] Load failed — " +
-                    $"code={error?.GetCode()} msg={error?.GetMessage()}");
+                Debug.LogWarning($"[GoogleMobileAdsInterstitialService] Load failed — code={error?.GetCode()} msg={error?.GetMessage()}");
                 if (isActiveAndEnabled) StartCoroutine(RetryRoutine());
                 return;
             }
@@ -181,8 +250,7 @@ public class GoogleMobileAdsInterstitialService : MonoBehaviour, IInterstitialAd
         };
         ad.OnAdFullScreenContentFailed += (AdError error) =>
         {
-            Debug.LogError($"[GoogleMobileAdsInterstitialService] Show failed — " +
-                $"{error.GetMessage()} (code {error.GetCode()})");
+            Debug.LogError($"[GoogleMobileAdsInterstitialService] Show failed — {error.GetMessage()} (code {error.GetCode()})");
             Resolve(false);
             CleanupAd();
             LoadAd();

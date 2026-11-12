@@ -12,10 +12,35 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ac362e3d69a26554899979c6014bd996, type: 3}
   m_Name: CampaignDatabase
   m_EditorClassIdentifier: Assembly-CSharp::CampaignDatabase
+  expConfig: {fileID: 11400000, guid: 7b49e10c2d814fa3a90351d829c140e2, type: 2}
+  baseExpPerLevel: 100
+  expIncreasePerLevel: 50
+  maxPlayerLevel: 99
   worlds:
-  - worldNumber: 0
+  - worldNumber: 1
     worldName: Lab
     description: The lab
     requiredCompletedLevelsToUnlock: 0
+    requiredPlayerLevelToUnlock: 1
+    requiredExpToUnlock: 0
     levels:
     - {fileID: 11400000, guid: 85262b18575e8ec4f8a64773b0c9b39d, type: 2}
+    - {fileID: 11400000, guid: f1cbc56c811060b45a7510cb5b0ae3df, type: 2}
+    - {fileID: 11400000, guid: b4934d7725eff76479483f298735c54e, type: 2}
+    - {fileID: 11400000, guid: 88cf232e43bd74a4d97d90f72ec935ea, type: 2}
+    - {fileID: 11400000, guid: 9a4e612deffd5d740a7efca38aae12da, type: 2}
+    - {fileID: 11400000, guid: 5c93908bcf5f2da418a5ee4b2a0c0ef3, type: 2}
+    - {fileID: 11400000, guid: 46bce9a94f9eb30488970136274f2008, type: 2}
+    - {fileID: 11400000, guid: b06f0cab58c28394694896e911bdad81, type: 2}
+    - {fileID: 11400000, guid: 4fa158307fc097c4d986fc74c806b63e, type: 2}
+    - {fileID: 11400000, guid: 32901482076dcb14093b3f30d518e00f, type: 2}
+    - {fileID: 11400000, guid: f1af9d6bfc6477d4d93cd8440928379a, type: 2}
+    - {fileID: 11400000, guid: 463f47360f91d2141b18e52ef578d589, type: 2}
+    - {fileID: 11400000, guid: d8feff94e261b414687893e9a5c9226f, type: 2}
+    - {fileID: 11400000, guid: a9fcfea7f4ced3f4b8e05796ae55bf65, type: 2}
+    - {fileID: 11400000, guid: d68c2ece280dd86498ad09a9fad7efec, type: 2}
+    - {fileID: 11400000, guid: 804c4519cf21e824d99a95fa66f4a0ca, type: 2}
+    - {fileID: 11400000, guid: b64857774c5f1f046b4d19ac1ba80480, type: 2}
+    - {fileID: 11400000, guid: 0f2ffb94c3b0fa146944e4f42475a0b1, type: 2}
+    - {fileID: 11400000, guid: c246b9843c88f5f48a58ad6efebbcf93, type: 2}
+    - {fileID: 11400000, guid: 9ea295f92a80df74697a64f6366a72ab, type: 2}

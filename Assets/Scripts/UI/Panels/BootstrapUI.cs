@@ -17,12 +17,26 @@ public class BootstrapUI : MonoBehaviour
     [SerializeField] private UIPanelAnimator panelAnimator;
 
     private bool continuing;
+    private bool buttonBound;
     private float openedAt;
 
     private void Awake()
     {
         openedAt = Time.unscaledTime;
-        tapButton.onClick.AddListener(Continue);
+        if (tapButton != null && !buttonBound)
+        {
+            tapButton.onClick.AddListener(Continue);
+            buttonBound = true;
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (buttonBound && tapButton != null)
+        {
+            tapButton.onClick.RemoveListener(Continue);
+            buttonBound = false;
+        }
     }
 
     private void Update()
@@ -41,6 +55,9 @@ public class BootstrapUI : MonoBehaviour
     {
         if (continuing) return;
         continuing = true;
+
+        GameHaptics.Play(HapticEvent.UISelect);
+        UIAudio.Play(UISoundType.ButtonClick);
 
         if (panelAnimator != null)
             panelAnimator.PlayOut(LoadNextScene);

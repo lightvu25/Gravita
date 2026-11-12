@@ -2,20 +2,13 @@ using System;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
-/// <summary>
-/// Controller for the Campaign World Map and Level Selection screens.
-/// Fully data-driven from CampaignDatabase and ProgressionManager.
-/// </summary>
 public class CampaignMapUI : MonoBehaviour, IUIPanel
 {
     [Header("Panels")]
-    [Tooltip("Root panel for the World/Campaign selection.")]
     [SerializeField] private GameObject worldMapPanel;
-
-    [Tooltip("Root panel for the Level Selection within a world.")]
     [SerializeField] private GameObject levelSelectPanel;
 
     [Header("World Selection UI")]
@@ -27,22 +20,15 @@ public class CampaignMapUI : MonoBehaviour, IUIPanel
     [SerializeField] private Transform levelGridContainer;
     [SerializeField] private LevelNodeWidget levelNodePrefab;
     [SerializeField] private Button backToWorldsButton;
-    [SerializeField] private Button closeMapButton;
 
-    [Header("Map Side Buttons (TotM style)")]
-    [Tooltip("Opens the blind box from the map screen. Icon image assigned in the scene.")]
-    [SerializeField] private Button openChestButton;
-    [SerializeField] private Image chestIconImage;
-    [Tooltip("Watches a rewarded ad to grant a free power-up.")]
-    [SerializeField] private Button freePowerButton;
-    [SerializeField] private Image freePowerIconImage;
-    [Tooltip("Power-up id granted by the free-power ad.")]
-    [SerializeField] private string freePowerId = PowerUpIds.KineticShield;
-    [SerializeField] private BlindBoxUI blindBoxUI;
-    [SerializeField] private AdRewardService adRewardService;
+    [Header("Pre-Level 4-Slot Loadout Confirmation (Optional — GDD §5.5)")]
+    [SerializeField] private GameObject preLevelLoadoutPopup;
+    [SerializeField] private TMP_Text preLevelLoadoutSummaryText;
+    [SerializeField] private Button confirmStartLevelButton;
+    [SerializeField] private Button editLoadoutButton;
+    [SerializeField] private Button cancelPreLevelButton;
 
-    [Header("Scene Transition (Optional)")]
-    [Tooltip("Target puzzle scene name if loading across scenes. Leave empty for single-scene setup.")]
+    [Header("Scene Transition")]
     [SerializeField] private string gameplaySceneName = "GameScene";
 
     [Header("System References")]
@@ -51,48 +37,57 @@ public class CampaignMapUI : MonoBehaviour, IUIPanel
     public event Action OnMapClosed;
 
     private CampaignDatabase database;
-    private int currentWorldIndex = 0;
+    private int currentWorldIndex;
+    private LevelData pendingSelectedLevel;
     private bool subscribedToFlow;
+    private bool subscribedToProgression;
+    private bool buttonsBound;
     private UIPanelAnimator panelAnimator;
+
     private UIPanelAnimator PanelAnimator =>
         panelAnimator != null ? panelAnimator : (panelAnimator = GetComponent<UIPanelAnimator>());
+
     private readonly List<LevelNodeWidget> spawnedLevelWidgets = new List<LevelNodeWidget>();
 
     // ─────────────────────────────────────────────────────────────
     //  Unity Lifecycle
     // ─────────────────────────────────────────────────────────────
 
+    private void Awake()
+    {
+        if (worldButtonPrefab != null && worldButtonPrefab.gameObject.scene.IsValid())
+            worldButtonPrefab.gameObject.SetActive(false);
+
+        if (levelNodePrefab != null && levelNodePrefab.gameObject.scene.IsValid())
+            levelNodePrefab.gameObject.SetActive(false);
+
+        BindButtons();
+    }
+
     private void OnEnable()
     {
-        // Subscribe here rather than relying on Start alone: this panel is
-        // inactive at scene load and is closed within the same synchronous
-        // call chain that opened it (OnLevelNodeSelected -> StartLevel ->
-        // CloseMap), so Start can be cancelled before it ever runs.
         SubscribeToFlow();
+        SubscribeToProgression();
+        BindButtons();
+        RefreshUI();
+    }
+
+    private void OnDisable()
+    {
+        UnsubscribeFromProgression();
     }
 
     private void Start()
     {
         SubscribeToFlow();
+        SubscribeToProgression();
+        BindButtons();
 
         if (ProgressionManager.Instance != null)
             database = ProgressionManager.Instance.Database;
 
-        if (backToWorldsButton != null)
-            backToWorldsButton.onClick.AddListener(ShowWorldMap);
-
-        if (closeMapButton != null)
-            closeMapButton.onClick.AddListener(RequestClose);
-
-        if (openChestButton != null)
-            openChestButton.onClick.AddListener(OnOpenChest);
-        if (freePowerButton != null)
-            freePowerButton.onClick.AddListener(OnFreePower);
-
-        if (blindBoxUI == null)
-            blindBoxUI = FindAnyObjectByType<BlindBoxUI>(FindObjectsInactive.Include);
-        if (adRewardService == null)
-            adRewardService = AdRewardService.Instance != null ? AdRewardService.Instance : FindAnyObjectByType<AdRewardService>();
+        if (preLevelLoadoutPopup != null)
+            preLevelLoadoutPopup.SetActive(false);
 
         RefreshUI();
     }
@@ -100,9 +95,44 @@ public class CampaignMapUI : MonoBehaviour, IUIPanel
     private void OnDestroy()
     {
         if (subscribedToFlow && flowController != null)
+        {
             flowController.OnReturnToMapRequested -= HandleReturnToMap;
-        if (subscribedToFlow && flowController != null)
             flowController.OnLevelStarted -= HandleLevelStarted;
+            subscribedToFlow = false;
+        }
+
+        UnsubscribeFromProgression();
+        UnbindButtons();
+    }
+
+    private void BindButtons()
+    {
+        if (buttonsBound) return;
+        buttonsBound = true;
+
+        if (backToWorldsButton != null)
+            backToWorldsButton.onClick.AddListener(OnBackToWorldsClicked);
+        if (confirmStartLevelButton != null)
+            confirmStartLevelButton.onClick.AddListener(OnConfirmPreLevelStart);
+        if (editLoadoutButton != null)
+            editLoadoutButton.onClick.AddListener(OnEditLoadoutFromPreLevel);
+        if (cancelPreLevelButton != null)
+            cancelPreLevelButton.onClick.AddListener(OnCancelPreLevelClicked);
+    }
+
+    private void UnbindButtons()
+    {
+        if (!buttonsBound) return;
+        buttonsBound = false;
+
+        if (backToWorldsButton != null)
+            backToWorldsButton.onClick.RemoveListener(OnBackToWorldsClicked);
+        if (confirmStartLevelButton != null)
+            confirmStartLevelButton.onClick.RemoveListener(OnConfirmPreLevelStart);
+        if (editLoadoutButton != null)
+            editLoadoutButton.onClick.RemoveListener(OnEditLoadoutFromPreLevel);
+        if (cancelPreLevelButton != null)
+            cancelPreLevelButton.onClick.RemoveListener(OnCancelPreLevelClicked);
     }
 
     private void SubscribeToFlow()
@@ -117,20 +147,42 @@ public class CampaignMapUI : MonoBehaviour, IUIPanel
         subscribedToFlow = true;
     }
 
+    private void SubscribeToProgression()
+    {
+        if (subscribedToProgression || ProgressionManager.Instance == null) return;
+        ProgressionManager.Instance.OnProgressionChanged += RefreshUI;
+        ProgressionManager.Instance.OnLoadoutChanged += RefreshPreLevelSummary;
+        subscribedToProgression = true;
+    }
+
+    private void UnsubscribeFromProgression()
+    {
+        if (!subscribedToProgression) return;
+        if (ProgressionManager.Instance != null)
+        {
+            ProgressionManager.Instance.OnProgressionChanged -= RefreshUI;
+            ProgressionManager.Instance.OnLoadoutChanged -= RefreshPreLevelSummary;
+        }
+        subscribedToProgression = false;
+    }
+
     // ─────────────────────────────────────────────────────────────
     //  Public API
     // ─────────────────────────────────────────────────────────────
 
     public void OpenMap()
     {
+        BindButtons();
         if (PanelAnimator != null) PanelAnimator.PlayIn();
         else gameObject.SetActive(true);
+        ClosePreLevelPopup();
         ShowWorldMap();
         RefreshUI();
     }
 
     public void CloseMap()
     {
+        ClosePreLevelPopup();
         if (PanelAnimator != null) PanelAnimator.PlayOut(FinishCloseMap);
         else FinishCloseMap();
     }
@@ -143,8 +195,16 @@ public class CampaignMapUI : MonoBehaviour, IUIPanel
         OnMapClosed?.Invoke();
     }
 
+    private void OnBackToWorldsClicked()
+    {
+        GameHaptics.Play(HapticEvent.UISelect);
+        UIAudio.Play(UISoundType.ButtonClick);
+        ShowWorldMap();
+    }
+
     public void ShowWorldMap()
     {
+        ClosePreLevelPopup();
         if (worldMapPanel != null) worldMapPanel.SetActive(true);
         if (levelSelectPanel != null) levelSelectPanel.SetActive(false);
     }
@@ -156,7 +216,9 @@ public class CampaignMapUI : MonoBehaviour, IUIPanel
         var world = database.Worlds[worldIndex];
         if (ProgressionManager.Instance != null && !ProgressionManager.Instance.IsWorldUnlocked(world))
         {
-            Debug.LogWarning($"[CampaignMapUI] World '{world.worldName}' is locked! Requires {world.requiredCompletedLevelsToUnlock} completed levels.");
+            UIAudio.Play(UISoundType.ErrorOrLocked);
+            string reqText = ProgressionManager.Instance.GetWorldUnlockRequirementText(world);
+            Debug.LogWarning($"[CampaignMapUI] World '{world.worldName}' is locked! ({reqText})");
             return;
         }
 
@@ -184,14 +246,16 @@ public class CampaignMapUI : MonoBehaviour, IUIPanel
 
         if (database == null) return;
 
-        // Populate worlds
         if (worldButtonContainer != null && worldButtonPrefab != null)
         {
+            if (worldButtonPrefab.gameObject.scene.IsValid())
+                worldButtonPrefab.gameObject.SetActive(false);
+
             for (int i = worldButtonContainer.childCount - 1; i >= 0; i--)
             {
                 var child = worldButtonContainer.GetChild(i).gameObject;
                 if (child != worldButtonPrefab.gameObject)
-                    SafeDestroy(child);
+                    Destroy(child);
             }
 
             for (int i = 0; i < database.Worlds.Count; i++)
@@ -206,11 +270,46 @@ public class CampaignMapUI : MonoBehaviour, IUIPanel
 
                 if (label != null)
                 {
-                    label.text = unlocked ? world.worldName : $"{world.worldName} (Locked)";
+                    if (unlocked)
+                    {
+                        label.text = world.worldName;
+                    }
+                    else
+                    {
+                        string reqText = ProgressionManager.Instance != null
+                            ? ProgressionManager.Instance.GetWorldUnlockRequirementText(world)
+                            : "Locked";
+                        label.text = string.IsNullOrEmpty(reqText)
+                            ? $"{world.worldName} (Locked)"
+                            : $"{world.worldName}\n<size=65%>{reqText}</size>";
+                    }
                 }
+
                 btn.interactable = unlocked;
-                btn.onClick.AddListener(() => SelectWorld(index));
+                btn.onClick.AddListener(() =>
+                {
+                    GameHaptics.Play(HapticEvent.UISelect);
+                    UIAudio.Play(UISoundType.ButtonClick);
+                    SelectWorld(index);
+                });
             }
+        }
+
+        RefreshSpawnedLevelWidgets();
+        RefreshPreLevelSummary();
+    }
+
+    public void RefreshSpawnedLevelWidgets()
+    {
+        for (int i = spawnedLevelWidgets.Count - 1; i >= 0; i--)
+        {
+            LevelNodeWidget widget = spawnedLevelWidgets[i];
+            if (widget == null)
+            {
+                spawnedLevelWidgets.RemoveAt(i);
+                continue;
+            }
+            widget.Refresh();
         }
     }
 
@@ -223,13 +322,14 @@ public class CampaignMapUI : MonoBehaviour, IUIPanel
 
         if (levelGridContainer == null || levelNodePrefab == null) return;
 
-        // Clear ALL existing children — defensive against stale nodes baked
-        // into the scene file or left behind by a previous refresh cycle.
+        if (levelNodePrefab.gameObject.scene.IsValid())
+            levelNodePrefab.gameObject.SetActive(false);
+
         for (int i = levelGridContainer.childCount - 1; i >= 0; i--)
         {
             var child = levelGridContainer.GetChild(i).gameObject;
             if (child != levelNodePrefab.gameObject)
-                SafeDestroy(child);
+                Destroy(child);
         }
         spawnedLevelWidgets.Clear();
 
@@ -250,25 +350,100 @@ public class CampaignMapUI : MonoBehaviour, IUIPanel
     {
         if (level == null) return;
 
+        if (ProgressionManager.Instance != null)
+            _ = ProgressionManager.Instance.GetLoadoutSlots();
+
+        if (preLevelLoadoutPopup != null)
+        {
+            pendingSelectedLevel = level;
+            RefreshPreLevelSummary();
+            preLevelLoadoutPopup.SetActive(true);
+            UIAudio.Play(UISoundType.PanelOpen);
+            return;
+        }
+
+        StartSelectedLevel(level);
+    }
+
+    private void RefreshPreLevelSummary()
+    {
+        if (preLevelLoadoutSummaryText == null)
+            return;
+
+        ProgressionManager pm = ProgressionManager.Instance;
+        IReadOnlyList<string> slots = pm != null ? pm.GetLoadoutSlots() : Array.Empty<string>();
+        var slotTexts = new List<string>(ProgressionManager.MaxLoadoutSlotCount);
+        for (int i = 0; i < ProgressionManager.MaxLoadoutSlotCount; i++)
+        {
+            string skillId = i < slots.Count ? slots[i] : string.Empty;
+            if (string.IsNullOrEmpty(skillId))
+            {
+                slotTexts.Add($"[{i + 1}: Empty]");
+            }
+            else
+            {
+                int count = pm != null ? pm.GetPowerUpCount(skillId) : 0;
+                string displayName = PowerUpController.Instance != null &&
+                                     PowerUpController.TryGetPowerUpType(skillId, out PowerUpType skillType)
+                    ? PowerUpController.Instance.ResolveDisplayName(skillType)
+                    : PowerUpController.GetFallbackDisplayName(skillId);
+                slotTexts.Add($"[{i + 1}: {displayName} ({count})]");
+            }
+        }
+
+        string levelTitle = pendingSelectedLevel != null ? pendingSelectedLevel.LevelId : string.Empty;
+        preLevelLoadoutSummaryText.text = string.IsNullOrEmpty(levelTitle)
+            ? string.Join("  ", slotTexts)
+            : $"{levelTitle}\n{string.Join("  ", slotTexts)}";
+    }
+
+    private void OnConfirmPreLevelStart()
+    {
+        GameHaptics.Play(HapticEvent.UISelect);
+        UIAudio.Play(UISoundType.ButtonClick);
+
+        LevelData toStart = pendingSelectedLevel;
+        ClosePreLevelPopup();
+        if (toStart != null)
+            StartSelectedLevel(toStart);
+    }
+
+    private void OnEditLoadoutFromPreLevel()
+    {
+        GameHaptics.Play(HapticEvent.UISelect);
+        UIAudio.Play(UISoundType.ButtonClick);
+
+        ClosePreLevelPopup();
+        UIManager.Instance?.OpenPanel(UIPanelType.Powerups);
+    }
+
+    private void OnCancelPreLevelClicked()
+    {
+        GameHaptics.Play(HapticEvent.UISelect);
+        UIAudio.Play(UISoundType.ButtonClick);
+        ClosePreLevelPopup();
+    }
+
+    private void ClosePreLevelPopup()
+    {
+        pendingSelectedLevel = null;
+        if (preLevelLoadoutPopup != null)
+            preLevelLoadoutPopup.SetActive(false);
+    }
+
+    private void StartSelectedLevel(LevelData level)
+    {
+        if (level == null) return;
+
         Debug.Log($"[CampaignMapUI] Selected level: {level.LevelId}");
 
-        // Store in session
         if (GameSession.Instance != null)
-        {
             GameSession.Instance.pendingLevel = level;
-        }
 
-        // Start the level BEFORE closing the map: OnMapClosed listeners
-        // (e.g. MainMenuUI) check the flow state, and it must no longer be
-        // Idle when the event fires or the menu would re-open during gameplay.
         if (flowController != null)
-        {
             flowController.StartLevel(level);
-        }
         else if (!string.IsNullOrEmpty(gameplaySceneName) && SceneManager.GetActiveScene().name != gameplaySceneName)
-        {
             SceneLoader.Load(gameplaySceneName);
-        }
 
         RequestClose();
     }
@@ -283,57 +458,21 @@ public class CampaignMapUI : MonoBehaviour, IUIPanel
     private void HandleReturnToMap()
     {
         if (UIManager.Instance != null)
-            UIManager.Instance.OpenPanel(UIPanelType.Map);
+            UIManager.Instance.ShowScreen(UIPanelType.Map);
         else
             OpenMap();
     }
 
     private void HandleLevelStarted()
     {
-        // Safety net: any StartLevel path (not just level-node clicks) must
-        // clear the map — both its visuals and the UIManager slot.
         RequestClose();
     }
 
     private void RequestClose()
     {
         if (UIManager.Instance != null && UIManager.Instance.IsPanelOpen(UIPanelType.Map))
-            UIManager.Instance.CloseCurrentPanel();
+            UIManager.Instance.ClosePanelIfOpen(UIPanelType.Map);
         else
             CloseMap();
     }
-
-    // ─────────────────────────────────────────────────────────────
-    //  Side buttons
-    // ─────────────────────────────────────────────────────────────
-
-    private void OnOpenChest()
-    {
-        if (blindBoxUI != null)
-            blindBoxUI.ShowPanel();
-    }
-
-    private void OnFreePower()
-    {
-        if (adRewardService == null) return;
-        if (freePowerButton != null) freePowerButton.interactable = false;
-
-        adRewardService.WatchAdForReward(RewardedAdPlacement.FreePower, 0, success =>
-        {
-            if (!isActiveAndEnabled) return;
-            if (freePowerButton != null) freePowerButton.interactable = true;
-            if (success && ProgressionManager.Instance != null)
-                ProgressionManager.Instance.AddPowerUp(freePowerId, 1);
-        });
-    }
-
-    private static void SafeDestroy(GameObject go)
-    {
-        if (go == null) return;
-        if (Application.isPlaying)
-            Destroy(go);
-        else
-            DestroyImmediate(go);
-    }
 }
-

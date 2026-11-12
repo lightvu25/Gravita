@@ -1,0 +1,65 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a8a17f644e62df49a80458c22e9a8f8, type: 3}
+  m_Name: Maze_Navigate_104729
+  m_EditorClassIdentifier: Assembly-CSharp::MazeMapData
+  width: 13
+  height: 21
+  seed: 104729
+  profileId: Navigate
+  sizePreset: 1
+  patternLibraryVersion: 1
+  generatorVersion: 1
+  qualityScore: 99.22222
+  difficultyFit: 80
+  solutionMoves: 12
+  decisionStops: 5
+  stopGraphLoops: 10
+  spawn: {x: 6, y: 10}
+  exit: {x: 2, y: 19}
+  rows:
+  - '#############'
+  - '#.E##...#..##'
+  - '#.....#...###'
+  - '#...##..#####'
+  - '##.###.######'
+  - '#...#..######'
+  - '#.#...#....##'
+  - '#..##...##.##'
+  - '##.###.###.##'
+  - '##.###.###.##'
+  - '##....S###.##'
+  - '##.#######.##'
+  - '##.#######.##'
+  - '##.######..##'
+  - '##.##.###.###'
+  - '##.##..##..##'
+  - '##.###.###.##'
+  - '##.###.###.##'
+  - '##.........##'
+  - '#############'
+  - '#############'
+  solutionStops:
+  - {x: 6, y: 10}
+  - {x: 6, y: 13}
+  - {x: 5, y: 13}
+  - {x: 5, y: 15}
+  - {x: 6, y: 15}
+  - {x: 6, y: 17}
+  - {x: 7, y: 17}
+  - {x: 7, y: 19}
+  - {x: 5, y: 19}
+  - {x: 5, y: 18}
+  - {x: 1, y: 18}
+  - {x: 1, y: 19}
+  - {x: 2, y: 19}
+  solutionDirections: 000000000300000000000000010000000000000001000000000000000300000002000000030000000000000001000000

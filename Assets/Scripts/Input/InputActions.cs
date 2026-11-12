@@ -22,11 +22,19 @@ public class InputActions
 
     public class PlayerActions
     {
-        public InputAction Menu        = new InputAction("Menu",        InputActionType.Button);
-        public InputAction PlayerLeft  = new InputAction("PlayerLeft",  InputActionType.Button);
-        public InputAction PlayerRight = new InputAction("PlayerRight", InputActionType.Button);
-        public InputAction PlayerUp    = new InputAction("PlayerUp",    InputActionType.Button);
-        public InputAction PlayerDown  = new InputAction("PlayerDown",  InputActionType.Button);
+        public InputAction Menu        = new InputAction("Menu",        InputActionType.Button, "<Keyboard>/escape");
+        public InputAction PlayerLeft  = new InputAction("PlayerLeft",  InputActionType.Button, "<Keyboard>/a");
+        public InputAction PlayerRight = new InputAction("PlayerRight", InputActionType.Button, "<Keyboard>/d");
+        public InputAction PlayerUp    = new InputAction("PlayerUp",    InputActionType.Button, "<Keyboard>/w");
+        public InputAction PlayerDown  = new InputAction("PlayerDown",  InputActionType.Button, "<Keyboard>/s");
+
+        public PlayerActions()
+        {
+            PlayerLeft.AddBinding("<Keyboard>/leftArrow");
+            PlayerRight.AddBinding("<Keyboard>/rightArrow");
+            PlayerUp.AddBinding("<Keyboard>/upArrow");
+            PlayerDown.AddBinding("<Keyboard>/downArrow");
+        }
 
         public void Enable()
         {

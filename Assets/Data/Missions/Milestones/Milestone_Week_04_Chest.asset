@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c8f447c5df53fd046a89a126d6127fc1, type: 3}
+  m_Name: Milestone_Week_04_Chest
+  m_EditorClassIdentifier: Assembly-CSharp::MissionMilestoneDefinition
+  milestoneId: weekly_milestone_04
+  title: Weekly Grand Chest (14 Tasks)
+  requiredCompletedMissions: 14
+  rewardAmount: 10
+  rewardType: 1
+  powerUpId: breaker
+  cosmeticId: 
+  incompleteSprite: {fileID: -8446605178305373086, guid: d995477960341ea4888f87cbe8e73346, type: 3}
+  completeSprite: {fileID: 9010940287047064624, guid: cca65fe4faaf6944dbb74a4efa699650, type: 3}
+  claimedSprite: {fileID: 4386233114096597284, guid: d4bd6ae6ed869274eb89e7d741b74c0f, type: 3}
+  rewardIcon: {fileID: 9010940287047064624, guid: cca65fe4faaf6944dbb74a4efa699650, type: 3}

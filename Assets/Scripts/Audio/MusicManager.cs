@@ -5,7 +5,7 @@ using UnityEngine;
 using UnityEngine.Audio;
 using UnityEngine.SceneManagement;
 
-[System.Serializable]
+[Serializable]
 public struct SceneMusicEntry
 {
     [Tooltip("The exact name of the scene (as it appears in Build Settings).")]
@@ -28,7 +28,7 @@ public class MusicManager : MonoBehaviour
     [Header("Audio Sources")]
     [SerializeField] private AudioSource musicSource;
     [SerializeField] private AudioSource ambientSource;
-    
+
     private const int MUSIC_VOLUME_MAX = 10;
 
     private static float musicTime;
@@ -52,14 +52,13 @@ public class MusicManager : MonoBehaviour
     {
         if (Instance != null && Instance != this)
         {
-            Destroy(this);
+            Destroy(gameObject);
             return;
         }
 
         Instance = this;
         DontDestroyOnLoad(gameObject);
 
-        // Load volume from PlayerPrefs
         musicVolume = PlayerPrefs.GetInt(PREF_KEY, 4);
 
         if (musicMixerGroup != null)
@@ -68,7 +67,8 @@ public class MusicManager : MonoBehaviour
             if (ambientSource != null) ambientSource.outputAudioMixerGroup = musicMixerGroup;
         }
 
-        if (musicSource != null) musicSource.time = musicTime;
+        if (musicSource != null)
+            musicSource.time = musicTime;
 
         SceneManager.sceneLoaded += OnSceneLoaded;
     }
@@ -76,13 +76,15 @@ public class MusicManager : MonoBehaviour
     private void OnDestroy()
     {
         SceneManager.sceneLoaded -= OnSceneLoaded;
-
         if (Instance == this)
             Instance = null;
     }
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
+        if (sceneMusicEntries == null)
+            return;
+
         foreach (var entry in sceneMusicEntries)
         {
             if (entry.sceneName != scene.name) continue;
@@ -106,14 +108,13 @@ public class MusicManager : MonoBehaviour
     private void Start()
     {
         ApplyMixerVolume();
-        
+
         if (musicCrossfadeCoroutine == null && musicSource != null)
             musicSource.volume = 1f;
-            
+
         if (ambientCrossfadeCoroutine == null && ambientSource != null)
             ambientSource.volume = 1f;
 
-        // Trigger for the first scene since Awake is too early for sceneLoaded
         OnSceneLoaded(SceneManager.GetActiveScene(), LoadSceneMode.Single);
     }
 
@@ -129,8 +130,8 @@ public class MusicManager : MonoBehaviour
 
     public void PlayMusicClip(AudioClip clip, float fadeDuration = 0.5f)
     {
-        // Only skip if the SAME clip is already actively playing — not just assigned.
-        if (clip == null || (musicSource.clip == clip && musicSource.isPlaying)) return;
+        if (clip == null || musicSource == null || (musicSource.clip == clip && musicSource.isPlaying))
+            return;
 
         if (musicCrossfadeCoroutine != null)
             StopCoroutine(musicCrossfadeCoroutine);
@@ -140,8 +141,8 @@ public class MusicManager : MonoBehaviour
 
     public void PlayAmbientClip(AudioClip clip, float fadeDuration = 0.5f)
     {
-        // Only skip if the SAME clip is already actively playing — not just assigned.
-        if (clip == null || (ambientSource.clip == clip && ambientSource.isPlaying)) return;
+        if (clip == null || ambientSource == null || (ambientSource.clip == clip && ambientSource.isPlaying))
+            return;
 
         if (ambientCrossfadeCoroutine != null)
             StopCoroutine(ambientCrossfadeCoroutine);
@@ -151,12 +152,18 @@ public class MusicManager : MonoBehaviour
 
     public void StopMusic(float fadeDuration = 0.5f)
     {
+        if (musicSource == null)
+            return;
+
         if (musicCrossfadeCoroutine != null) StopCoroutine(musicCrossfadeCoroutine);
         musicCrossfadeCoroutine = StartCoroutine(FadeOutAndStop(musicSource, fadeDuration));
     }
 
     public void StopAmbient(float fadeDuration = 0.5f)
     {
+        if (ambientSource == null)
+            return;
+
         if (ambientCrossfadeCoroutine != null) StopCoroutine(ambientCrossfadeCoroutine);
         ambientCrossfadeCoroutine = StartCoroutine(FadeOutAndStop(ambientSource, fadeDuration));
     }
@@ -167,11 +174,13 @@ public class MusicManager : MonoBehaviour
 
     private IEnumerator AnimateCrossfade(AudioSource source, AudioClip nextTrack, float fadeDuration, bool isMusic)
     {
+        if (source == null)
+            yield break;
+
         float halfDuration = fadeDuration / 2f;
         float startVolume = source.volume;
         float elapsed = 0f;
 
-        // Fade out
         while (elapsed < halfDuration)
         {
             elapsed += Time.deltaTime;
@@ -180,12 +189,10 @@ public class MusicManager : MonoBehaviour
         }
         source.volume = 0f;
 
-        // Switch track
         source.clip = nextTrack;
         if (isMusic) musicTime = 0f;
         source.Play();
 
-        // Fade in
         elapsed = 0f;
         while (elapsed < halfDuration)
         {
@@ -201,6 +208,9 @@ public class MusicManager : MonoBehaviour
 
     private IEnumerator FadeOutAndStop(AudioSource source, float fadeDuration)
     {
+        if (source == null)
+            yield break;
+
         float startVolume = source.volume;
         float elapsed = 0f;
         while (elapsed < fadeDuration)
@@ -224,7 +234,13 @@ public class MusicManager : MonoBehaviour
         ApplyMixerVolume();
         OnMusicVolumeChanged?.Invoke(this, EventArgs.Empty);
     }
-    public void SaveVolume() { PlayerPrefs.SetInt(PREF_KEY, musicVolume); PlayerPrefs.Save(); }
+
+    public void SaveVolume()
+    {
+        PlayerPrefs.SetInt(PREF_KEY, musicVolume);
+        PlayerPrefs.Save();
+    }
+
     private void ApplyMixerVolume()
     {
         if (audioMixer != null)
@@ -234,13 +250,17 @@ public class MusicManager : MonoBehaviour
             audioMixer.SetFloat(musicVolumeParam, dbValue);
         }
     }
+
     public int GetMusicVolume() => musicVolume;
     public float GetMusicVolumeNormalized() => (float)musicVolume / MUSIC_VOLUME_MAX;
 
     public void DuckMusic(bool isDucking)
     {
+        if (musicSource == null)
+            return;
+
         float targetVolume = isDucking ? 0.3f : 1f;
+        musicSource.DOKill();
         musicSource.DOFade(targetVolume, 0.5f).SetUpdate(true);
     }
-
 }

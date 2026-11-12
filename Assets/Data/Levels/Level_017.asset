@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a964c4d0ba9e872468021ba89e083af0, type: 3}
+  m_Name: Level_017
+  m_EditorClassIdentifier: Assembly-CSharp::LevelData
+  levelId: Level_017
+  displayName: 17
+  difficulty: 1
+  world: 1
+  layoutPrefab: {fileID: 3789786155791779508, guid: 4b5d3ee5e6d2072478eeabb2f57ffca2, type: 3}
+  primaryObjective:
+    objectiveType: 0
+    requiredCount: 1
+    description: 'Intro: Combined Skill & Route Planning'
+  optionalObjectives:
+  - objectiveType: 1
+    requiredCount: 2
+    description: Collect bonus stars along the route
+  baseCoinReward: 22
+  optionalCoinBonus: 5
+  baseExpReward: 85
+  expBonusPerStar: 15
+  replayExpReward: 20

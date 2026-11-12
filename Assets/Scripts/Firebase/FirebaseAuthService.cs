@@ -6,17 +6,17 @@ using UnityEngine;
 
 /// <summary>
 /// IAuthService backed by Firebase Authentication.
-///
-/// Supports email/password sign-in and registration plus anonymous guest
-/// sign-in. Translates Firebase's numeric <see cref="AuthError"/> codes into
-/// readable messages so the UI never has to know Firebase-specific details.
+/// Supports email/password sign-in and registration, Google OAuth 2.0 sign-in (Mobile & Desktop/Editor),
+/// and seamless upgrading of anonymous guest accounts.
 /// </summary>
 public class FirebaseAuthService : IAuthService
 {
     private readonly FirebaseAuth auth;
+    private bool lastKnownIsAnonymous;
 
     public AuthState State { get; private set; } = AuthState.Loading;
     public bool IsSignedIn => auth != null && auth.CurrentUser != null;
+    public bool IsAnonymous => IsSignedIn && auth.CurrentUser.IsAnonymous;
     public string UserId => IsSignedIn ? auth.CurrentUser.UserId : null;
     public string Email => IsSignedIn ? auth.CurrentUser.Email : null;
 
@@ -32,15 +32,9 @@ public class FirebaseAuthService : IAuthService
             return;
         }
 
-        // FirebaseAuth fires this whenever the signed-in user changes —
-        // including silently at startup when it restores a saved session.
         auth.StateChanged += HandleAuthStateChanged;
         RefreshState();
     }
-
-    // ---------------------------------------------------------------
-    //  Sign-in operations
-    // ---------------------------------------------------------------
 
     public async Task<string> SignInAnonymouslyAsync()
     {
@@ -51,6 +45,7 @@ public class FirebaseAuthService : IAuthService
         {
             Firebase.Auth.AuthResult result = await auth.SignInAnonymouslyAsync();
             string uid = result != null && result.User != null ? result.User.UserId : null;
+            RefreshState();
             if (!string.IsNullOrEmpty(uid))
                 OnUserSignedIn?.Invoke(uid);
             return uid;
@@ -64,22 +59,20 @@ public class FirebaseAuthService : IAuthService
 
     public async Task<AuthResult> SignInWithGoogleAsync()
     {
-        if (auth == null) return AuthResult.Fail("Firebase is not initialized yet — try again in a moment.");
+        if (auth == null)
+            return AuthResult.Fail("Firebase chưa sẵn sàng — vui lòng thử lại sau giây lát.");
 
         try
         {
-            var providerData = new FederatedOAuthProviderData
-            {
-                ProviderId = "google.com"
-            };
-            var provider = new FederatedOAuthProvider(providerData);
-            Firebase.Auth.AuthResult result = await auth.SignInWithProviderAsync(provider);
-            string uid = result != null && result.User != null ? result.User.UserId : null;
-            if (string.IsNullOrEmpty(uid))
-                return AuthResult.Fail("Google sign-in returned no user.");
+            bool isMobileNative = !Application.isEditor
+                && (Application.platform == RuntimePlatform.Android || Application.platform == RuntimePlatform.IPhonePlayer);
 
-            OnUserSignedIn?.Invoke(uid);
-            return AuthResult.Ok(uid);
+            if (isMobileNative)
+            {
+                return await SignInWithGoogleMobileProviderAsync();
+            }
+
+            return await SignInWithGoogleLoopbackCredentialAsync();
         }
         catch (FirebaseException e)
         {
@@ -88,21 +81,96 @@ public class FirebaseAuthService : IAuthService
         catch (Exception e)
         {
             Debug.LogWarning($"[FirebaseAuthService] Google sign-in failed: {e}");
-            return AuthResult.Fail("Google sign-in failed — please try again.");
+            return AuthResult.Fail("Đăng nhập Google thất bại — vui lòng thử lại.");
         }
+    }
+
+    private async Task<AuthResult> SignInWithGoogleMobileProviderAsync()
+    {
+        var providerData = new FederatedOAuthProviderData
+        {
+            ProviderId = "google.com"
+        };
+        var provider = new FederatedOAuthProvider(providerData);
+
+        Firebase.Auth.AuthResult result = null;
+        if (IsAnonymous && auth.CurrentUser != null)
+        {
+            try
+            {
+                result = await auth.CurrentUser.LinkWithProviderAsync(provider);
+            }
+            catch (FirebaseException linkEx) when (IsCredentialAlreadyInUseError((AuthError)linkEx.ErrorCode))
+            {
+                result = await auth.SignInWithProviderAsync(provider);
+            }
+        }
+        else
+        {
+            result = await auth.SignInWithProviderAsync(provider);
+        }
+
+        string uid = result != null && result.User != null ? result.User.UserId : null;
+        if (string.IsNullOrEmpty(uid))
+            return AuthResult.Fail("Google sign-in returned no user.");
+
+        RefreshState();
+        OnUserSignedIn?.Invoke(uid);
+        return AuthResult.Ok(uid);
+    }
+
+    private async Task<AuthResult> SignInWithGoogleLoopbackCredentialAsync()
+    {
+        GoogleOAuthHelper.GoogleTokenResult tokenResult =
+            await GoogleOAuthHelper.AcquireTokensViaLoopbackAsync(GoogleAuthConfig.Active);
+
+        if (!tokenResult.Success)
+            return AuthResult.Fail(tokenResult.ErrorMessage);
+
+        Credential credential = GoogleAuthProvider.GetCredential(tokenResult.IdToken, tokenResult.AccessToken);
+        FirebaseUser signedInUser = null;
+
+        if (IsAnonymous && auth.CurrentUser != null)
+        {
+            try
+            {
+                Firebase.Auth.AuthResult linkResult = await auth.CurrentUser.LinkWithCredentialAsync(credential);
+                signedInUser = linkResult != null ? linkResult.User : auth.CurrentUser;
+            }
+            catch (FirebaseException linkEx) when (IsCredentialAlreadyInUseError((AuthError)linkEx.ErrorCode))
+            {
+                signedInUser = await auth.SignInWithCredentialAsync(credential);
+            }
+        }
+        else
+        {
+            signedInUser = await auth.SignInWithCredentialAsync(credential);
+        }
+
+        string uid = signedInUser != null ? signedInUser.UserId : UserId;
+        if (string.IsNullOrEmpty(uid))
+            return AuthResult.Fail("Google sign-in returned no user.");
+
+        RefreshState();
+        OnUserSignedIn?.Invoke(uid);
+        return AuthResult.Ok(uid);
     }
 
     public async Task<AuthResult> SignInAsync(string email, string password)
     {
-        if (auth == null) return AuthResult.Fail("Firebase is not initialized yet — try again in a moment.");
+        if (auth == null)
+            return AuthResult.Fail("Firebase chưa sẵn sàng — vui lòng thử lại sau giây lát.");
 
         try
         {
             Firebase.Auth.AuthResult result = await auth.SignInWithEmailAndPasswordAsync(email, password);
             string uid = result != null && result.User != null ? result.User.UserId : null;
-            return string.IsNullOrEmpty(uid)
-                ? AuthResult.Fail("Sign-in returned no user.")
-                : AuthResult.Ok(uid);
+            if (string.IsNullOrEmpty(uid))
+                return AuthResult.Fail("Sign-in returned no user.");
+
+            RefreshState();
+            OnUserSignedIn?.Invoke(uid);
+            return AuthResult.Ok(uid);
         }
         catch (FirebaseException e)
         {
@@ -117,15 +185,29 @@ public class FirebaseAuthService : IAuthService
 
     public async Task<AuthResult> RegisterAsync(string email, string password)
     {
-        if (auth == null) return AuthResult.Fail("Firebase is not initialized yet — try again in a moment.");
+        if (auth == null)
+            return AuthResult.Fail("Firebase chưa sẵn sàng — vui lòng thử lại sau giây lát.");
 
         try
         {
-            Firebase.Auth.AuthResult result = await auth.CreateUserWithEmailAndPasswordAsync(email, password);
-            string uid = result != null && result.User != null ? result.User.UserId : null;
-            return string.IsNullOrEmpty(uid)
-                ? AuthResult.Fail("Registration returned no user.")
-                : AuthResult.Ok(uid);
+            Firebase.Auth.AuthResult result;
+            if (IsAnonymous && auth.CurrentUser != null)
+            {
+                Credential credential = EmailAuthProvider.GetCredential(email, password);
+                result = await auth.CurrentUser.LinkWithCredentialAsync(credential);
+            }
+            else
+            {
+                result = await auth.CreateUserWithEmailAndPasswordAsync(email, password);
+            }
+
+            string uid = result != null && result.User != null ? result.User.UserId : UserId;
+            if (string.IsNullOrEmpty(uid))
+                return AuthResult.Fail("Registration returned no user.");
+
+            RefreshState();
+            OnUserSignedIn?.Invoke(uid);
+            return AuthResult.Ok(uid);
         }
         catch (FirebaseException e)
         {
@@ -143,17 +225,13 @@ public class FirebaseAuthService : IAuthService
         try
         {
             auth?.SignOut();
+            RefreshState();
         }
         catch (Exception e)
         {
             Debug.LogWarning($"[FirebaseAuthService] Sign-out failed: {e.Message}");
         }
     }
-
-    // ---------------------------------------------------------------
-    //  State tracking — the SDK tells us when the user changes, we
-    //  translate that into our simple AuthState for the rest of the game.
-    // ---------------------------------------------------------------
 
     private void HandleAuthStateChanged(object sender, EventArgs e)
     {
@@ -165,16 +243,23 @@ public class FirebaseAuthService : IAuthService
         AuthState newState = auth == null ? AuthState.Error
             : IsSignedIn ? AuthState.SignedIn
             : AuthState.SignedOut;
-        if (newState == State) return;
+        bool currentAnonymous = IsAnonymous;
+
+        if (newState == State && currentAnonymous == lastKnownIsAnonymous)
+            return;
 
         State = newState;
+        lastKnownIsAnonymous = currentAnonymous;
         OnStateChanged?.Invoke();
     }
 
-    /// <summary>
-    /// Turns Firebase's numeric error codes into sentences a player can read.
-    /// (AuthError)e.ErrorCode converts the raw int into the named enum.
-    /// </summary>
+    private static bool IsCredentialAlreadyInUseError(AuthError error)
+    {
+        return error == AuthError.CredentialAlreadyInUse
+            || error == AuthError.EmailAlreadyInUse
+            || error == AuthError.AccountExistsWithDifferentCredentials;
+    }
+
     private static string ToFriendlyMessage(FirebaseException e)
     {
         switch ((AuthError)e.ErrorCode)
@@ -183,12 +268,13 @@ public class FirebaseAuthService : IAuthService
                 return "That doesn't look like a valid email address.";
             case AuthError.WrongPassword:
             case AuthError.InvalidCredential:
-            case AuthError.Failure: // desktop SDK reports bad credentials as generic Failure
+            case AuthError.Failure:
                 return "Email or password is incorrect.";
             case AuthError.UserNotFound:
                 return "No account exists for that email — try Register instead.";
             case AuthError.EmailAlreadyInUse:
-                return "That email is already registered — try Login instead.";
+            case AuthError.CredentialAlreadyInUse:
+                return "That account is already registered — try Login instead.";
             case AuthError.WeakPassword:
                 return "Password is too weak — use at least 6 characters.";
             case AuthError.MissingPassword:

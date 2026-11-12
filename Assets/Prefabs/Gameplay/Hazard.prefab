@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 8579933379903023734}
   - component: {fileID: 5587887499294862162}
   - component: {fileID: -2875946677773916403}
+  - component: {fileID: 3665248739491757173}
   m_Layer: 0
   m_Name: Hazard
   m_TagString: Untagged
@@ -61,7 +62,7 @@ SpriteRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: a97c105638bdf8b4a8650670310a4cd3, type: 2}
+  - {fileID: 2100000, guid: 95fc7004bad26e34e893c1839c4218ee, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -158,7 +159,7 @@ BoxCollider2D:
   m_Offset: {x: -0.015625, y: 0.484375}
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
-    pivot: {x: 0.516129, y: 0}
+    pivot: {x: 0.5, y: 0.5}
     oldSize: {x: 0.96875, y: 0.96875}
     newSize: {x: 5.76, y: 3.24}
     adaptiveTilingThreshold: 0.5
@@ -180,3 +181,27 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hazard
   failReason: You hit a hazard!
+  isEnemy: 0
+  breakableByBreaker: 1
+  supportsFreeze: 1
+  intactVisual: {fileID: 0}
+--- !u!114 &3665248739491757173
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5909852432008664779}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c927ea10469a0704ca14e68badbb708b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::InteractionEffectPlayer
+  effectPrefabs: []
+  defaultAnchor: 0
+  customDefaultAnchor: {fileID: 0}
+  defaultOffset: {x: 0, y: 0, z: 0}
+  alignToInteractionDirection: 0
+  defaultAnimationStateName: 
+  defaultCameraShake: 0
+  rules: []

@@ -5,6 +5,7 @@ public interface IAuthService
 {
     AuthState State { get; }
     bool IsSignedIn { get; }
+    bool IsAnonymous { get; }
     string UserId { get; }
     string Email { get; }
     event Action<string> OnUserSignedIn;

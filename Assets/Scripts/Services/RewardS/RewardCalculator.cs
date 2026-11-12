@@ -1,27 +1,28 @@
 using UnityEngine;
 
 /// <summary>
-/// Pure calculation logic evaluating puzzle completion context into a RewardBundle.
-/// Ensures replay completions grant reduced soft currency without inflating premium gems.
-/// Stars are not a grantable reward — they are earned through level completion and
-/// tracked by ProgressionManager.
+/// Legacy pure calculation helper retained for compatibility; aligned with
+/// <see cref="EconomyBalanceConfig"/> and <see cref="CampaignEconomyService"/> (GDD §4):
+///   - First clear grants Sector-configured Coins once (zero direct star bonus Coins/Gems).
+///   - Unimproved replay grants 0 Coins and 0 Gems (replay star upgrades are settled via <see cref="CampaignEconomyService"/>).
 /// </summary>
 public static class RewardCalculator
 {
     public const int FirstClearBaseCoins = 50;
-    public const int OptionalObjectiveBonusCoins = 25;
-    public const int ReplayBaseCoins = 15;
+    public const int OptionalObjectiveBonusCoins = 0;
+    public const int ReplayBaseCoins = 0;
 
-    public const int ThreeStarBonusGems = 1;
+    public const int FirstClearBaseExp = 50;
+    public const int BonusExpPerStar = 15;
+    public const int ReplayBaseExp = 20;
+
+    public const int ThreeStarBonusGems = 0;
 
     /// <summary>
-    /// Calculates the rewards earned for completing a puzzle level.
+    /// Calculates the baseline first-clear reward bundle for a puzzle level (GDD §4.1–§4.2).
+    /// Note: Authoritative Campaign settlement (including replay star upgrades and sector milestones)
+    /// is executed atomically by <see cref="CampaignEconomyService.SettleLevelCompletion"/>.
     /// </summary>
-    /// <param name="levelData">Level data definition.</param>
-    /// <param name="starsEarned">Total stars earned (1 to 3).</param>
-    /// <param name="isFirstClear">Whether this level has never been cleared before.</param>
-    /// <param name="optionalObjectivesCompleted">Number of optional objectives met.</param>
-    /// <returns>A configured RewardBundle ready for dispatch by RewardService.</returns>
     public static RewardBundle CalculateLevelRewards(
         LevelData levelData, 
         int starsEarned, 
@@ -32,23 +33,14 @@ public static class RewardCalculator
 
         if (isFirstClear)
         {
-            // First-clear reward calculation
-            int totalCoins = FirstClearBaseCoins + (Mathf.Max(0, optionalObjectivesCompleted) * OptionalObjectiveBonusCoins);
-            bundle.Add(RewardType.Coins, totalCoins);
-
-            // Premium gem bonus for flawless first 3-star performance
-            if (starsEarned >= 3)
+            int sectorNumber = levelData != null ? Mathf.Max(1, levelData.World) : 1;
+            int totalCoins = EconomyBalanceConfig.Active.GetFirstClearCoins(levelData, sectorNumber);
+            if (totalCoins > 0)
             {
-                bundle.Add(RewardType.Gems, ThreeStarBonusGems);
+                bundle.Add(RewardType.Coins, totalCoins);
             }
-        }
-        else
-        {
-            // Replay completion: modest soft currency only, strictly zero gems
-            bundle.Add(RewardType.Coins, ReplayBaseCoins);
         }
 
         return bundle;
     }
 }
-

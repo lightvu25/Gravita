@@ -58,6 +58,19 @@ public class LevelData : ScriptableObject
     [Min(0)]
     public int optionalCoinBonus = 5;
 
+    [Header("EXP Rewards")]
+    [Tooltip("Base player EXP granted when completing this level for the first time.")]
+    [Min(0)]
+    public int baseExpReward = 50;
+
+    [Tooltip("Bonus player EXP added per star earned on first completion.")]
+    [Min(0)]
+    public int expBonusPerStar = 15;
+
+    [Tooltip("Player EXP granted when replaying and completing this level.")]
+    [Min(0)]
+    public int replayExpReward = 20;
+
     // ─────────────────────────────────────────────────────────────
     //  Convenience Accessors
     // ─────────────────────────────────────────────────────────────

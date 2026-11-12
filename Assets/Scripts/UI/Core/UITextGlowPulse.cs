@@ -2,13 +2,6 @@ using DG.Tweening;
 using TMPro;
 using UnityEngine;
 
-/// <summary>
-/// Pulsing glow/flicker for a TMP text. Drives a breathing alpha pulse plus
-/// occasional random flicker dips, and optionally modulates the glow
-/// intensity of an SDF font material that has GLOW_ON enabled (e.g.
-/// "BoldPixels SDF Glow"). Runs on unscaled time so it works in Bootstrap
-/// and pause screens.
-/// </summary>
 public class UITextGlowPulse : MonoBehaviour
 {
     [Header("Target")]

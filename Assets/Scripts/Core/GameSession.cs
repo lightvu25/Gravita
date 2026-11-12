@@ -4,8 +4,6 @@ public class GameSession : MonoBehaviour
 {
     public static GameSession Instance { get; private set; }
 
-    [SerializeField] private string hubWorldSceneName = "GameScene";
-
     public ProfileData currentProfile;
 
     [HideInInspector] public LevelData pendingLevel;
@@ -14,7 +12,7 @@ public class GameSession : MonoBehaviour
     {
         if (Instance != null && Instance != this)
         {
-            Destroy(this);
+            Destroy(gameObject);
             return;
         }
 
@@ -26,9 +24,16 @@ public class GameSession : MonoBehaviour
 
         Initialize();
     }
-    
+
+    private void OnDestroy()
+    {
+        if (Instance == this)
+            Instance = null;
+    }
+
     private void Initialize()
     {
         currentProfile = SaveManager.loadProfile();
+        MissionService.EnsureSessionInitialized();
     }
 }

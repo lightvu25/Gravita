@@ -20,7 +20,7 @@ public class DailyRewardService : MonoBehaviour
     {
         if (Instance != null && Instance != this)
         {
-            Destroy(gameObject);
+            Destroy(this);
             return;
         }
 
@@ -39,6 +39,9 @@ public class DailyRewardService : MonoBehaviour
     /// </summary>
     public bool CanClaimDailyReward()
     {
+        if (!EconomyBalanceConfig.Active.EnableLegacyExtraRewardSystems)
+            return false;
+
         if (lastClaimUtcTicks == 0) return true;
 
         var lastClaimDate = new DateTime(lastClaimUtcTicks, DateTimeKind.Utc).Date;

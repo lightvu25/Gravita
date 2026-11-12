@@ -5,6 +5,6 @@ public enum ShopCostType
 {
     Coins,
     Gems,
-    RealMoney
+    RealMoney,
+    Free
 }
-

@@ -13,6 +13,8 @@ GameObject:
   - component: {fileID: 3943797636791306657}
   - component: {fileID: 875122119284525189}
   - component: {fileID: 4334798803899110256}
+  - component: {fileID: 5526681562828486506}
+  - component: {fileID: 541080958445350375}
   m_Layer: 0
   m_Name: Star
   m_TagString: Untagged
@@ -61,7 +63,7 @@ SpriteRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: a97c105638bdf8b4a8650670310a4cd3, type: 2}
+  - {fileID: 2100000, guid: 95fc7004bad26e34e893c1839c4218ee, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -159,7 +161,7 @@ BoxCollider2D:
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
     pivot: {x: 0.4814815, y: -0.11111111}
-    oldSize: {x: 0.27, y: 0.27}
+    oldSize: {x: 0.84375, y: 0.84375}
     newSize: {x: 0.27, y: 0.27}
     adaptiveTilingThreshold: 0.5
     drawMode: 0
@@ -176,8 +178,58 @@ MonoBehaviour:
   m_GameObject: {fileID: 1417832908994950428}
   m_Enabled: 1
   m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e6f874da1d21d6a4d95bd13aceb89ad9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Collectible
+  collectibleType: 1
+  pickupId: 
+  value: 1
+  visualRenderer: {fileID: 6787468349214917308}
+  collectSfx: {fileID: 8300000, guid: 13db4d7be8fd0564db7a862d800b8d82, type: 3}
+  collectSfxVolume: 1
+  collectParticlePrefab: {fileID: 0}
+  collectAnimationPrefab: {fileID: 7293648791584052218, guid: 0b469c3933d29524b8f9e5b38bca4f15, type: 3}
+  collectAnimationStateName: 
+--- !u!114 &5526681562828486506
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1417832908994950428}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c927ea10469a0704ca14e68badbb708b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::InteractionEffectPlayer
+  effectPrefabs:
+  - {fileID: 7293648791584052218, guid: 0b469c3933d29524b8f9e5b38bca4f15, type: 3}
+  - {fileID: 7559537190609695430, guid: 2bcb228e93f27684f808a3b9744d0f2a, type: 3}
+  defaultAnchor: 0
+  customDefaultAnchor: {fileID: 0}
+  defaultOffset: {x: 0, y: 0, z: 0}
+  alignToInteractionDirection: 0
+  defaultAnimationStateName: 
+  defaultCameraShake: 0.06
+  rules: []
+--- !u!114 &541080958445350375
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1417832908994950428}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 9dd75471d9ae4f2fac6b157092ccbb42, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::StarCollectible
+  collectibleType: 1
   pickupId: 
   value: 1
+  visualRenderer: {fileID: 0}
+  collectSfx: {fileID: 0}
+  collectSfxVolume: 1
+  collectParticlePrefab: {fileID: 0}
+  collectAnimationPrefab: {fileID: 0}
+  collectAnimationStateName: 

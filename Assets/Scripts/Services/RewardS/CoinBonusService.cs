@@ -22,7 +22,7 @@ public class CoinBonusService : MonoBehaviour
     {
         if (Instance != null && Instance != this)
         {
-            Destroy(gameObject);
+            Destroy(this);
             return;
         }
 
@@ -93,41 +93,39 @@ public class CoinBonusService : MonoBehaviour
             {
                 adService.WatchAdForReward(RewardedAdPlacement.CoinBonusMultiplier, amount, adSuccess =>
                 {
-                    // Base amount is always granted if ad completed, plus the ad bonus awarded by AdRewardService
                     if (adSuccess)
                     {
-                        GrantBaseAndFinalize(amount, rewardService);
+                        GrantBaseAndFinalize(amount, amount * 2, rewardService);
                         onComplete?.Invoke(true);
                     }
                     else
                     {
-                        // User cancelled/skipped ad: grant standard base amount
-                        GrantBaseAndFinalize(amount, rewardService);
-                        onComplete?.Invoke(true);
+                        // User cancelled/skipped ad: grant nothing and keep bonus available
+                        onComplete?.Invoke(false);
                     }
                 });
                 return;
             }
         }
 
-        GrantBaseAndFinalize(amount, rewardService);
+        GrantBaseAndFinalize(amount, amount, rewardService);
         onComplete?.Invoke(true);
     }
 
-    private void GrantBaseAndFinalize(int amount, RewardService rewardService)
+    private void GrantBaseAndFinalize(int baseAmount, int totalClaimedAmount, RewardService rewardService)
     {
         if (rewardService != null)
         {
             var bundle = new RewardBundle();
-            bundle.Add(RewardType.Coins, amount);
+            bundle.Add(RewardType.Coins, baseAmount);
             rewardService.GrantRewardBundle(bundle, "CoinBonus");
         }
 
         lastClaimUtcTicks = DateTime.UtcNow.Ticks;
         SaveToProfile();
 
-        OnCoinBonusClaimed?.Invoke(amount);
-        Debug.Log($"[CoinBonusService] Successfully collected {amount} bonus coins.");
+        OnCoinBonusClaimed?.Invoke(totalClaimedAmount);
+        Debug.Log($"[CoinBonusService] Successfully collected {totalClaimedAmount} bonus coins.");
     }
 
     // ─────────────────────────────────────────────────────────────

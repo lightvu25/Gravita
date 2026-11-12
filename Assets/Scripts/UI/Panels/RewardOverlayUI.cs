@@ -1,66 +1,107 @@
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 using UnityEngine.Serialization;
+using UnityEngine.UI;
 
-/// <summary>
-/// Displays completion rewards, stars, and handles the '2x Coins' Ad button.
-/// Strictly presentation logic.
-/// </summary>
 public class RewardOverlayUI : MonoBehaviour
 {
     [Header("References")]
     [SerializeField] private LevelFlowController flowController;
-    [SerializeField] private GameObject panel;
 
     [Header("Reward Displays")]
     [SerializeField] private TMP_Text coinsText;
     [SerializeField] private TMP_Text gemsText;
+    [SerializeField] private TMP_Text expText;
     [FormerlySerializedAs("acclaimText")]
     [SerializeField] private TMP_Text starsText;
-    
+
     [Header("Monetization")]
     [SerializeField] private Button doubleCoinsButton;
     [SerializeField] private Button continueButton;
 
     private RewardBundle lastBundle;
     private LevelData lastBundleLevel;
-    private bool hasClaimedDouble = false;
-    private bool rewardServiceSubscribed = false;
+    private int displayedCoinsCount;
+    private bool hasClaimedDouble;
+    private bool rewardServiceSubscribed;
+    private bool flowSubscribed;
+    private bool buttonsBound;
+    private bool continueBound;
     private UIPanelAnimator panelAnimator;
+
     private UIPanelAnimator PanelAnimator =>
-        panelAnimator != null ? panelAnimator
-            : (panelAnimator = (panel != null ? panel : gameObject).GetComponent<UIPanelAnimator>());
+        panelAnimator != null ? panelAnimator : (panelAnimator = GetComponent<UIPanelAnimator>());
 
     private void Awake()
+    {
+        EnsureInitialized();
+    }
+
+    private void OnEnable()
+    {
+        EnsureInitialized();
+
+        if (flowController != null
+            && flowController.CurrentState == LevelState.Completed
+            && flowController.LastClearReward != null
+            && lastBundle != flowController.LastClearReward)
+        {
+            HandleRewardGranted(flowController.LastClearReward);
+        }
+    }
+
+    private void Start()
+    {
+        EnsureInitialized();
+    }
+
+    private void EnsureInitialized()
     {
         if (flowController == null)
             flowController = FindAnyObjectByType<LevelFlowController>();
 
-        if (doubleCoinsButton != null)
-        {
-            doubleCoinsButton.onClick.RemoveAllListeners();
-            doubleCoinsButton.onClick.AddListener(OnDoubleCoinsClicked);
-        }
+        BindButtons();
 
-        if (continueButton != null)
+        if (!flowSubscribed && flowController != null)
         {
-            continueButton.onClick.RemoveAllListeners();
-            continueButton.onClick.AddListener(OnContinueClicked);
-        }
-
-        if (flowController != null)
-        {
+            flowSubscribed = true;
             flowController.OnLevelStarted += HandleLevelStarted;
+            flowController.OnLevelRestarted += HandleLevelStarted;
             flowController.OnStateChanged += HandleStateChanged;
         }
 
         TrySubscribeRewardService();
     }
 
-    private void Start()
+    private void BindButtons()
     {
-        TrySubscribeRewardService();
+        if (buttonsBound) return;
+        buttonsBound = true;
+
+        if (doubleCoinsButton != null)
+            doubleCoinsButton.onClick.AddListener(OnDoubleCoinsClicked);
+
+        if (continueButton != null && GetComponentInParent<ResultPanelUI>(true) == null)
+        {
+            continueButton.onClick.AddListener(OnContinueClicked);
+            continueBound = true;
+        }
+    }
+
+    private void UnbindButtons()
+    {
+        if (!buttonsBound) return;
+        buttonsBound = false;
+
+        if (doubleCoinsButton != null)
+            doubleCoinsButton.onClick.RemoveListener(OnDoubleCoinsClicked);
+
+        if (continueBound && continueButton != null)
+        {
+            continueButton.onClick.RemoveListener(OnContinueClicked);
+            continueBound = false;
+        }
     }
 
     private void TrySubscribeRewardService()
@@ -72,16 +113,21 @@ public class RewardOverlayUI : MonoBehaviour
 
     private void OnDestroy()
     {
-        if (flowController != null)
+        if (flowSubscribed && flowController != null)
         {
+            flowSubscribed = false;
             flowController.OnLevelStarted -= HandleLevelStarted;
+            flowController.OnLevelRestarted -= HandleLevelStarted;
             flowController.OnStateChanged -= HandleStateChanged;
         }
 
         if (rewardServiceSubscribed && RewardService.Instance != null)
         {
+            rewardServiceSubscribed = false;
             RewardService.Instance.OnRewardGranted -= HandleRewardGranted;
         }
+
+        UnbindButtons();
     }
 
     private void HandleLevelStarted()
@@ -90,64 +136,70 @@ public class RewardOverlayUI : MonoBehaviour
         hasClaimedDouble = false;
         lastBundle = null;
         lastBundleLevel = null;
-        if (panel != null) panel.SetActive(false);
+        displayedCoinsCount = 0;
+
+        if (GetComponentInParent<ResultPanelUI>(true) == null)
+            gameObject.SetActive(false);
+
         if (doubleCoinsButton != null)
-        {
             doubleCoinsButton.gameObject.SetActive(false);
-        }
     }
 
     private void HandleRewardGranted(RewardBundle bundle)
     {
-        // If we have already claimed the double reward for this level completion, ignore further grants
-        if (hasClaimedDouble) return;
+        if (bundle == null || hasClaimedDouble || lastBundle == bundle)
+            return;
 
-        // Only show overlay logic if this is a level clear
         if (flowController != null && flowController.CurrentState == LevelState.Completed)
         {
             lastBundle = bundle;
             lastBundleLevel = flowController.CurrentLevelData;
+            displayedCoinsCount = bundle.CoinCount;
+
             if (PanelAnimator != null) PanelAnimator.PlayIn();
-            else if (panel != null) panel.SetActive(true);
+            else gameObject.SetActive(true);
+
             AnalyticsService.Track(AnalyticsEvents.RewardShown, RewardParams());
-            
-            if (coinsText != null) coinsText.text = $"+{bundle.CoinCount}";
-            if (gemsText != null) gemsText.text = $"+{bundle.GemCount}";
+
+            CurrencyUI.Animate(coinsText, 0, displayedCoinsCount);
+            CurrencyUI.Animate(gemsText, 0, Mathf.Max(0, bundle.GemCount));
+            if (expText != null) expText.text = string.Empty;
             if (starsText != null)
             {
-                // LastCompletedStars is the authoritative rating — star pickups
-                // drive it when placed, otherwise objective-based.
-                int stars = flowController != null ? flowController.LastCompletedStars : 1;
-                starsText.text = $"{stars} ★";
+                int stars = flowController != null ? flowController.LastCompletedStars : 0;
+                starsText.text = $"{stars} *";
             }
 
             if (doubleCoinsButton != null)
             {
-                // Only enable if Ad is available and we earned some coins to double
-                bool canDouble = bundle.CoinCount > 0 && 
-                                 AdRewardService.Instance != null && 
-                                 AdRewardService.Instance.IsAdAvailable(RewardedAdPlacement.LevelClearCoinDoubler);
-                doubleCoinsButton.gameObject.SetActive(canDouble);
-                doubleCoinsButton.interactable = canDouble;
+                bool canWatchBonus = AdRewardService.Instance != null
+                    && AdRewardService.Instance.IsAdAvailable(RewardedAdPlacement.ResultScreenBonus);
+                doubleCoinsButton.gameObject.SetActive(canWatchBonus);
+                doubleCoinsButton.interactable = canWatchBonus;
+
+                if (canWatchBonus)
+                    AdPolicyCoordinator.NotifyAdOffered(RewardedAdPlacement.ResultScreenBonus);
             }
         }
     }
 
     private void OnContinueClicked()
     {
-        if (PanelAnimator != null) PanelAnimator.PlayOut(() => panel.SetActive(false));
-        else if (panel != null) panel.SetActive(false);
-        if (flowController != null)
-        {
-            flowController.ReturnToMap();
-        }
+        bool completedExit = flowController != null && flowController.CurrentState == LevelState.Completed;
+        GameHaptics.Play(HapticEvent.UISelect);
+        UIAudio.Play(UISoundType.ButtonClick);
+
+        if (PanelAnimator != null) PanelAnimator.PlayOut(() => gameObject.SetActive(false));
+        else gameObject.SetActive(false);
+
+        if (completedExit)
+            AdPolicyCoordinator.TryShowPostResultTransitionInterstitial();
+
+        flowController?.ReturnToMap();
     }
 
     private void HandleStateChanged(LevelState state)
     {
-        // Leaving the Completed state while a reward bundle was displayed means
-        // the player accepted it — regardless of which exit button was pressed
-        // (NEXT, MAP, or RESTART all dismiss the overlay).
         if (state != LevelState.Completed && lastBundle != null)
         {
             AnalyticsService.Track(AnalyticsEvents.RewardClaimed, RewardParams());
@@ -156,9 +208,9 @@ public class RewardOverlayUI : MonoBehaviour
         }
     }
 
-    private System.Collections.Generic.Dictionary<string, object> RewardParams()
+    private Dictionary<string, object> RewardParams()
     {
-        var p = new System.Collections.Generic.Dictionary<string, object>();
+        var p = new Dictionary<string, object>();
         var level = lastBundleLevel != null ? lastBundleLevel
             : (flowController != null ? flowController.CurrentLevelData : null);
         if (level != null)
@@ -179,26 +231,39 @@ public class RewardOverlayUI : MonoBehaviour
         if (hasClaimedDouble) return;
         if (doubleCoinsButton != null && !doubleCoinsButton.interactable) return;
         if (AdRewardService.Instance == null || lastBundle == null) return;
-        if (lastBundle.CoinCount <= 0) return;
+
+        GameHaptics.Play(HapticEvent.UISelect);
+        UIAudio.Play(UISoundType.ButtonClick);
 
         hasClaimedDouble = true;
-        // Disable button to prevent spam
         if (doubleCoinsButton != null)
             doubleCoinsButton.interactable = false;
 
-        // Use the ad service to grant the reward upon completion
-        AdRewardService.Instance.WatchAdForReward(RewardedAdPlacement.LevelClearCoinDoubler, lastBundle.CoinCount, success =>
+        RewardItem fixedItem = AdPolicyCoordinator.GetFixedRewardForPlacement(RewardedAdPlacement.ResultScreenBonus);
+        AdRewardService.Instance.WatchAdForReward(RewardedAdPlacement.ResultScreenBonus, fixedItem.Amount, success =>
         {
+            if (this == null) return;
+
             if (success)
             {
-                // Visual update
-                if (coinsText != null) coinsText.text = $"+{lastBundle.CoinCount * 2}";
+                UIAudio.Play(UISoundType.RewardClaim);
+                if (fixedItem.Type == RewardType.Coins)
+                {
+                    int previousCoins = displayedCoinsCount;
+                    displayedCoinsCount += fixedItem.Amount;
+                    CurrencyUI.Animate(
+                        coinsText,
+                        previousCoins,
+                        displayedCoinsCount);
+
+                    GetComponentInParent<ResultPanelUI>(true)?.NotifyBonusCoinsAdded(fixedItem.Amount);
+                }
+
                 if (doubleCoinsButton != null)
-                    doubleCoinsButton.gameObject.SetActive(false); // Hide after use
+                    doubleCoinsButton.gameObject.SetActive(false);
             }
             else
             {
-                // Restore interaction if failed
                 hasClaimedDouble = false;
                 if (doubleCoinsButton != null)
                     doubleCoinsButton.interactable = true;
@@ -206,4 +271,3 @@ public class RewardOverlayUI : MonoBehaviour
         });
     }
 }
-

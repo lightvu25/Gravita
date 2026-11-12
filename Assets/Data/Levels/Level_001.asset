@@ -13,14 +13,17 @@ MonoBehaviour:
   m_Name: Level_001
   m_EditorClassIdentifier: Assembly-CSharp::LevelData
   levelId: Level_001
-  displayName: Beginner Maze
-  difficulty: 0
+  displayName: 1
+  difficulty: 1
   world: 1
   layoutPrefab: {fileID: 2412052919336575868, guid: 42a92f7684d9b5e49a0286ea28cfe652, type: 3}
   primaryObjective:
     objectiveType: 0
-    requiredCount: 0
-    description: 
+    requiredCount: 1
+    description: 'Intro: Stop-to-Stop Gravity Slide to the Exit'
   optionalObjectives: []
-  baseCoinReward: 10
+  baseCoinReward: 15
   optionalCoinBonus: 5
+  baseExpReward: 50
+  expBonusPerStar: 15
+  replayExpReward: 20

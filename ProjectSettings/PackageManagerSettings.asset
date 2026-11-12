@@ -42,13 +42,13 @@ MonoBehaviour:
     m_Compliance:
       m_Status: 0
       m_Violations: []
-  m_UserSelectedRegistryName: package.openupm.com
+  m_UserSelectedRegistryName: 
   m_UserAddingNewScopedRegistry: 0
   m_RegistryInfoDraft:
     m_Modified: 0
     m_ErrorMessage: 
     m_UserModificationsEntityId:
-      m_Data: -922
-    m_OriginalEntityId:
       m_Data: -924
+    m_OriginalEntityId:
+      m_Data: -926
   m_LoadAssets: 0

@@ -1,3 +1,4 @@
+using DG.Tweening;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Serialization;
@@ -5,90 +6,70 @@ using UnityEngine.UI;
 
 public class MainMenuUI : MonoBehaviour, IUIPanel
 {
-    private enum Tab { Map, Shop, Powerups, Missions, Settings }
+    private enum Tab { Map, Runner, Powerups, Achievement, Multiplayer }
 
     [Header("System References")]
-    [SerializeField] private CampaignMapUI campaignMapUI;
-    [SerializeField] private ShopUI shopUI;
-    [SerializeField] private DailyRewardUI dailyRewardUI;
-    [FormerlySerializedAs("visitorTipUI")]
-    [SerializeField] private CoinBonusUI coinBonusUI;
+    [SerializeField] private RunnerUI runnerUI;
     [SerializeField] private LevelFlowController flowController;
 
-    [Header("Tap To Play")]
-    [Tooltip("Full-screen intro panel — any tap dismisses it into the main menu.")]
-    [SerializeField] private GameObject tapToPlayPanel;
-    [SerializeField] private Button tapToPlayButton;
-    [Tooltip("Tap-to-play art slot — assign your title/play image.")]
-    [SerializeField] private Image tapToPlayImage;
-
-    [Header("Main Menu Root")]
-    [SerializeField] private GameObject mainMenuPanel;
-
     [Header("Header")]
+    [Tooltip("Displays the current number level of the player.")]
     [SerializeField] private TMP_Text levelText;
+    [Tooltip("Optional Slider for the player's EXP progression bar (0..1).")]
+    [SerializeField] private Slider expProgressSlider;
+    [Tooltip("Optional Filled Image for the player's EXP progression bar.")]
+    [SerializeField] private Image expFillImage;
+    [Tooltip("Optional text displaying current EXP / required EXP (e.g. '50 / 100').")]
+    [SerializeField] private TMP_Text expText;
     [SerializeField] private TMP_Text coinsText;
     [SerializeField] private TMP_Text gemsText;
-    [Tooltip("Icon slots — assign coin/shard/level art in the scene.")]
-    [SerializeField] private Image coinIconImage;
-    [SerializeField] private Image gemIconImage;
-    [SerializeField] private Image levelIconImage;
 
     [Header("Tab Bar")]
     [SerializeField] private Button mapTabButton;
-    [SerializeField] private Button shopTabButton;
+    [FormerlySerializedAs("shopTabButton")]
+    [SerializeField] private Button runnerTabButton;
     [SerializeField] private Button powerupsTabButton;
-    [SerializeField] private Button missionsTabButton;
-    [SerializeField] private Button settingsTabButton;
-    [Tooltip("Tab icon slots — the selected tab's icon scales up.")]
-    [SerializeField] private Image mapTabIcon;
-    [SerializeField] private Image shopTabIcon;
-    [SerializeField] private Image powerupsTabIcon;
-    [SerializeField] private Image missionsTabIcon;
-    [SerializeField] private Image settingsTabIcon;
-    [SerializeField, Min(1f)] private float selectedTabScale = 1.3f;
+    [SerializeField] private Button achievementTabButton;
+    [SerializeField] private Button multiplayerTabButton;
 
-    [Header("Side Buttons (Map Screen)")]
+    [SerializeField, Min(1f)] private float selectedTabScale = 1.3f;
+    [SerializeField] private float tabScaleTweenDuration = 0.2f;
+
+    [Header("Side Buttons")]
+    [SerializeField] private Button settingButton;
+    [SerializeField] private Button missionButton;
     [SerializeField] private Button dailyRewardButton;
     [FormerlySerializedAs("visitorButton")]
     [SerializeField] private Button bonusButton;
+    [SerializeField] private Button blindBoxButton;
+    [SerializeField] private Button shopButton;
+
+    [Header("Optional Animation (Leave Empty for No Panel Animation)")]
+    [SerializeField] private UIPanelAnimator panelAnimator;
 
     private Tab currentTab = Tab.Map;
-    private UIPanelAnimator panelAnimator;
-    private UIPanelAnimator PanelAnimator =>
-        panelAnimator != null ? panelAnimator : (panelAnimator = GetComponent<UIPanelAnimator>());
+    private bool buttonsBound;
+    private bool economySubscribed;
+    private bool progressionSubscribed;
+    private bool uiManagerSubscribed;
+
+    private UIPanelAnimator PanelAnimator => panelAnimator;
 
     private void Awake()
     {
         if (flowController == null)
             flowController = FindAnyObjectByType<LevelFlowController>();
-        if (campaignMapUI == null)
-            campaignMapUI = FindAnyObjectByType<CampaignMapUI>(FindObjectsInactive.Include);
-        if (shopUI == null)
-            shopUI = FindAnyObjectByType<ShopUI>(FindObjectsInactive.Include);
-        if (dailyRewardUI == null)
-            dailyRewardUI = FindAnyObjectByType<DailyRewardUI>(FindObjectsInactive.Include);
-        if (coinBonusUI == null)
-            coinBonusUI = FindAnyObjectByType<CoinBonusUI>(FindObjectsInactive.Include);
 
-        if (tapToPlayButton != null) tapToPlayButton.onClick.AddListener(OnTapToPlay);
-        if (mapTabButton != null) mapTabButton.onClick.AddListener(() => SelectTab(Tab.Map));
-        if (shopTabButton != null) shopTabButton.onClick.AddListener(() => SelectTab(Tab.Shop));
-        if (powerupsTabButton != null) powerupsTabButton.onClick.AddListener(() => SelectTab(Tab.Powerups));
-        if (missionsTabButton != null) missionsTabButton.onClick.AddListener(() => SelectTab(Tab.Missions));
-        if (settingsTabButton != null) settingsTabButton.onClick.AddListener(() => SelectTab(Tab.Settings));
-        if (dailyRewardButton != null) dailyRewardButton.onClick.AddListener(OnDailyRewardClicked);
-        if (bonusButton != null) bonusButton.onClick.AddListener(OnBonusClicked);
+        BindButtons();
 
-        if (campaignMapUI != null) campaignMapUI.OnMapClosed += HandleMapClosed;
-        if (shopUI != null) shopUI.OnShopClosed += HandleShopClosed;
-        if (dailyRewardUI != null) dailyRewardUI.OnDailyRewardClosed += HandleSubPanelClosed;
-        if (coinBonusUI != null) coinBonusUI.OnCoinBonusClosed += HandleSubPanelClosed;
+        if (runnerUI != null)
+            runnerUI.OnRunnerClosed += HandleRunnerClosed;
 
         if (EconomyManager.Instance != null)
         {
             EconomyManager.Instance.OnCoinsChanged += UpdateCoins;
             EconomyManager.Instance.OnGemsChanged += UpdateGems;
+            economySubscribed = true;
         }
 
         if (flowController != null)
@@ -97,35 +78,93 @@ public class MainMenuUI : MonoBehaviour, IUIPanel
 
     private void OnDestroy()
     {
-        if (campaignMapUI != null) campaignMapUI.OnMapClosed -= HandleMapClosed;
-        if (shopUI != null) shopUI.OnShopClosed -= HandleShopClosed;
-        if (dailyRewardUI != null) dailyRewardUI.OnDailyRewardClosed -= HandleSubPanelClosed;
-        if (coinBonusUI != null) coinBonusUI.OnCoinBonusClosed -= HandleSubPanelClosed;
+        UnbindButtons();
 
-        if (EconomyManager.Instance != null)
+        if (runnerUI != null)
+            runnerUI.OnRunnerClosed -= HandleRunnerClosed;
+
+        if (economySubscribed && EconomyManager.Instance != null)
         {
             EconomyManager.Instance.OnCoinsChanged -= UpdateCoins;
             EconomyManager.Instance.OnGemsChanged -= UpdateGems;
+            economySubscribed = false;
         }
 
         if (flowController != null)
             flowController.OnStateChanged -= HandleStateChanged;
+
+        if (progressionSubscribed && ProgressionManager.Instance != null)
+        {
+            ProgressionManager.Instance.OnProgressionChanged -= RefreshHeader;
+            ProgressionManager.Instance.OnPlayerExpChanged -= HandleExpChanged;
+            progressionSubscribed = false;
+        }
+
+        if (uiManagerSubscribed && UIManager.Instance != null)
+        {
+            UIManager.Instance.OnScreenChanged -= HandleScreenChanged;
+            UIManager.Instance.OnPopupStackChanged -= HandlePopupStackChanged;
+            uiManagerSubscribed = false;
+        }
     }
 
-    // IUIPanel — the menu shell is lifecycle-driven (Start / OnStateChanged).
-    // Hide() only deactivates when the game has left Idle: while the player is
-    // in the menu, other panels (Map/Shop/…) open on top of this shell, which
-    // must stay visible behind them.
+    private void BindButtons()
+    {
+        if (buttonsBound) return;
+        buttonsBound = true;
+
+        if (mapTabButton != null) mapTabButton.onClick.AddListener(OnMapTabClicked);
+        if (runnerTabButton != null) runnerTabButton.onClick.AddListener(OnRunnerTabClicked);
+        if (powerupsTabButton != null) powerupsTabButton.onClick.AddListener(OnPowerupsTabClicked);
+        if (achievementTabButton != null) achievementTabButton.onClick.AddListener(OnAchievementTabClicked);
+        if (multiplayerTabButton != null) multiplayerTabButton.onClick.AddListener(OnMultiplayerTabClicked);
+        if (settingButton != null) settingButton.onClick.AddListener(OnSettingClicked);
+        if (missionButton != null) missionButton.onClick.AddListener(OnMissionClicked);
+        if (dailyRewardButton != null) dailyRewardButton.onClick.AddListener(OnDailyRewardClicked);
+        if (bonusButton != null) bonusButton.onClick.AddListener(OnBonusClicked);
+        if (blindBoxButton != null) blindBoxButton.onClick.AddListener(OnBlindBoxClicked);
+        if (shopButton != null) shopButton.onClick.AddListener(OnShopClicked);
+    }
+
+    private void UnbindButtons()
+    {
+        if (!buttonsBound) return;
+        buttonsBound = false;
+
+        if (mapTabButton != null) mapTabButton.onClick.RemoveListener(OnMapTabClicked);
+        if (runnerTabButton != null) runnerTabButton.onClick.RemoveListener(OnRunnerTabClicked);
+        if (powerupsTabButton != null) powerupsTabButton.onClick.RemoveListener(OnPowerupsTabClicked);
+        if (achievementTabButton != null) achievementTabButton.onClick.RemoveListener(OnAchievementTabClicked);
+        if (multiplayerTabButton != null) multiplayerTabButton.onClick.RemoveListener(OnMultiplayerTabClicked);
+        if (settingButton != null) settingButton.onClick.RemoveListener(OnSettingClicked);
+        if (missionButton != null) missionButton.onClick.RemoveListener(OnMissionClicked);
+        if (dailyRewardButton != null) dailyRewardButton.onClick.RemoveListener(OnDailyRewardClicked);
+        if (bonusButton != null) bonusButton.onClick.RemoveListener(OnBonusClicked);
+        if (blindBoxButton != null) blindBoxButton.onClick.RemoveListener(OnBlindBoxClicked);
+        if (shopButton != null) shopButton.onClick.RemoveListener(OnShopClicked);
+    }
+
     public void Show()
     {
         if (PanelAnimator != null) PanelAnimator.PlayIn();
         else gameObject.SetActive(true);
+
+        if (flowController == null || flowController.CurrentState == LevelState.Idle)
+            SelectTab(currentTab);
+        else
+            RefreshHeader();
     }
 
     public void Hide()
     {
-        if (flowController == null || flowController.CurrentState != LevelState.Idle)
+        if (flowController != null && flowController.CurrentState != LevelState.Idle)
         {
+            if (UIManager.Instance != null)
+            {
+                UIManager.Instance.CloseAllPopups();
+                UIManager.Instance.CloseActiveScreen();
+            }
+
             if (PanelAnimator != null) PanelAnimator.PlayOut(FinishHide);
             else FinishHide();
         }
@@ -136,37 +175,144 @@ public class MainMenuUI : MonoBehaviour, IUIPanel
     private void Start()
     {
         bool showMenu = flowController == null || flowController.CurrentState == LevelState.Idle;
-        if (tapToPlayPanel != null) tapToPlayPanel.SetActive(showMenu);
-        if (mainMenuPanel != null) mainMenuPanel.SetActive(false);
+        if (!economySubscribed && EconomyManager.Instance != null)
+        {
+            EconomyManager.Instance.OnCoinsChanged += UpdateCoins;
+            EconomyManager.Instance.OnGemsChanged += UpdateGems;
+            economySubscribed = true;
+        }
+        if (!progressionSubscribed && ProgressionManager.Instance != null)
+        {
+            ProgressionManager.Instance.OnProgressionChanged += RefreshHeader;
+            ProgressionManager.Instance.OnPlayerExpChanged += HandleExpChanged;
+            progressionSubscribed = true;
+        }
+        if (!uiManagerSubscribed && UIManager.Instance != null)
+        {
+            UIManager.Instance.OnScreenChanged += HandleScreenChanged;
+            UIManager.Instance.OnPopupStackChanged += HandlePopupStackChanged;
+            uiManagerSubscribed = true;
+        }
 
+        gameObject.SetActive(showMenu);
+        if (showMenu)
+            SelectTab(currentTab);
+
+        UpdateSideButtonsVisibility();
         RefreshHeader();
     }
 
     // ─────────────────────────────────────────────────────────────
-    //  Tap to play / tab selection
+    //  Tab selection (Screen Layer)
     // ─────────────────────────────────────────────────────────────
 
-    private void OnTapToPlay()
+    private void OnMapTabClicked()
     {
-        if (tapToPlayPanel != null) tapToPlayPanel.SetActive(false);
-        if (mainMenuPanel != null) mainMenuPanel.SetActive(true);
-        SelectTab(Tab.Map); // Map auto-displays first, per TotM flow.
+        GameHaptics.Play(HapticEvent.UISelect);
+        SelectTab(Tab.Map, playSound: true);
     }
 
-    private void SelectTab(Tab tab)
+    private void OnRunnerTabClicked()
+    {
+        GameHaptics.Play(HapticEvent.UISelect);
+        SelectTab(Tab.Runner, playSound: true);
+    }
+
+    private void OnPowerupsTabClicked()
+    {
+        GameHaptics.Play(HapticEvent.UISelect);
+        SelectTab(Tab.Powerups, playSound: true);
+    }
+
+    private void OnAchievementTabClicked()
+    {
+        GameHaptics.Play(HapticEvent.UISelect);
+        SelectTab(Tab.Achievement, playSound: true);
+    }
+
+    private void OnMultiplayerTabClicked()
+    {
+        GameHaptics.Play(HapticEvent.UISelect);
+        SelectTab(Tab.Multiplayer, playSound: true);
+    }
+
+    private void SelectTab(Tab tab, bool playSound = false)
     {
         currentTab = tab;
 
-        if (mainMenuPanel != null && !mainMenuPanel.activeSelf)
-            mainMenuPanel.SetActive(true);
+        if (playSound)
+            UIAudio.Play(UISoundType.TabSwitch);
 
-        // UIManager owns single-active-panel switching — opening the new
-        // tab's panel closes the previous one.
+        if (!gameObject.activeSelf)
+            gameObject.SetActive(true);
+
         if (UIManager.Instance != null)
-            UIManager.Instance.OpenPanel(TabToPanelType(tab));
+        {
+            if (!uiManagerSubscribed)
+            {
+                UIManager.Instance.OnScreenChanged += HandleScreenChanged;
+                UIManager.Instance.OnPopupStackChanged += HandlePopupStackChanged;
+                uiManagerSubscribed = true;
+            }
+
+            UIPanelType targetPanel = TabToPanelType(tab);
+            if (targetPanel != UIPanelType.None && UIManager.Instance.IsPanelRegistered(targetPanel))
+            {
+                UIManager.Instance.OpenPanel(targetPanel);
+            }
+        }
 
         UpdateTabVisuals();
+        UpdateSideButtonsVisibility();
         RefreshHeader();
+    }
+
+    private void HandleScreenChanged(UIPanelType screenType)
+    {
+        if (TryPanelTypeToTab(screenType, out Tab mappedTab) && currentTab != mappedTab)
+        {
+            currentTab = mappedTab;
+            UpdateTabVisuals();
+        }
+
+        UpdateSideButtonsVisibility();
+    }
+
+    private void HandlePopupStackChanged()
+    {
+        if (UIManager.Instance != null && !UIManager.Instance.IsAnyPopupOpen)
+        {
+            if (!TryPanelTypeToTab(UIManager.Instance.CurrentScreen, out Tab activeScreenTab))
+                activeScreenTab = Tab.Map;
+
+            if (currentTab != activeScreenTab)
+            {
+                currentTab = activeScreenTab;
+                UpdateTabVisuals();
+            }
+        }
+
+        UpdateSideButtonsVisibility();
+    }
+
+    private void UpdateSideButtonsVisibility()
+    {
+        bool showSideButtons = UIManager.Instance == null || !UIManager.Instance.IsAnyPopupOpen;
+
+        if (missionButton != null && missionButton != settingButton)
+            missionButton.gameObject.SetActive(showSideButtons);
+
+        if (dailyRewardButton != null)
+            dailyRewardButton.gameObject.SetActive(showSideButtons);
+
+        if (shopButton != null)
+            shopButton.gameObject.SetActive(showSideButtons);
+
+        if (bonusButton != null && bonusButton != settingButton)
+            bonusButton.gameObject.SetActive(showSideButtons);
+
+        if (blindBoxButton != null && blindBoxButton != settingButton)
+            blindBoxButton.gameObject.SetActive(showSideButtons);
     }
 
     private static UIPanelType TabToPanelType(Tab tab)
@@ -174,32 +320,65 @@ public class MainMenuUI : MonoBehaviour, IUIPanel
         switch (tab)
         {
             case Tab.Map: return UIPanelType.Map;
-            case Tab.Shop: return UIPanelType.Shop;
+            case Tab.Runner: return UIPanelType.Runner;
             case Tab.Powerups: return UIPanelType.Powerups;
-            case Tab.Missions: return UIPanelType.Mission;
-            default: return UIPanelType.Setting;
+            case Tab.Achievement: return UIPanelType.Achievement;
+            default: return UIPanelType.None;
+            case Tab.Multiplayer: return UIPanelType.Multiplayer;
+        }
+    }
+
+    private static bool TryPanelTypeToTab(UIPanelType type, out Tab tab)
+    {
+        switch (type)
+        {
+            case UIPanelType.Map:
+                tab = Tab.Map;
+                return true;
+            case UIPanelType.Runner:
+                tab = Tab.Runner;
+                return true;
+            case UIPanelType.Powerups:
+                tab = Tab.Powerups;
+                return true;
+            case UIPanelType.Achievement:
+                tab = Tab.Achievement;
+                return true;
+            case UIPanelType.Multiplayer:
+                tab = Tab.Multiplayer;
+                return true;
+            default:
+                tab = Tab.Map;
+                return false;
         }
     }
 
     private void UpdateTabVisuals()
     {
         ScaleTab(mapTabButton, currentTab == Tab.Map);
-        ScaleTab(shopTabButton, currentTab == Tab.Shop);
+        ScaleTab(runnerTabButton, currentTab == Tab.Runner);
         ScaleTab(powerupsTabButton, currentTab == Tab.Powerups);
-        ScaleTab(missionsTabButton, currentTab == Tab.Missions);
-        ScaleTab(settingsTabButton, currentTab == Tab.Settings);
+        ScaleTab(achievementTabButton, currentTab == Tab.Achievement);
+        ScaleTab(multiplayerTabButton, currentTab == Tab.Multiplayer);
     }
 
     private void ScaleTab(Button button, bool selected)
     {
         if (button == null) return;
         float s = selected ? selectedTabScale : 1f;
-        button.transform.localScale = new Vector3(s, s, 1f);
+        button.transform.DOKill();
+        button.transform
+            .DOScale(s, tabScaleTweenDuration)
+            .SetEase(selected ? Ease.OutBack : Ease.OutQuad)
+            .SetUpdate(true)
+            .SetLink(button.gameObject);
     }
 
     // ─────────────────────────────────────────────────────────────
-    //  Header
+    //  Header (Player Level & EXP Progression Bar)
     // ─────────────────────────────────────────────────────────────
+
+    private void HandleExpChanged(int totalExp, int delta) => RefreshHeader();
 
     private void RefreshHeader()
     {
@@ -209,84 +388,141 @@ public class MainMenuUI : MonoBehaviour, IUIPanel
             UpdateGems(EconomyManager.Instance.Gems, 0);
         }
 
-        if (levelText != null && ProgressionManager.Instance != null && ProgressionManager.Instance.Database != null)
+        int playerLevel = 1;
+        int currentExp = 0;
+        int expToNext = PlayerExpConfig.DefaultBaseExpPerLevel;
+        float progress = 0f;
+
+        if (ProgressionManager.Instance != null)
         {
-            levelText.text = FindNextUncompletedLevel()?.DisplayName ?? "";
+            ProgressionManager.Instance.EvaluatePlayerExpState(
+                out playerLevel,
+                out currentExp,
+                out expToNext,
+                out progress);
         }
+
+        if (levelText != null)
+            levelText.text = playerLevel.ToString();
+
+        if (expProgressSlider != null)
+        {
+            expProgressSlider.minValue = 0f;
+            expProgressSlider.maxValue = 1f;
+            expProgressSlider.value = progress;
+        }
+
+        if (expFillImage != null)
+            expFillImage.fillAmount = progress;
+
+        if (expText != null)
+            expText.text = $"{currentExp}/{expToNext}";
     }
 
-    /// <summary>First campaign level the player has not completed yet, or null when all are done.</summary>
-    private static LevelData FindNextUncompletedLevel()
+    private void UpdateCoins(int newBalance, int delta)
     {
-        var db = ProgressionManager.Instance.Database;
-        foreach (var world in db.Worlds)
-        {
-            if (world.levels == null) continue;
-            foreach (var lvl in world.levels)
-            {
-                if (lvl != null && !ProgressionManager.Instance.IsLevelCompleted(lvl))
-                    return lvl;
-            }
-        }
-        return null;
+        if (coinsText != null) coinsText.text = newBalance.ToString();
     }
 
-    private void UpdateCoins(int amount, int delta) { if (coinsText != null) coinsText.text = amount.ToString(); }
-    private void UpdateGems(int amount, int delta) { if (gemsText != null) gemsText.text = amount.ToString(); }
+    private void UpdateGems(int newBalance, int delta)
+    {
+        if (gemsText != null) gemsText.text = newBalance.ToString();
+    }
 
     // ─────────────────────────────────────────────────────────────
-    //  Side buttons + sub-panel close handling
+    //  Side buttons (Popup Layer) + state transitions
     // ─────────────────────────────────────────────────────────────
+
+    private void OnSettingClicked()
+    {
+        GameHaptics.Play(HapticEvent.UISelect);
+        UIAudio.Play(UISoundType.ButtonClick);
+        if (UIManager.Instance != null)
+            UIManager.Instance.OpenPanel(UIPanelType.Setting);
+    }
+
+    private void OnMissionClicked()
+    {
+        GameHaptics.Play(HapticEvent.UISelect);
+        UIAudio.Play(UISoundType.ButtonClick);
+        if (UIManager.Instance != null)
+        {
+            UIManager.Instance.PushPopup(UIPanelType.Mission);
+            MissionPanelUI missionPanel = UIManager.Instance.GetPanel<MissionPanelUI>(UIPanelType.Mission);
+            if (missionPanel != null)
+                missionPanel.SelectCategory(MissionCategory.Weekly, playSound: false);
+        }
+    }
 
     private void OnDailyRewardClicked()
     {
+        GameHaptics.Play(HapticEvent.UISelect);
+        UIAudio.Play(UISoundType.ButtonClick);
         if (UIManager.Instance != null)
-            UIManager.Instance.OpenPanel(UIPanelType.DailyReward);
+        {
+            UIManager.Instance.PushPopup(UIPanelType.Mission);
+            MissionPanelUI missionPanel = UIManager.Instance.GetPanel<MissionPanelUI>(UIPanelType.Mission);
+            if (missionPanel != null)
+                missionPanel.SelectCategory(MissionCategory.Weekly, playSound: false);
+        }
     }
 
     private void OnBonusClicked()
     {
+        GameHaptics.Play(HapticEvent.UISelect);
+        UIAudio.Play(UISoundType.ButtonClick);
         if (UIManager.Instance != null)
-            UIManager.Instance.OpenPanel(UIPanelType.CoinBonus);
+            UIManager.Instance.PushPopup(UIPanelType.CoinBonus);
     }
 
-    private void HandleSubPanelClosed()
+    private void OnBlindBoxClicked()
     {
-        // A popup closed (daily reward / coin bonus / shop): reopen the tab
-        // that was underneath so the menu never lands on an empty screen.
-        if (mainMenuPanel != null && (flowController == null || flowController.CurrentState == LevelState.Idle))
-            SelectTab(currentTab);
+        GameHaptics.Play(HapticEvent.UISelect);
+        UIAudio.Play(UISoundType.ButtonClick);
+        if (UIManager.Instance != null)
+            UIManager.Instance.PushPopup(UIPanelType.BlindBox);
     }
 
-    private void HandleShopClosed()
+    private void OnShopClicked()
     {
-        // Shop is a tab — closing it returns focus to the Map tab.
-        if (currentTab == Tab.Shop)
-            SelectTab(Tab.Map);
-        else
-            HandleSubPanelClosed();
+        GameHaptics.Play(HapticEvent.UISelect);
+        UIAudio.Play(UISoundType.ButtonClick);
+        if (UIManager.Instance != null)
+            UIManager.Instance.PushPopup(UIPanelType.Shop);
     }
 
-    private void HandleMapClosed()
+    private void HandleRunnerClosed()
     {
-        // Map only "closes" when a level starts or another tab takes over;
-        // on Idle with no level pending, keep the menu on the Map tab.
-        if (flowController != null && flowController.CurrentState == LevelState.Idle && currentTab == Tab.Map)
+        if (currentTab == Tab.Runner && (flowController == null || flowController.CurrentState == LevelState.Idle))
             SelectTab(Tab.Map);
     }
 
-    // The whole menu shell exists only while Idle — during gameplay the HUD
-    // owns the screen; result overlays handle Completed/Failed themselves.
     private void HandleStateChanged(LevelState state)
     {
         if (state == LevelState.Playing)
         {
-            if (mainMenuPanel != null) mainMenuPanel.SetActive(false);
-            if (tapToPlayPanel != null) tapToPlayPanel.SetActive(false);
+            if (UIManager.Instance != null)
+            {
+                if (UIManager.Instance.IsPanelRegistered(UIPanelType.GameplayHUD))
+                {
+                    UIManager.Instance.OpenPanel(UIPanelType.GameplayHUD);
+                }
+                else
+                {
+                    UIManager.Instance.CloseAllPopups();
+                    UIManager.Instance.CloseActiveScreen();
+                }
+            }
+            gameObject.SetActive(false);
         }
-        else if (state == LevelState.Idle && mainMenuPanel != null && tapToPlayPanel != null && !tapToPlayPanel.activeSelf)
+        else if (state == LevelState.Idle)
         {
-            mainMenuPanel.SetActive(true);
+            if (UIManager.Instance != null && UIManager.Instance.IsPanelRegistered(UIPanelType.GameplayHUD))
+            {
+                UIManager.Instance.GetPanel<InGameHUD>(UIPanelType.GameplayHUD)?.Hide();
+            }
+            gameObject.SetActive(true);
+            SelectTab(currentTab == Tab.Runner ? Tab.Map : currentTab);
         }
     }
 }

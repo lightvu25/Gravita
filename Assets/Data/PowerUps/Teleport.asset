@@ -1,0 +1,47 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b2c3d4e5f6a74829ab1c2d3e4f5a6b71, type: 3}
+  m_Name: Teleport
+  m_EditorClassIdentifier: Assembly-CSharp::PowerUpData
+  id: teleport
+  upgradeStat: 2
+  statUnitLabel: cells
+  statValueFormat: 0
+  levelSteps:
+  - upgradeCostCoins: 0
+    statValue: 3
+  - upgradeCostCoins: 100
+    statValue: 4
+  - upgradeCostCoins: 200
+    statValue: 4
+  - upgradeCostCoins: 350
+    statValue: 5
+  - upgradeCostCoins: 500
+    statValue: 5
+  displayName: Phase Shift
+  description: Tunnels Subject G-0 through 1 to 3 consecutive solid bulkhead cells
+    along the active slide vector.
+  icon: {fileID: -4765593614856404733, guid: 81134d1f6f7bbe043a40c40cc558e957, type: 3}
+  powerUpType: 4
+  isCampaignActiveSkill: 1
+  inventoryCap: 8
+  initialTutorialCharges: 2
+  duration: 0
+  effectValue: 3
+  pullSpeed: 12
+  maxWallCells: 2
+  maxTrapsDestroyed: 1
+  minWallTraversal: 1
+  maxWallTraversal: 3
+  usageLimit: 1
+  cooldown: 0
+  isConsumable: 1

@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c8f447c5df53fd046a89a126d6127fc1, type: 3}
+  m_Name: Milestone_Week_03
+  m_EditorClassIdentifier: Assembly-CSharp::MissionMilestoneDefinition
+  milestoneId: weekly_milestone_03
+  title: Weekly Milestone III (10 Tasks)
+  requiredCompletedMissions: 10
+  rewardAmount: 2
+  rewardType: 2
+  powerUpId: teleport
+  cosmeticId: 
+  incompleteSprite: {fileID: 8991669763242023314, guid: 83ca2ff00fc231743961308a05867c43, type: 3}
+  completeSprite: {fileID: 8991669763242023314, guid: 83ca2ff00fc231743961308a05867c43, type: 3}
+  claimedSprite: {fileID: 8991669763242023314, guid: 83ca2ff00fc231743961308a05867c43, type: 3}
+  rewardIcon: {fileID: 8991669763242023314, guid: 83ca2ff00fc231743961308a05867c43, type: 3}

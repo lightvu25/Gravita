@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 6b93461b729e04225aadc79a9cb5b687
+DefaultImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 320664
+  packageName: Mobile Haptic Feedback
+  packageVersion: 1.2.0
+  assetPath: Assets/MOST_HapticFeedback/Scenes/HapticFeedback.unity
+  uploadId: 926110

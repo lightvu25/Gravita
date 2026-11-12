@@ -1,4 +1,3 @@
-using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -7,14 +6,16 @@ public class SettingUI : MonoBehaviour, IUIPanel
     [Header("Buttons")]
     [SerializeField] private Button soundButton;
     [SerializeField] private Button musicButton;
+    [SerializeField] private Button hapticsButton;
+    [SerializeField] private Button notifyButton;
     [SerializeField] private Button closeButton;
     [SerializeField] private Button loginButton;
-    [SerializeField] private Button notifyButton;
     [SerializeField] private Button logoutButton;
 
     [Header("Icons")]
     [SerializeField] private Image soundIcon;
     [SerializeField] private Image musicIcon;
+    [SerializeField] private Image hapticsIcon;
     [SerializeField] private Image notifyIcon;
 
     [Header("Icon Sprites")]
@@ -22,40 +23,102 @@ public class SettingUI : MonoBehaviour, IUIPanel
     [SerializeField] private Sprite soundOffSprite;
     [SerializeField] private Sprite musicOnSprite;
     [SerializeField] private Sprite musicOffSprite;
+    [SerializeField] private Sprite hapticsOnSprite;
+    [SerializeField] private Sprite hapticsOffSprite;
     [SerializeField] private Sprite notifyOnSprite;
     [SerializeField] private Sprite notifyOffSprite;
 
-    [Header("Sounds")]
+    [Header("Volume")]
     [SerializeField] private int soundVolume = 5;
     [SerializeField] private int musicVolume = 5;
 
-    [Header("Level Display")]
-    [SerializeField] private TMP_Text levelText;
+    [Header("Optional Animation")]
+    [SerializeField] private UIPanelAnimator panelAnimator;
 
     private const string NotifyPrefKey = "NotificationsEnabled";
 
-    private UIPanelAnimator panelAnimator;
-    private UIPanelAnimator PanelAnimator =>
-        panelAnimator != null ? panelAnimator : (panelAnimator = GetComponent<UIPanelAnimator>());
+    private bool buttonsBound;
+    private bool authSubscribed;
+
+    private UIPanelAnimator PanelAnimator => panelAnimator;
 
     private void Awake()
     {
+        BindButtons();
+    }
+
+    private void OnEnable()
+    {
+        BindButtons();
+        GameHaptics.OnEnabledChanged += HandleHapticsEnabledChanged;
+        SubscribeAuth();
+        RefreshIcons();
+        RefreshAccountButtons();
+    }
+
+    private void OnDisable()
+    {
+        GameHaptics.OnEnabledChanged -= HandleHapticsEnabledChanged;
+        UnsubscribeAuth();
+    }
+
+    private void OnDestroy()
+    {
+        GameHaptics.OnEnabledChanged -= HandleHapticsEnabledChanged;
+        UnsubscribeAuth();
+        UnbindButtons();
+    }
+
+    internal void BindButtons()
+    {
+        if (buttonsBound) return;
+        buttonsBound = true;
+
         if (soundButton != null) soundButton.onClick.AddListener(ToggleSound);
         if (musicButton != null) musicButton.onClick.AddListener(ToggleMusic);
+        if (hapticsButton != null) hapticsButton.onClick.AddListener(ToggleHaptics);
         if (notifyButton != null) notifyButton.onClick.AddListener(ToggleNotify);
         if (closeButton != null) closeButton.onClick.AddListener(CloseSettings);
         if (loginButton != null) loginButton.onClick.AddListener(OpenLogin);
         if (logoutButton != null) logoutButton.onClick.AddListener(OnLogoutClicked);
     }
 
-    private void OnEnable()
+    internal void UnbindButtons()
     {
-        RefreshIcons();
-        RefreshLevelText();
+        if (!buttonsBound) return;
+        buttonsBound = false;
+
+        if (soundButton != null) soundButton.onClick.RemoveListener(ToggleSound);
+        if (musicButton != null) musicButton.onClick.RemoveListener(ToggleMusic);
+        if (hapticsButton != null) hapticsButton.onClick.RemoveListener(ToggleHaptics);
+        if (notifyButton != null) notifyButton.onClick.RemoveListener(ToggleNotify);
+        if (closeButton != null) closeButton.onClick.RemoveListener(CloseSettings);
+        if (loginButton != null) loginButton.onClick.RemoveListener(OpenLogin);
+        if (logoutButton != null) logoutButton.onClick.RemoveListener(OnLogoutClicked);
+    }
+
+    private void SubscribeAuth()
+    {
+        var auth = FirebaseService.Instance != null ? FirebaseService.Instance.Auth : null;
+        if (!authSubscribed && auth != null)
+        {
+            auth.OnStateChanged += RefreshAccountButtons;
+            authSubscribed = true;
+        }
+    }
+
+    private void UnsubscribeAuth()
+    {
+        if (!authSubscribed) return;
+        var auth = FirebaseService.Instance != null ? FirebaseService.Instance.Auth : null;
+        if (auth != null)
+            auth.OnStateChanged -= RefreshAccountButtons;
+        authSubscribed = false;
     }
 
     public void Show()
     {
+        BindButtons();
         if (PanelAnimator != null) PanelAnimator.PlayIn();
         else gameObject.SetActive(true);
     }
@@ -70,6 +133,8 @@ public class SettingUI : MonoBehaviour, IUIPanel
 
     private void ToggleSound()
     {
+        GameHaptics.Play(HapticEvent.UISelect);
+
         var sm = SoundManager.Instance;
         if (sm == null) return;
 
@@ -81,6 +146,7 @@ public class SettingUI : MonoBehaviour, IUIPanel
         else
         {
             sm.SetSoundVolume(soundVolume);
+            UIAudio.Play(UISoundType.ButtonClick);
         }
 
         sm.SaveVolume();
@@ -89,6 +155,9 @@ public class SettingUI : MonoBehaviour, IUIPanel
 
     private void ToggleMusic()
     {
+        GameHaptics.Play(HapticEvent.UISelect);
+        UIAudio.Play(UISoundType.ButtonClick);
+
         var mm = MusicManager.Instance;
         if (mm == null) return;
 
@@ -106,8 +175,21 @@ public class SettingUI : MonoBehaviour, IUIPanel
         RefreshIcons();
     }
 
+    private void ToggleHaptics()
+    {
+        GameHaptics.Enabled = !GameHaptics.Enabled;
+        if (GameHaptics.Enabled)
+            GameHaptics.Play(HapticEvent.UISelect);
+
+        UIAudio.Play(UISoundType.ButtonClick);
+        RefreshIcons();
+    }
+
     private void ToggleNotify()
     {
+        GameHaptics.Play(HapticEvent.UISelect);
+        UIAudio.Play(UISoundType.ButtonClick);
+
         PlayerPrefs.SetInt(NotifyPrefKey, IsNotifyOn() ? 0 : 1);
         PlayerPrefs.Save();
         RefreshIcons();
@@ -117,14 +199,25 @@ public class SettingUI : MonoBehaviour, IUIPanel
 
     private void CloseSettings()
     {
+        GameHaptics.Play(HapticEvent.UISelect);
+        UIAudio.Play(UISoundType.ButtonClick);
+
         if (UIManager.Instance != null)
             UIManager.Instance.ClosePanelIfOpen(UIPanelType.Setting);
     }
 
     private void OpenLogin()
     {
+        GameHaptics.Play(HapticEvent.UISelect);
+        UIAudio.Play(UISoundType.ButtonClick);
+
         if (UIManager.Instance != null)
             UIManager.Instance.OpenPanel(UIPanelType.Login);
+    }
+
+    private void HandleHapticsEnabledChanged(bool _)
+    {
+        RefreshIcons();
     }
 
     private void RefreshIcons()
@@ -133,24 +226,27 @@ public class SettingUI : MonoBehaviour, IUIPanel
         var mm = MusicManager.Instance;
 
         if (soundIcon != null)
-            soundIcon.sprite = (sm != null && sm.GetSoundVolume() > 0) ? soundOnSprite : soundOffSprite;
+            soundIcon.SetSpriteNative((sm != null && sm.GetSoundVolume() > 0) ? soundOnSprite : soundOffSprite);
 
         if (musicIcon != null)
-            musicIcon.sprite = (mm != null && mm.GetMusicVolume() > 0) ? musicOnSprite : musicOffSprite;
+            musicIcon.SetSpriteNative((mm != null && mm.GetMusicVolume() > 0) ? musicOnSprite : musicOffSprite);
+
+        if (hapticsIcon != null)
+        {
+            Sprite targetSprite = GameHaptics.Enabled ? hapticsOnSprite : hapticsOffSprite;
+            if (targetSprite != null)
+                hapticsIcon.SetSpriteNative(targetSprite);
+        }
 
         if (notifyIcon != null)
-            notifyIcon.sprite = IsNotifyOn() ? notifyOnSprite : notifyOffSprite;
-    }
-
-    private void RefreshLevelText()
-    {
-        var flow = FindAnyObjectByType<LevelFlowController>();
-        var level = flow != null ? flow.CurrentLevelData : null;
-        levelText.text = level != null ? $"LEVEL {level.DisplayName}" : "LEVEL ";
+            notifyIcon.SetSpriteNative(IsNotifyOn() ? notifyOnSprite : notifyOffSprite);
     }
 
     private void OnLogoutClicked()
     {
+        GameHaptics.Play(HapticEvent.UISelect);
+        UIAudio.Play(UISoundType.ButtonClick);
+
         var auth = FirebaseService.Instance != null ? FirebaseService.Instance.Auth : null;
         auth?.SignOut();
         RefreshAccountButtons();
@@ -159,9 +255,9 @@ public class SettingUI : MonoBehaviour, IUIPanel
     private void RefreshAccountButtons()
     {
         var auth = FirebaseService.Instance != null ? FirebaseService.Instance.Auth : null;
-        bool signedIn = auth != null && auth.State == AuthState.SignedIn;
+        bool signedInWithRealAccount = auth != null && auth.State == AuthState.SignedIn && !auth.IsAnonymous;
 
-        if (loginButton != null) loginButton.gameObject.SetActive(!signedIn);
-        if (logoutButton != null) logoutButton.gameObject.SetActive(signedIn);
+        if (loginButton != null) loginButton.gameObject.SetActive(!signedInWithRealAccount);
+        if (logoutButton != null) logoutButton.gameObject.SetActive(signedInWithRealAccount);
     }
 }

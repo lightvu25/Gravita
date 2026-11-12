@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b2c3d4e5f6a74829ab1c2d3e4f5a6b71, type: 3}
+  m_Name: Magnet
+  m_EditorClassIdentifier: Assembly-CSharp::PowerUpData
+  id: magnet
+  displayName: Data Siphon
+  description: Projects a localized gravity well that pulls nearby data-coins toward
+    Subject G-0 for 6 seconds.
+  icon: {fileID: -1079561632242877933, guid: a0790b2b92d5c9149bc05926a06ee4dc, type: 3}
+  powerUpType: 1
+  isCampaignActiveSkill: 0
+  inventoryCap: 12
+  initialTutorialCharges: 0
+  duration: 6
+  effectValue: 3
+  pullSpeed: 12
+  maxWallCells: 2
+  maxTrapsDestroyed: 1
+  minWallTraversal: 1
+  maxWallTraversal: 3
+  usageLimit: 1
+  cooldown: 0
+  isConsumable: 1

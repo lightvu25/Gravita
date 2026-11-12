@@ -31,4 +31,16 @@ public static class VelocityTierUtil
         if (tilesTraveled <= 4) return VelocityTier.Cruise;
         return VelocityTier.KineticRam;
     }
+
+    /// <summary>Minimum tile count required to sustain the specified <paramref name="tier"/>.</summary>
+    public static int MinTilesForTier(VelocityTier tier)
+    {
+        return tier switch
+        {
+            VelocityTier.Drift      => 1,
+            VelocityTier.Cruise     => 3,
+            VelocityTier.KineticRam => 5,
+            _                       => 0,
+        };
+    }
 }

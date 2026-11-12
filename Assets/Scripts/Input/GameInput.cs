@@ -105,7 +105,16 @@ public partial class GameInput : MonoBehaviour
 
     private void ApplyBinding(InputAction action, string path)
     {
-        action.ApplyBindingOverride(new InputBinding { overridePath = path });
+        if (action == null || string.IsNullOrEmpty(path)) return;
+        if (action.bindings.Count == 0)
+        {
+            bool wasEnabled = action.enabled;
+            if (wasEnabled) action.Disable();
+            action.AddBinding(path);
+            if (wasEnabled) action.Enable();
+            return;
+        }
+        action.ApplyBindingOverride(0, new InputBinding { overridePath = path });
     }
 
     private void Menu_performed(InputAction.CallbackContext obj) => OnMenuButtonPressed?.Invoke(this, EventArgs.Empty);

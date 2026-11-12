@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 686d52e6e9e62174388956afd462c277, type: 3}
+  m_Name: ShopItem_IAP_RemoveAds
+  m_EditorClassIdentifier: Assembly-CSharp::ShopItemDefinition
+  itemId: shop_iap_remove_ads
+  displayName: Remove Ads
+  description: Permanently removes all Interstitial Ads. Opt-in Rewarded Ads remain
+    available.
+  icon: {fileID: -5742623330176206424, guid: 03222c1972497cf49ad926680e87ee67, type: 3}
+  category: 5
+  shopTab: 5
+  costType: 2
+  costAmount: 0
+  customCostText: 
+  costIcon: {fileID: 0}
+  realMoneyProductId: remove_ads
+  iapProductType: 1
+  storeProductIdAndroid: 
+  storeProductIdIOS: 
+  baseGemsAmount: 0
+  bonusGemsAmount: 0
+  isOneTimePurchase: 1
+  grantsRemoveInterstitialAds: 1
+  rewards: []

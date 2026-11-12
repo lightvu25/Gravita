@@ -18,8 +18,20 @@ public class CinemachineCameraShake2D : MonoBehaviour
 
     private void Awake()
     {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(this);
+            return;
+        }
+
         Instance = this;
         impulseSource = GetComponent<CinemachineImpulseSource>();
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this)
+            Instance = null;
     }
 
     /// <summary>Shakes the camera with the configured default force.</summary>

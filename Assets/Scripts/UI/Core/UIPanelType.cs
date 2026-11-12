@@ -1,3 +1,9 @@
+public enum UILayer
+{
+    Screen = 0,
+    Popup = 1,
+}
+
 public enum UIPanelType
 {
     None,
@@ -10,8 +16,12 @@ public enum UIPanelType
     Powerups,
     Mission,
     Setting,
-    Tutorial,
     Login,
     DailyReward,
     CoinBonus,
+    Runner,
+    Revive,
+    Achievement,
+    Multiplayer,
+    BlindBox
 }

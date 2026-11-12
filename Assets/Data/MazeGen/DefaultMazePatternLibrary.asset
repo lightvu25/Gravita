@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b93f1fcd743654044b00a198f3ead79d, type: 3}
+  m_Name: DefaultMazePatternLibrary
+  m_EditorClassIdentifier: Assembly-CSharp::MazePatternLibrary
+  libraryVersion: 1
+  patterns:
+  - {fileID: 11400000, guid: 33f83e425c69f9d4eb8db55c698d9712, type: 2}
+  - {fileID: 11400000, guid: 13c9e889eac5fca498abcb1c793ceb24, type: 2}
+  - {fileID: 11400000, guid: d41708adcf24c8140bbe939942329471, type: 2}
+  - {fileID: 11400000, guid: 036719008420bfa4aad1b8e79bee6688, type: 2}
+  - {fileID: 11400000, guid: a9418376021454b4cb2ebf8af8a747cd, type: 2}
+  - {fileID: 11400000, guid: b2c1bc010fccb9f4daeafb995c9429f6, type: 2}
+  - {fileID: 11400000, guid: 4f8ff6dcff402f74294f04afa3be984c, type: 2}
+  - {fileID: 11400000, guid: 773d090464156e14dab5f740451ab3e1, type: 2}
+  - {fileID: 11400000, guid: 8af33042efdcf254cb3c1aa17c4e04c3, type: 2}
+  - {fileID: 11400000, guid: 3f8ae29aec18e434da56e73f720844e7, type: 2}
+  - {fileID: 11400000, guid: d456b7176c1828743a46b8a489ca0ef5, type: 2}

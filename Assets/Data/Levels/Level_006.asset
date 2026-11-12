@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a964c4d0ba9e872468021ba89e083af0, type: 3}
+  m_Name: Level_006
+  m_EditorClassIdentifier: Assembly-CSharp::LevelData
+  levelId: Level_006
+  displayName: 6
+  difficulty: 1
+  world: 1
+  layoutPrefab: {fileID: 3368670675884895299, guid: fb1a04f18fdad0e4c8c12705966b1068, type: 3}
+  primaryObjective:
+    objectiveType: 0
+    requiredCount: 1
+    description: 'Intro: Cracked Wall & Breaker Routing'
+  optionalObjectives:
+  - objectiveType: 1
+    requiredCount: 2
+    description: Collect bonus stars along the route
+  baseCoinReward: 18
+  optionalCoinBonus: 5
+  baseExpReward: 60
+  expBonusPerStar: 15
+  replayExpReward: 20

@@ -37,8 +37,15 @@ public class BrittleFloor : MazeTile
 
     protected override void OnPlayerEnter(PlayerMovement player)
     {
-        if (IsShattered || player.CurrentTier < shatterTier) return;
-        Shatter();
+        if (IsShattered) return;
+
+        if (player.CurrentTier < shatterTier)
+        {
+            RaisePlayerInteracted(InteractionKind.Crack, player.CurrentDirection);
+            return;
+        }
+
+        Shatter(player.CurrentDirection);
     }
 
     private void OnTriggerExit2D(Collider2D other)
@@ -50,9 +57,10 @@ public class BrittleFloor : MazeTile
         pitCollider.enabled = true;
     }
 
-    private void Shatter()
+    private void Shatter(Vector2 direction)
     {
         IsShattered = true;
+        RaisePlayerInteracted(InteractionKind.Break, direction);
         if (intactVisual != null) intactVisual.SetActive(false);
         OnShattered?.Invoke(this);
     }

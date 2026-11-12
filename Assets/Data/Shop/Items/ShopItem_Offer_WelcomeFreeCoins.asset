@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 686d52e6e9e62174388956afd462c277, type: 3}
+  m_Name: ShopItem_Offer_WelcomeFreeCoins
+  m_EditorClassIdentifier: Assembly-CSharp::ShopItemDefinition
+  itemId: shop_offer_welcome_coins
+  displayName: Welcome Supply Offer
+  description: One-time complimentary supply of 100 Coins.
+  icon: {fileID: 9129518976865312520, guid: 6bb91eb172f65c54db725588800d7c94, type: 3}
+  category: 6
+  shopTab: 5
+  costType: 3
+  costAmount: 0
+  customCostText: FREE
+  costIcon: {fileID: 9129518976865312520, guid: 6bb91eb172f65c54db725588800d7c94, type: 3}
+  realMoneyProductId: 
+  iapProductType: 0
+  storeProductIdAndroid: 
+  storeProductIdIOS: 
+  baseGemsAmount: 0
+  bonusGemsAmount: 0
+  isOneTimePurchase: 1
+  grantsRemoveInterstitialAds: 0
+  rewards:
+  - type: 0
+    amount: 100
+    itemId: 

@@ -1,0 +1,95 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9b610be8d5fe42940878c6ef3e6d9deb, type: 3}
+  m_Name: LootPack_BlindBox
+  m_EditorClassIdentifier: Assembly-CSharp::LootPackDefinition
+  packId: blind_box_main
+  displayName: Supply BlindBox
+  entries:
+  - entryId: bb_coins_small
+    displayName: 40 Coins
+    icon: {fileID: 0}
+    rewardType: 0
+    itemId: 
+    minAmount: 40
+    maxAmount: 40
+    baseDropRate: 45
+    enablePity: 0
+    softPityStartPull: 3
+    softPityBonusPerPull: 5
+    hardPityGuaranteedPull: 10
+    pityPriority: 0
+  - entryId: bb_coins_medium
+    displayName: 90 Coins
+    icon: {fileID: 0}
+    rewardType: 0
+    itemId: 
+    minAmount: 90
+    maxAmount: 90
+    baseDropRate: 25
+    enablePity: 0
+    softPityStartPull: 3
+    softPityBonusPerPull: 5
+    hardPityGuaranteedPull: 10
+    pityPriority: 0
+  - entryId: bb_gems_5
+    displayName: 5 Gems
+    icon: {fileID: 0}
+    rewardType: 1
+    itemId: 
+    minAmount: 5
+    maxAmount: 5
+    baseDropRate: 15
+    enablePity: 1
+    softPityStartPull: 4
+    softPityBonusPerPull: 5
+    hardPityGuaranteedPull: 8
+    pityPriority: 10
+  - entryId: bb_breaker_1
+    displayName: 1x Breaker
+    icon: {fileID: 0}
+    rewardType: 2
+    itemId: breaker
+    minAmount: 1
+    maxAmount: 1
+    baseDropRate: 8
+    enablePity: 1
+    softPityStartPull: 5
+    softPityBonusPerPull: 6
+    hardPityGuaranteedPull: 10
+    pityPriority: 20
+  - entryId: bb_freeze_1
+    displayName: 1x Freeze
+    icon: {fileID: 0}
+    rewardType: 2
+    itemId: freeze
+    minAmount: 1
+    maxAmount: 1
+    baseDropRate: 5
+    enablePity: 1
+    softPityStartPull: 6
+    softPityBonusPerPull: 6
+    hardPityGuaranteedPull: 12
+    pityPriority: 25
+  - entryId: bb_teleport_1
+    displayName: 1x Teleport
+    icon: {fileID: 0}
+    rewardType: 2
+    itemId: teleport
+    minAmount: 1
+    maxAmount: 1
+    baseDropRate: 2
+    enablePity: 1
+    softPityStartPull: 8
+    softPityBonusPerPull: 8
+    hardPityGuaranteedPull: 15
+    pityPriority: 30

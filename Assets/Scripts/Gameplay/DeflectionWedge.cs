@@ -13,19 +13,21 @@ public enum WedgeFacing
 
 /// <summary>
 /// Prism deflection wedge. Occupies a full grid cell and remaps the incoming
-/// cardinal vector to an outgoing cardinal vector WITHOUT resetting
-/// TilesTraveled or interrupting the dash state.
+/// cardinal vector to an outgoing cardinal vector at the exact cell centre
+/// WITHOUT resetting TilesTraveled or interrupting the dash state.
 ///
 /// GDD mapping:
 ///   "/" (Slash):     incoming North → East, incoming West → South.
 ///   "\" (Backslash): incoming North → West, incoming East → South.
-/// Any other incoming direction hits the blunt surface: the dash halts at
+/// Any other incoming direction hits the blunt surface: the dash halts flush at
 /// the tile boundary like a normal solid wall.
 /// </summary>
-public class DeflectionWedge : MazeTile
+public class DeflectionWedge : MazeTile, ICellInteraction
 {
     [Tooltip("Diagonal orientation of the wedge face.")]
     [SerializeField] private WedgeFacing facing = WedgeFacing.Slash;
+
+    public int Priority => CellInteractionPriority.Wedge;
 
     /// <summary>
     /// Returns the outgoing direction for a given incoming direction,
@@ -33,35 +35,36 @@ public class DeflectionWedge : MazeTile
     /// </summary>
     public Vector2 GetDeflection(Vector2 incoming)
     {
+        Vector2 dir = CardinalDirectionUtil.SnapToCardinal(incoming);
         if (facing == WedgeFacing.Slash)
         {
-            if (incoming == Vector2.up)    return Vector2.right;
-            if (incoming == Vector2.left)  return Vector2.down;
+            if (dir == Vector2.up)    return Vector2.right;
+            if (dir == Vector2.left)  return Vector2.down;
         }
         else
         {
-            if (incoming == Vector2.up)    return Vector2.left;
-            if (incoming == Vector2.right) return Vector2.down;
+            if (dir == Vector2.up)    return Vector2.left;
+            if (dir == Vector2.right) return Vector2.down;
         }
         return Vector2.zero;
     }
 
-    protected override void OnPlayerEnter(PlayerMovement player)
-    {
-        Vector2 incoming = player.CurrentDirection;
-        Vector2 outgoing = GetDeflection(incoming);
+    public bool BlocksEntryFrom(Vector2 incomingDirection) =>
+        GetDeflection(incomingDirection) == Vector2.zero;
 
+    public void NotifyBlockedImpact(Vector2 incomingDirection) =>
+        RaisePlayerInteracted(InteractionKind.Hit, -incomingDirection);
+
+    public CellOutcome ResolveAtCenter(PlayerMovement player, Vector2 incomingDirection)
+    {
+        Vector2 outgoing = GetDeflection(incomingDirection);
         if (outgoing != Vector2.zero)
         {
-            // Snap to the cell centre, then continue the dash along the new
-            // axis — TilesTraveled keeps accumulating (no stop event).
-            player.Redirect(outgoing, CellCenter);
+            RaisePlayerInteracted(InteractionKind.Deflect, outgoing);
+            return CellOutcome.Redirect(outgoing);
         }
-        else
-        {
-            // Blunt surface: stop flush at the tile boundary like a wall.
-            float offset = CellSize * 0.5f + 0.001f;
-            player.HaltAt(CellCenter - incoming * offset);
-        }
+
+        RaisePlayerInteracted(InteractionKind.Hit, -incomingDirection);
+        return CellOutcome.Stop(requireFreshInput: false);
     }
 }

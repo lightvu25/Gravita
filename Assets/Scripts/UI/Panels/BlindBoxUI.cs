@@ -1,19 +1,14 @@
-using TMPro;
 using System.Collections;
 using DG.Tweening;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
 /// Post-completion mystery box flow.
-///
-/// Attach to an always-active UI object (the panel itself starts inactive).
-/// On level completion an "Open Blind Box" button appears on the completion
-/// panel. Pressing it opens the blind box panel; tapping the box rolls the
-/// loot table (BlindBoxService), reveals the reward, then shows a "x2"
-/// rewarded-ad button and an Exit button.
+/// Gated behind <see cref="EconomyBalanceConfig.EnablePostLevelBlindBox"/> in Campaign mode.
 /// </summary>
-public class BlindBoxUI : MonoBehaviour
+public class BlindBoxUI : MonoBehaviour, IUIPanel
 {
     [Header("References")]
     [SerializeField] private LevelFlowController flowController;
@@ -35,6 +30,8 @@ public class BlindBoxUI : MonoBehaviour
     [SerializeField, Min(0f)] private float revealDelay = 0.5f;
 
     private UIPanelAnimator panelAnimator;
+    private bool buttonsBound;
+
     private UIPanelAnimator PanelAnimator =>
         panelAnimator != null ? panelAnimator
             : (panelAnimator = (blindBoxPanel != null ? blindBoxPanel : gameObject).GetComponent<UIPanelAnimator>());
@@ -46,10 +43,7 @@ public class BlindBoxUI : MonoBehaviour
         if (blindBoxService == null)
             blindBoxService = BlindBoxService.Instance != null ? BlindBoxService.Instance : FindAnyObjectByType<BlindBoxService>();
 
-        if (openBoxButton != null) openBoxButton.onClick.AddListener(ShowPanel);
-        if (boxButton != null) boxButton.onClick.AddListener(OpenBox);
-        if (doubleButton != null) doubleButton.onClick.AddListener(DoubleReward);
-        if (exitButton != null) exitButton.onClick.AddListener(ClosePanel);
+        BindButtons();
 
         if (blindBoxPanel != null) blindBoxPanel.SetActive(false);
         if (openBoxButton != null) openBoxButton.gameObject.SetActive(false);
@@ -57,6 +51,7 @@ public class BlindBoxUI : MonoBehaviour
 
     private void OnEnable()
     {
+        BindButtons();
         if (flowController != null)
         {
             flowController.OnLevelCompleted += HandleLevelCompleted;
@@ -73,6 +68,36 @@ public class BlindBoxUI : MonoBehaviour
         }
     }
 
+    private void OnDestroy()
+    {
+        UnbindButtons();
+    }
+
+    private void BindButtons()
+    {
+        if (buttonsBound) return;
+        buttonsBound = true;
+
+        if (openBoxButton != null) openBoxButton.onClick.AddListener(OnOpenBoxButtonClicked);
+        if (boxButton != null) boxButton.onClick.AddListener(OpenBox);
+        if (doubleButton != null) doubleButton.onClick.AddListener(DoubleReward);
+        if (exitButton != null) exitButton.onClick.AddListener(OnExitButtonClicked);
+    }
+
+    private void UnbindButtons()
+    {
+        if (!buttonsBound) return;
+        buttonsBound = false;
+
+        if (openBoxButton != null) openBoxButton.onClick.RemoveListener(OnOpenBoxButtonClicked);
+        if (boxButton != null) boxButton.onClick.RemoveListener(OpenBox);
+        if (doubleButton != null) doubleButton.onClick.RemoveListener(DoubleReward);
+        if (exitButton != null) exitButton.onClick.RemoveListener(OnExitButtonClicked);
+    }
+
+    public void Show() => ShowPanel();
+    public void Hide() => ClosePanel();
+
     // ─────────────────────────────────────────────────────────────
     //  Flow events
     // ─────────────────────────────────────────────────────────────
@@ -80,6 +105,13 @@ public class BlindBoxUI : MonoBehaviour
     private void HandleLevelCompleted()
     {
         blindBoxService?.ResetBox();
+        if (!EconomyBalanceConfig.Active.EnablePostLevelBlindBox)
+        {
+            if (blindBoxPanel != null) blindBoxPanel.SetActive(false);
+            if (openBoxButton != null) openBoxButton.gameObject.SetActive(false);
+            return;
+        }
+
         if (openBoxButton != null) openBoxButton.gameObject.SetActive(true);
     }
 
@@ -94,13 +126,26 @@ public class BlindBoxUI : MonoBehaviour
     //  Box interaction
     // ─────────────────────────────────────────────────────────────
 
+    private void OnOpenBoxButtonClicked()
+    {
+        GameHaptics.Play(HapticEvent.UISelect);
+        UIAudio.Play(UISoundType.ButtonClick);
+        ShowPanel();
+    }
+
     /// <summary>Opens the blind box panel — also used by the Map screen's chest button.</summary>
     public void ShowPanel()
     {
-        if (blindBoxPanel == null) return;
+        GameObject targetPanel = blindBoxPanel != null ? blindBoxPanel : gameObject;
+        if (!targetPanel.activeSelf)
+            targetPanel.SetActive(true);
+        if (!gameObject.activeSelf)
+            gameObject.SetActive(true);
 
+        BindButtons();
+        UIAudio.Play(UISoundType.PanelOpen);
         if (PanelAnimator != null) PanelAnimator.PlayIn();
-        else blindBoxPanel.SetActive(true);
+        else targetPanel.SetActive(true);
 
         if (blindBoxService != null && blindBoxService.IsOpened)
             SetOpenedVisuals();
@@ -112,23 +157,34 @@ public class BlindBoxUI : MonoBehaviour
     {
         if (blindBoxService == null || blindBoxService.IsOpened) return;
 
+        GameHaptics.Play(HapticEvent.UISelect);
+        UIAudio.Play(UISoundType.ButtonClick);
+
         if (boxButton != null) boxButton.interactable = false;
         StartCoroutine(RevealRoutine());
     }
 
     private IEnumerator RevealRoutine()
     {
-        // Squash-pop the box while it "opens".
         if (boxButton != null)
         {
             boxButton.transform.DOKill();
-            boxButton.transform.DOPunchScale(Vector3.one * 0.3f, revealDelay > 0f ? revealDelay : 0.3f, 6, 0.8f).SetUpdate(true);
+            boxButton.transform
+                .DOPunchScale(Vector3.one * 0.3f, revealDelay > 0f ? revealDelay : 0.3f, 6, 0.8f)
+                .SetUpdate(true)
+                .SetLink(boxButton.gameObject);
         }
 
         if (revealDelay > 0f)
             yield return new WaitForSecondsRealtime(revealDelay);
 
-        RewardBundle bundle = blindBoxService != null ? blindBoxService.Open() : null;
+        RewardBundle bundle = blindBoxService != null ? blindBoxService.Open(allowDirectMenuOpen: true) : null;
+        UIAudio.Play(UISoundType.BlindBoxOpen);
+
+        if (bundle != null && bundle.CoinCount > 0)
+        {
+            CoinUI.TryShowCoinRewardPopup(bundle.CoinCount, alreadyGrantedBase: true);
+        }
 
         if (rewardText != null)
         {
@@ -138,7 +194,7 @@ public class BlindBoxUI : MonoBehaviour
                 : "Nothing inside...";
             rewardText.transform.DOKill();
             rewardText.transform.localScale = Vector3.one * 0.5f;
-            rewardText.transform.DOScale(1f, 0.25f).SetEase(Ease.OutBack).SetUpdate(true);
+            rewardText.transform.DOScale(1f, 0.25f).SetEase(Ease.OutBack).SetUpdate(true).SetLink(rewardText.gameObject);
         }
 
         if (doubleButton != null)
@@ -151,7 +207,6 @@ public class BlindBoxUI : MonoBehaviour
         if (exitButton != null) exitButton.gameObject.SetActive(true);
     }
 
-    /// <summary>Rebuilds the post-reveal state when the panel is re-opened after the box was opened.</summary>
     private void SetOpenedVisuals()
     {
         if (boxButton != null) boxButton.interactable = false;
@@ -175,6 +230,9 @@ public class BlindBoxUI : MonoBehaviour
     {
         if (blindBoxService == null || blindBoxService.IsDoubled) return;
 
+        GameHaptics.Play(HapticEvent.UISelect);
+        UIAudio.Play(UISoundType.ButtonClick);
+
         if (doubleButton != null) doubleButton.interactable = false;
 
         blindBoxService.DoubleWithAd(success =>
@@ -183,23 +241,35 @@ public class BlindBoxUI : MonoBehaviour
 
             if (success)
             {
+                UIAudio.Play(UISoundType.RewardClaim);
                 if (rewardText != null)
                     rewardText.text = $"You got {blindBoxService.LastRewardLabel} x2!";
                 if (doubleButton != null) doubleButton.gameObject.SetActive(false);
             }
             else if (doubleButton != null)
             {
+                UIAudio.Play(UISoundType.ErrorOrLocked);
                 doubleButton.interactable = true;
             }
         });
     }
 
+    private void OnExitButtonClicked()
+    {
+        GameHaptics.Play(HapticEvent.UISelect);
+        UIAudio.Play(UISoundType.ButtonClick);
+        if (UIManager.Instance != null && UIManager.Instance.IsPanelOpen(UIPanelType.BlindBox))
+            UIManager.Instance.ClosePanelIfOpen(UIPanelType.BlindBox);
+        else
+            ClosePanel();
+    }
+
     private void ClosePanel()
     {
-        if (PanelAnimator != null) PanelAnimator.PlayOut(() => blindBoxPanel.SetActive(false));
-        else if (blindBoxPanel != null) blindBoxPanel.SetActive(false);
-        // The completion-panel button stays so the box can be revisited —
-        // it hides for good once a new level starts (HandleLevelStarted).
+        UIAudio.Play(UISoundType.PanelClose);
+        GameObject targetPanel = blindBoxPanel != null ? blindBoxPanel : gameObject;
+        if (PanelAnimator != null) PanelAnimator.PlayOut(() => targetPanel.SetActive(false));
+        else targetPanel.SetActive(false);
     }
 
     private void SetClosedVisuals()

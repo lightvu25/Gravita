@@ -35,9 +35,16 @@ public class PlayerImpactFeedback : MonoBehaviour
     [Tooltip("If false, hit-stop is disabled (GDD 'Speedrun Minimal' setting).")]
     [SerializeField] private bool hitStopEnabled = true;
 
-    [Header("Particles")]
-    [Tooltip("Pooled burst spawned at the wall contact point (WallImpactBurst prefab).")]
+    [Header("Effects")]
+    [Tooltip("Pooled particle burst spawned at the wall contact point (WallImpactBurst prefab).")]
     [SerializeField] private GameObject impactBurstPrefab;
+
+    [Tooltip("Optional pooled animation prefab spawned at the wall contact point.")]
+    [SerializeField] private GameObject impactAnimationPrefab;
+
+    [Tooltip("Optional pooled particle or animation effect spawned when smashing a CrackedBlock.")]
+    [SerializeField] private GameObject blockBreakParticlePrefab;
+    [SerializeField] private GameObject blockBreakAnimationPrefab;
 
     private PlayerMovement movement;
     private Coroutine hitStopRoutine;
@@ -54,6 +61,7 @@ public class PlayerImpactFeedback : MonoBehaviour
         movement.OnMoveStopped += HandleStopped;
         movement.OnRedirected += HandleRedirected;
         movement.OnWallImpact += HandleWallImpact;
+        CrackedBlock.OnAnyBroken += HandleBlockBroken;
     }
 
     private void OnDisable()
@@ -64,6 +72,7 @@ public class PlayerImpactFeedback : MonoBehaviour
             movement.OnRedirected -= HandleRedirected;
             movement.OnWallImpact -= HandleWallImpact;
         }
+        CrackedBlock.OnAnyBroken -= HandleBlockBroken;
         if (hitStopRoutine != null) { StopCoroutine(hitStopRoutine); hitStopRoutine = null; }
     }
 
@@ -98,21 +107,34 @@ public class PlayerImpactFeedback : MonoBehaviour
 
     /// <summary>
     /// Spawns the impact burst at the wall contact point, cone spraying back
-    /// along the surface normal (away from the wall). Pooled via
-    /// ObjectPoolManager — ReturnToPool on the prefab recycles it when the
-    /// particles die.
+    /// along the surface normal (away from the wall) via the reusable spawner API.
     /// </summary>
     private void HandleWallImpact(Vector2 normal)
     {
-        if (impactBurstPrefab == null || normal == Vector2.zero) return;
+        if (normal == Vector2.zero) return;
 
-        // LastImpactPoint is the exact cast contact — transform.position lags
-        // one physics step behind MovePosition at the moment this fires.
         Vector3 contact = movement.LastImpactPoint;
-        // ParticleSystem cone emits along local +Z — LookRotation aims it
-        // along the normal so the burst stays in the XY plane.
         Quaternion rotation = Quaternion.LookRotation((Vector3)normal);
-        ObjectPoolManager.SpawnObject(impactBurstPrefab, contact, rotation, ObjectPoolManager.PoolType.ParticleSystem);
+
+        if (impactBurstPrefab != null)
+            ParticleSpawner.SpawnEffect(impactBurstPrefab, contact, rotation);
+
+        if (impactAnimationPrefab != null)
+            PrefabAnimationSpawner.SpawnEffect(impactAnimationPrefab, contact, rotation);
+    }
+
+    private void HandleBlockBroken(CrackedBlock block)
+    {
+        if (block == null || block.HasCustomBreakEffect) return;
+        Vector3 pos = block.LastBreakWorldPosition != Vector3.zero
+            ? block.LastBreakWorldPosition
+            : block.transform.position;
+
+        if (blockBreakParticlePrefab != null)
+            ParticleSpawner.SpawnEffect(blockBreakParticlePrefab, pos, Quaternion.identity);
+
+        if (blockBreakAnimationPrefab != null)
+            PrefabAnimationSpawner.SpawnEffect(blockBreakAnimationPrefab, pos, Quaternion.identity);
     }
 
     /// <summary>

@@ -1,0 +1,72 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 990b03841aceeca47b28423863c35f91, type: 3}
+  m_Name: EconomyBalanceConfig
+  m_EditorClassIdentifier: Assembly-CSharp::EconomyBalanceConfig
+  allowPerLevelFirstClearOverride: 0
+  sectorRewards:
+  - sectorNumber: 1
+    firstClearCoinReward: 50
+    star1UnlockCoinReward: 10
+    star2UnlockCoinReward: 20
+    star3UnlockCoinReward: 30
+    sectorCompletionCoinReward: 200
+    sectorCompletionGemReward: 10
+  - sectorNumber: 2
+    firstClearCoinReward: 70
+    star1UnlockCoinReward: 15
+    star2UnlockCoinReward: 25
+    star3UnlockCoinReward: 40
+    sectorCompletionCoinReward: 300
+    sectorCompletionGemReward: 15
+  - sectorNumber: 3
+    firstClearCoinReward: 90
+    star1UnlockCoinReward: 20
+    star2UnlockCoinReward: 35
+    star3UnlockCoinReward: 50
+    sectorCompletionCoinReward: 450
+    sectorCompletionGemReward: 25
+  maxLoadoutSlots: 4
+  powerSkills:
+  - skillType: 2
+    skillId: breaker
+    enabledInCampaign: 1
+    inventoryCap: 12
+    initialTutorialCharges: 2
+  - skillType: 5
+    skillId: freeze
+    enabledInCampaign: 1
+    inventoryCap: 12
+    initialTutorialCharges: 2
+  - skillType: 4
+    skillId: teleport
+    enabledInCampaign: 1
+    inventoryCap: 8
+    initialTutorialCharges: 2
+  rewardedAdDailyLimit: 5
+  resultScreenAdReward:
+    type: 0
+    amount: 30
+    itemId: 
+  shopAdReward:
+    type: 0
+    amount: 30
+    itemId: 
+  rewardedAdCooldownSeconds: 0
+  minCompletedLevelsBetweenInterstitials: 2
+  maxCompletedLevelsBetweenInterstitials: 3
+  interstitialCooldownSeconds: 30
+  bypassPlayerLevelAndExpWorldLocks: 1
+  grantWalletCoinsFromInLevelPickups: 0
+  enableMidGameplayRevive: 0
+  enablePostLevelBlindBox: 0
+  enableLegacyExtraRewardSystems: 0

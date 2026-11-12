@@ -20,6 +20,8 @@ public class LoadingScreen : MonoBehaviour
     [Tooltip("Fill area whose fillAmount is driven 0 → 1.")]
     [SerializeField] private Image progressFill;
     [SerializeField] private TMP_Text progressText;
+    [Tooltip("Color applied to each character of progressText as the fill bar passes over it.")]
+    [SerializeField] private Color progressCoveredTextColor = new Color(0.078f, 0.094f, 0.141f, 1f);
     [SerializeField] private TMP_Text loadingLabel;
     [SerializeField] private GameObject tapToContinueGroup;
 
@@ -102,6 +104,16 @@ public class LoadingScreen : MonoBehaviour
     private void ApplyProgress(float value)
     {
         if (progressFill != null) progressFill.fillAmount = value;
-        if (progressText != null) progressText.text = $"{Mathf.RoundToInt(value * 100f)}%";
+        if (progressText != null)
+        {
+            progressText.text = $"{Mathf.RoundToInt(value * 100f)}%";
+            var colorizer = UIProgressTextCharacterColorizer.EnsureAndRefresh(
+                progressText,
+                null,
+                progressFill,
+                progressCoveredTextColor);
+            if (colorizer != null && progressFill == null)
+                colorizer.SetNormalizedFill(value);
+        }
     }
 }

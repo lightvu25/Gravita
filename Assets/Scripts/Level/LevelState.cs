@@ -16,5 +16,8 @@ public enum LevelState
     Completed = 3,
 
     /// <summary>The level has been failed (hazard, etc.).</summary>
-    Failed    = 4,
+    Failed         = 4,
+
+    /// <summary>The player died and the death cutscene / revive popup is active.</summary>
+    AwaitingRevive = 5,
 }

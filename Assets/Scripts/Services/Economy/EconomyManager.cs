@@ -2,25 +2,41 @@ using System;
 using UnityEngine;
 
 /// <summary>
+/// Identifies the two currencies allowed by Gravita Economy GDD §2.2 & §3.
+/// Scrap and bidirectional Coin/Gem conversion are strictly prohibited.
+/// </summary>
+public enum EconomyCurrencyType
+{
+    Coins = 0,
+    Gems = 1
+}
+
+/// <summary>
 /// Singleton service managing game currencies:
-///   1. Coins (soft currency earned from level clears and bonuses)
-///   2. Gems (premium currency for bundles and shop offers)
+///   1. Coins (soft currency earned from level clears, star upgrades, missions, ads)
+///   2. Gems (premium currency from sector milestones, selected achievements/weekly goals, and IAP)
 ///
-/// Stars are the prestige metric — they are earned via level completion and
-/// owned by ProgressionManager, not this wallet.
-///
-/// Persistence is integrated directly with SaveManager / ProfileData.
-/// Strictly guarantees non-negative balances.
+/// Strictly guarantees non-negative balances and participates in unified atomic
+/// transactions owned by <see cref="RewardService"/>.
 /// </summary>
 public class EconomyManager : MonoBehaviour
 {
     public static EconomyManager Instance { get; private set; }
+
+    [Header("Optional Balance Config Reference")]
+    [SerializeField] private EconomyBalanceConfig balanceConfig;
 
     // ─────────────────────────────────────────────────────────────
     //  Events (newBalance, delta)
     // ─────────────────────────────────────────────────────────────
     public event Action<int, int> OnCoinsChanged;
     public event Action<int, int> OnGemsChanged;
+
+    /// <summary>
+    /// Detailed currency ledger event for Economy Analytics (GDD §13):
+    /// (currencyType, signedDelta, newBalance, sourceOrSinkTag).
+    /// </summary>
+    public static event Action<EconomyCurrencyType, int, int, string> OnCurrencyLedgerEvent;
 
     // ─────────────────────────────────────────────────────────────
     //  Runtime Cache
@@ -35,11 +51,14 @@ public class EconomyManager : MonoBehaviour
     {
         if (Instance != null && Instance != this)
         {
-            Destroy(gameObject);
+            Destroy(this);
             return;
         }
 
         Instance = this;
+        if (balanceConfig != null)
+            EconomyBalanceConfig.SetActiveConfig(balanceConfig);
+
         LoadFromProfile();
     }
 
@@ -54,15 +73,26 @@ public class EconomyManager : MonoBehaviour
     // ─────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Adds coins to the player's wallet. Amount must be positive.
+    /// Adds coins to the player's wallet and persists immediately. Amount must be positive.
     /// </summary>
     public void AddCoins(int amount, string source = "")
     {
         if (amount <= 0) return;
 
-        coins += amount;
-        SaveToProfile();
-        OnCoinsChanged?.Invoke(coins, amount);
+        ProfileData profile = SaveManager.loadProfile() ?? new ProfileData();
+        int prevCoins = Mathf.Max(0, profile.coins);
+        int nextCoins = prevCoins + amount;
+        profile.coins = nextCoins;
+
+        if (!SaveManager.TrySaveProfile(profile))
+        {
+            profile.coins = prevCoins;
+            return;
+        }
+
+        coins = nextCoins;
+        gems = Mathf.Max(0, profile.gems);
+        DispatchCoinsChanged(coins, amount, source);
         Debug.Log($"[EconomyManager] Added {amount} Coins (Source: {source}). New Balance: {coins}");
     }
 
@@ -72,6 +102,7 @@ public class EconomyManager : MonoBehaviour
     public bool CanAffordCoins(int amount)
     {
         if (amount < 0) return false;
+        SyncWithActiveProfileInMemory();
         return coins >= amount;
     }
 
@@ -88,9 +119,23 @@ public class EconomyManager : MonoBehaviour
             return false;
         }
 
-        coins -= amount;
-        SaveToProfile();
-        OnCoinsChanged?.Invoke(coins, -amount);
+        ProfileData profile = SaveManager.loadProfile() ?? new ProfileData();
+        int prevCoins = Mathf.Max(0, profile.coins);
+        if (prevCoins < amount)
+            return false;
+
+        int nextCoins = prevCoins - amount;
+        profile.coins = nextCoins;
+
+        if (!SaveManager.TrySaveProfile(profile))
+        {
+            profile.coins = prevCoins;
+            return false;
+        }
+
+        coins = nextCoins;
+        gems = Mathf.Max(0, profile.gems);
+        DispatchCoinsChanged(coins, -amount, reason);
         Debug.Log($"[EconomyManager] Spent {amount} Coins (Reason: {reason}). Remaining: {coins}");
         return true;
     }
@@ -100,15 +145,26 @@ public class EconomyManager : MonoBehaviour
     // ─────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Adds gems to the player's wallet. Amount must be positive.
+    /// Adds gems to the player's wallet and persists immediately. Amount must be positive.
     /// </summary>
     public void AddGems(int amount, string source = "")
     {
         if (amount <= 0) return;
 
-        gems += amount;
-        SaveToProfile();
-        OnGemsChanged?.Invoke(gems, amount);
+        ProfileData profile = SaveManager.loadProfile() ?? new ProfileData();
+        int prevGems = Mathf.Max(0, profile.gems);
+        int nextGems = prevGems + amount;
+        profile.gems = nextGems;
+
+        if (!SaveManager.TrySaveProfile(profile))
+        {
+            profile.gems = prevGems;
+            return;
+        }
+
+        gems = nextGems;
+        coins = Mathf.Max(0, profile.coins);
+        DispatchGemsChanged(gems, amount, source);
         Debug.Log($"[EconomyManager] Added {amount} Gems (Source: {source}). New Balance: {gems}");
     }
 
@@ -118,6 +174,7 @@ public class EconomyManager : MonoBehaviour
     public bool CanAffordGems(int amount)
     {
         if (amount < 0) return false;
+        SyncWithActiveProfileInMemory();
         return gems >= amount;
     }
 
@@ -134,11 +191,62 @@ public class EconomyManager : MonoBehaviour
             return false;
         }
 
-        gems -= amount;
-        SaveToProfile();
-        OnGemsChanged?.Invoke(gems, -amount);
+        ProfileData profile = SaveManager.loadProfile() ?? new ProfileData();
+        int prevGems = Mathf.Max(0, profile.gems);
+        if (prevGems < amount)
+            return false;
+
+        int nextGems = prevGems - amount;
+        profile.gems = nextGems;
+
+        if (!SaveManager.TrySaveProfile(profile))
+        {
+            profile.gems = prevGems;
+            return false;
+        }
+
+        gems = nextGems;
+        coins = Mathf.Max(0, profile.coins);
+        DispatchGemsChanged(gems, -amount, reason);
         Debug.Log($"[EconomyManager] Spent {amount} Gems (Reason: {reason}). Remaining: {gems}");
         return true;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    //  Atomic Transaction Hooks (Used Exclusively by RewardService)
+    // ─────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Synchronizes cached balances after an atomic <see cref="RewardService"/> commit
+    /// and notifies UI/Analytics listeners once.
+    /// </summary>
+    internal void CommitFromValidatedTransaction(ProfileData committedProfile, int coinDelta, int gemDelta, string tag)
+    {
+        coins = committedProfile != null ? Mathf.Max(0, committedProfile.coins) : coins;
+        gems = committedProfile != null ? Mathf.Max(0, committedProfile.gems) : gems;
+
+        if (coinDelta != 0)
+            DispatchCoinsChanged(coins, coinDelta, tag);
+
+        if (gemDelta != 0)
+            DispatchGemsChanged(gems, gemDelta, tag);
+    }
+
+    private void DispatchCoinsChanged(int newBalance, int signedDelta, string tag)
+    {
+        OnCoinsChanged?.Invoke(newBalance, signedDelta);
+        OnCurrencyLedgerEvent?.Invoke(EconomyCurrencyType.Coins, signedDelta, newBalance, tag ?? string.Empty);
+    }
+
+    private void DispatchGemsChanged(int newBalance, int signedDelta, string tag)
+    {
+        OnGemsChanged?.Invoke(newBalance, signedDelta);
+        OnCurrencyLedgerEvent?.Invoke(EconomyCurrencyType.Gems, signedDelta, newBalance, tag ?? string.Empty);
+    }
+
+    internal static void NotifyStaticLedgerOnly(EconomyCurrencyType currency, int signedDelta, int newBalance, string tag)
+    {
+        OnCurrencyLedgerEvent?.Invoke(currency, signedDelta, newBalance, tag ?? string.Empty);
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -160,18 +268,13 @@ public class EconomyManager : MonoBehaviour
         }
     }
 
-    private void SaveToProfile()
+    private void SyncWithActiveProfileInMemory()
     {
-        // Always load fresh from disk: GameSession.currentProfile can be a stale
-        // snapshot that would silently revert fields written by other services.
-        ProfileData profile = SaveManager.loadProfile() ?? new ProfileData();
-        profile.coins = coins;
-        profile.gems = gems;
-        SaveManager.saveProfile(profile);
-
-        if (GameSession.Instance != null)
+        ProfileData profile = SaveManager.loadProfile();
+        if (profile != null)
         {
-            GameSession.Instance.currentProfile = profile;
+            coins = Math.Max(0, profile.coins);
+            gems = Math.Max(0, profile.gems);
         }
     }
 
@@ -183,13 +286,19 @@ public class EconomyManager : MonoBehaviour
         int oldCoins = coins;
         int oldGems = gems;
 
+        ProfileData profile = SaveManager.loadProfile() ?? new ProfileData();
+        profile.coins = 0;
+        profile.gems = 0;
+        SaveManager.TrySaveProfile(profile);
+
         coins = 0;
         gems = 0;
-        SaveToProfile();
 
-        OnCoinsChanged?.Invoke(0, -oldCoins);
-        OnGemsChanged?.Invoke(0, -oldGems);
+        if (oldCoins != 0)
+            DispatchCoinsChanged(0, -oldCoins, "ResetEconomy");
+        if (oldGems != 0)
+            DispatchGemsChanged(0, -oldGems, "ResetEconomy");
+
         Debug.Log("[EconomyManager] Economy reset to zero.");
     }
 }
-

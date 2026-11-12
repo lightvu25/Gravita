@@ -13,7 +13,18 @@ MonoBehaviour:
   m_Name: ShopDatabase_Main
   m_EditorClassIdentifier: Assembly-CSharp::HouseFlow.Shop.ShopDatabase
   items:
-  - {fileID: 11400000, guid: 8a10b78601c8e86469cbcdef40e5464b, type: 2}
-  - {fileID: 11400000, guid: f6293ab799f449447a45ddfcf9e7ce6e, type: 2}
-  - {fileID: 11400000, guid: 5f5528ae26690aa45b0c8eaf50029649, type: 2}
-  - {fileID: 11400000, guid: 3d11ae025857da240bcf9ad0452d5532, type: 2}
+  - {fileID: 11400000, guid: 54986bbbef62bbc4a8428f9ecb2d4737, type: 2}
+  - {fileID: 11400000, guid: fe6ce593c0d35cf4eaf62d098671dffb, type: 2}
+  - {fileID: 11400000, guid: 19d06ec839412284a98289c3cca3b68a, type: 2}
+  - {fileID: 11400000, guid: a30d96be14aabfe4e819f70c2bd33bf8, type: 2}
+  - {fileID: 11400000, guid: 392c6290027cdc74b83b3f7c9b29ffd0, type: 2}
+  - {fileID: 11400000, guid: 3c2f279012c81a94781138979b74379a, type: 2}
+  - {fileID: 11400000, guid: d5adf817d8951804db5e1ea4120e8792, type: 2}
+  - {fileID: 11400000, guid: ee62f117637a6e74ab91316c3586c447, type: 2}
+  - {fileID: 11400000, guid: 480c5456c527d954b906e326cb3e6976, type: 2}
+  - {fileID: 11400000, guid: b746d012b5ec81b4c97bc4be1de31f88, type: 2}
+  - {fileID: 11400000, guid: 2a2bb290e6e44a941b528bc73a7c1a3f, type: 2}
+  - {fileID: 11400000, guid: 6a80d78f73e0b2b45bb3840396ec39fd, type: 2}
+  - {fileID: 11400000, guid: 9ba42112a065220419686d0647b06748, type: 2}
+  - {fileID: 11400000, guid: 69afb6fa239f5214e8bf8d612a784b20, type: 2}
+  - {fileID: 11400000, guid: a9d5467f0096a364aaa47c0b6900652f, type: 2}

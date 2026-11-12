@@ -179,8 +179,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: TAP TO CONTINUE
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 29d78673dd270e949b82a60ea12756eb, type: 2}
-  m_sharedMaterial: {fileID: 3445513106160914068, guid: 29d78673dd270e949b82a60ea12756eb, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: e94574c66c2938c4bb953438cff79f26, type: 2}
+  m_sharedMaterial: {fileID: -386559348290223618, guid: e94574c66c2938c4bb953438cff79f26, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -1128,6 +1128,15 @@ MonoBehaviour:
   deathDirector: {fileID: 0}
   shardSubTitleText: {fileID: 0}
   goalDirector: {fileID: 0}
+  playerAnimator: {fileID: 0}
+  enterTrigger: Enter
+  deathTrigger: Death
+  exitTrigger: Exit
+  openingRevealDuration: 0.5
+  openingFallbackDuration: 0.6
+  deathFallbackDuration: 0.8
+  goalFallbackDuration: 1.5
+  endFadeDuration: 0.4
 --- !u!1 &1486831353
 GameObject:
   m_ObjectHideFlags: 0
@@ -1388,10 +1397,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 012bf944e3dfcc7409b4212c8a1e1dd7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SoundManager
+  soundConfig: {fileID: 0}
   audioMixer: {fileID: 24100000, guid: 9b4754405d6970d4d971880af937288c, type: 2}
   sfxMixerGroup: {fileID: 2795143675836899455, guid: 9b4754405d6970d4d971880af937288c, type: 2}
   sfxVolumeParam: SFXVolume
+  poolContainer: {fileID: 0}
+  pooledAudioSourcePrefab: {fileID: 0}
+  fallbackAudioSource: {fileID: 0}
   initialPoolSize: 10
+  sfxPool: []
 --- !u!114 &1938879911
 MonoBehaviour:
   m_ObjectHideFlags: 0

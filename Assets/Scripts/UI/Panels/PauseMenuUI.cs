@@ -7,9 +7,6 @@ public class PauseMenuUI : MonoBehaviour, IUIPanel
     [Header("System References")]
     [SerializeField] private LevelFlowController flowController;
 
-    [Header("Panel")]
-    [SerializeField] private GameObject pausePanel;
-
     [Header("Title")]
     [SerializeField] private TMP_Text levelTitleText;
 
@@ -19,40 +16,77 @@ public class PauseMenuUI : MonoBehaviour, IUIPanel
     [SerializeField] private Button quitToMenuButton;
     [SerializeField] private Button soundButton;
     [SerializeField] private Button musicButton;
+    [SerializeField] private Button hapticsButton;
 
     [Header("Image")]
     [SerializeField] private Image soundIcon;
     [SerializeField] private Image musicIcon;
+    [SerializeField] private Image hapticsIcon;
 
     [Header("Sprites")]
     [SerializeField] private Sprite soundOnSprite;
     [SerializeField] private Sprite soundOffSprite;
     [SerializeField] private Sprite musicOnSprite;
     [SerializeField] private Sprite musicOffSprite;
+    [SerializeField] private Sprite hapticsOnSprite;
+    [SerializeField] private Sprite hapticsOffSprite;
 
     [Header("Volume")]
     [SerializeField] private int soundVolume = 5;
     [SerializeField] private int musicVolume = 5;
+
     public bool IsPaused => UIManager.Instance != null &&
                             UIManager.Instance.IsPanelOpen(UIPanelType.Pause);
 
     private UIPanelAnimator panelAnimator;
+    private bool buttonsBound;
+
     private UIPanelAnimator PanelAnimator =>
-        panelAnimator != null ? panelAnimator
-            : (panelAnimator = (pausePanel != null ? pausePanel : gameObject).GetComponent<UIPanelAnimator>());
+        panelAnimator != null ? panelAnimator : (panelAnimator = GetComponent<UIPanelAnimator>());
 
     private void Awake()
     {
-        flowController = FindAnyObjectByType<LevelFlowController>();
-        resumeButton.onClick.AddListener(OnResumeClicked);
-        restartButton.onClick.AddListener(OnRestartClicked);
-        quitToMenuButton.onClick.AddListener(OnQuitClicked);
-        soundButton.onClick.AddListener(OnSoundClicked);
-        musicButton.onClick.AddListener(OnMusicClicked);
+        if (flowController == null)
+            flowController = FindAnyObjectByType<LevelFlowController>();
+
+        BindButtons();
+    }
+
+    private void OnEnable()
+    {
+        GameHaptics.OnEnabledChanged += HandleHapticsEnabledChanged;
+        RefreshAudioIcon();
+    }
+
+    private void OnDisable()
+    {
+        GameHaptics.OnEnabledChanged -= HandleHapticsEnabledChanged;
     }
 
     private void OnDestroy()
     {
+        UnbindButtons();
+    }
+
+    internal void BindButtons()
+    {
+        if (buttonsBound)
+            return;
+
+        if (resumeButton != null) resumeButton.onClick.AddListener(OnResumeClicked);
+        if (restartButton != null) restartButton.onClick.AddListener(OnRestartClicked);
+        if (quitToMenuButton != null) quitToMenuButton.onClick.AddListener(OnQuitClicked);
+        if (soundButton != null) soundButton.onClick.AddListener(OnSoundClicked);
+        if (musicButton != null) musicButton.onClick.AddListener(OnMusicClicked);
+        if (hapticsButton != null) hapticsButton.onClick.AddListener(OnHapticsClicked);
+        buttonsBound = true;
+    }
+
+    internal void UnbindButtons()
+    {
+        if (!buttonsBound)
+            return;
+
         if (resumeButton != null)
             resumeButton.onClick.RemoveListener(OnResumeClicked);
 
@@ -61,6 +95,17 @@ public class PauseMenuUI : MonoBehaviour, IUIPanel
 
         if (quitToMenuButton != null)
             quitToMenuButton.onClick.RemoveListener(OnQuitClicked);
+
+        if (soundButton != null)
+            soundButton.onClick.RemoveListener(OnSoundClicked);
+
+        if (musicButton != null)
+            musicButton.onClick.RemoveListener(OnMusicClicked);
+
+        if (hapticsButton != null)
+            hapticsButton.onClick.RemoveListener(OnHapticsClicked);
+
+        buttonsBound = false;
     }
 
     public void Show()
@@ -72,8 +117,8 @@ public class PauseMenuUI : MonoBehaviour, IUIPanel
 
         if (PanelAnimator != null)
             PanelAnimator.PlayIn();
-        else if (pausePanel != null)
-            pausePanel.SetActive(true);
+        else
+            gameObject.SetActive(true);
     }
 
     public void Hide()
@@ -84,18 +129,23 @@ public class PauseMenuUI : MonoBehaviour, IUIPanel
 
     private void FinishHide()
     {
-        if (pausePanel != null)
-            pausePanel.SetActive(false);
+        gameObject.SetActive(false);
     }
 
     private void OnResumeClicked()
     {
+        GameHaptics.Play(HapticEvent.UISelect);
+        UIAudio.Play(UISoundType.ButtonClick);
+
         if (UIManager.Instance != null)
             UIManager.Instance.ClosePanelIfOpen(UIPanelType.Pause);
     }
 
     private void OnRestartClicked()
     {
+        GameHaptics.Play(HapticEvent.UISelect);
+        UIAudio.Play(UISoundType.ButtonClick);
+
         if (UIManager.Instance != null)
             UIManager.Instance.ClosePanelIfOpen(UIPanelType.Pause);
 
@@ -104,30 +154,31 @@ public class PauseMenuUI : MonoBehaviour, IUIPanel
 
     private void OnQuitClicked()
     {
+        GameHaptics.Play(HapticEvent.UISelect);
+        UIAudio.Play(UISoundType.ButtonClick);
+
         if (UIManager.Instance != null)
             UIManager.Instance.ClosePanelIfOpen(UIPanelType.Pause);
 
         flowController?.ReturnToMap();
     }
 
-    private void OnSettingsClicked()
-    {
-        if (UIManager.Instance != null)
-            UIManager.Instance.OpenPanel(UIPanelType.Setting);
-    }
-
     private void OnSoundClicked()
     {
+        GameHaptics.Play(HapticEvent.UISelect);
+
         var sm = SoundManager.Instance;
+        if (sm == null) return;
+
         if (sm.GetSoundVolume() > 0)
         {
             soundVolume = sm.GetSoundVolume();
             sm.SetSoundVolume(0);
         }
-
         else
         {
             sm.SetSoundVolume(soundVolume);
+            UIAudio.Play(UISoundType.ButtonClick);
         }
 
         sm.SaveVolume();
@@ -136,13 +187,17 @@ public class PauseMenuUI : MonoBehaviour, IUIPanel
 
     private void OnMusicClicked()
     {
+        GameHaptics.Play(HapticEvent.UISelect);
+        UIAudio.Play(UISoundType.ButtonClick);
+
         var mm = MusicManager.Instance;
+        if (mm == null) return;
+
         if (mm.GetMusicVolume() > 0)
         {
             musicVolume = mm.GetMusicVolume();
             mm.SetMusicVolume(0);
         }
-
         else
         {
             mm.SetMusicVolume(musicVolume);
@@ -152,14 +207,35 @@ public class PauseMenuUI : MonoBehaviour, IUIPanel
         RefreshAudioIcon();
     }
 
+    private void OnHapticsClicked()
+    {
+        GameHaptics.Enabled = !GameHaptics.Enabled;
+        if (GameHaptics.Enabled)
+            GameHaptics.Play(HapticEvent.UISelect);
+
+        UIAudio.Play(UISoundType.ButtonClick);
+        RefreshAudioIcon();
+    }
+
+    private void HandleHapticsEnabledChanged(bool _)
+    {
+        RefreshAudioIcon();
+    }
+
     private void RefreshAudioIcon()
     {
         var sm = SoundManager.Instance;
         var mm = MusicManager.Instance;
 
         if (soundIcon != null)
-            soundIcon.sprite = (sm != null && sm.GetSoundVolume() > 0) ? soundOnSprite : soundOffSprite;
+            soundIcon.SetSpriteNative((sm != null && sm.GetSoundVolume() > 0) ? soundOnSprite : soundOffSprite);
         if (musicIcon != null)
-            musicIcon.sprite = (mm != null && mm.GetMusicVolume() > 0) ? musicOnSprite : musicOffSprite;
+            musicIcon.SetSpriteNative((mm != null && mm.GetMusicVolume() > 0) ? musicOnSprite : musicOffSprite);
+        if (hapticsIcon != null)
+        {
+            Sprite targetSprite = GameHaptics.Enabled ? hapticsOnSprite : hapticsOffSprite;
+            if (targetSprite != null)
+                hapticsIcon.SetSpriteNative(targetSprite);
+        }
     }
 }

@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ad523de527c6f934590aaddc60fcf034, type: 3}
+  m_Name: Profile_Navigate
+  m_EditorClassIdentifier: Assembly-CSharp::MazeDifficultyProfile
+  profileId: Navigate
+  tier: 1
+  defaultPreset: 1
+  customSlotCols: 3
+  customSlotRows: 5
+  minSolutionMoves: 8
+  maxSolutionMoves: 14
+  minDecisionStops: 3
+  maxDecisionStops: 6
+  minStopGraphLoops: 1
+  maxStopGraphLoops: 4
+  braidRatio: 0.3
+  maxDeadEnds: 3
+  maxChambers: 1
+  minLongRunway: 5
+  requireExitOnStopCell: 1
+  allowedGroups: 0000000001000000020000000300000004000000
+  maxAttempts: 50
+  targetScore: 80
+  playabilityWeight: 40
+  diversityWeight: 35
+  layoutWeight: 25

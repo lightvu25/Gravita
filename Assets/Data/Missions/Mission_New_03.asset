@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7c4a91e8402b47d19f23045b18c9e210, type: 3}
+  m_Name: Mission_New_03
+  m_EditorClassIdentifier: Assembly-CSharp::MissionDefinition
+  missionId: new_03
+  category: 1
+  icon: {fileID: 9129518976865312520, guid: 6bb91eb172f65c54db725588800d7c94, type: 3}
+  title: Coin Collector
+  description: Collect 20 coins in completed levels
+  requiredUnlockedSector: 1
+  dayIndex: 1
+  missionPoints: 0
+  type: 2
+  target: 20
+  rewardAmount: 60
+  rewardType: 0
+  rewardPowerUpId: breaker
+  rewardCosmeticId: 
+  rewardIcon: {fileID: 9129518976865312520, guid: 6bb91eb172f65c54db725588800d7c94, type: 3}
+  status: 0

@@ -5,12 +5,18 @@ using UnityEngine.Events;
 [RequireComponent(typeof(RectTransform))]
 public class UIPanelAnimator : MonoBehaviour
 {
-    public enum AnimationMode { Fade, Zoom, FadeAndZoom, Slide, FadeAndSlide }
+    public enum AnimationMode { Fade, Zoom, FadeAndZoom, Slide, FadeAndSlide, Glitch }
 
     [Header("Mode")]
     [SerializeField] private AnimationMode mode = AnimationMode.FadeAndZoom;
-    [Tooltip("Play the show animation automatically when the object becomes active.")]
-    [SerializeField] private bool playOnEnable = true;
+    [Tooltip("Play the show animation automatically when the object becomes active. Keep false when driven explicitly by presenters.")]
+    [SerializeField] private bool playOnEnable = false;
+
+    [Header("Glitch (AnimationMode.Glitch)")]
+    [Tooltip("Pooled one-shot glitch frame animation prefab spawned on PlayIn / PlayOut when mode is Glitch.")]
+    [SerializeField] private PooledGlitchTransitionEffect glitchEffectPrefab;
+    [Tooltip("Optional parent Transform where the pooled glitch effect is spawned. Defaults to this panel's parent (or this panel itself).")]
+    [SerializeField] private Transform glitchSpawnParent;
 
     [Header("Timing")]
     [SerializeField, Min(0.01f)] private float showDuration = 0.3f;
@@ -46,9 +52,18 @@ public class UIPanelAnimator : MonoBehaviour
     private Vector2 baseAnchoredPos;
     private Sequence activeSequence;
 
-    private bool UsesFade => mode != AnimationMode.Zoom && mode != AnimationMode.Slide;
+    private bool UsesFade => mode != AnimationMode.Zoom && mode != AnimationMode.Slide && mode != AnimationMode.Glitch;
     private bool UsesZoom => mode == AnimationMode.Zoom || mode == AnimationMode.FadeAndZoom;
     private bool UsesSlide => mode == AnimationMode.Slide || mode == AnimationMode.FadeAndSlide;
+    private bool UsesGlitch => mode == AnimationMode.Glitch;
+
+    private Transform ResolveGlitchSpawnParent()
+    {
+        if (glitchSpawnParent != null)
+            return glitchSpawnParent;
+
+        return transform.parent != null ? transform.parent : transform;
+    }
 
     private void Awake()
     {
@@ -66,7 +81,7 @@ public class UIPanelAnimator : MonoBehaviour
     private void OnDisable() => KillActive();
     private void OnDestroy() => KillActive();
 
-    /// <summary>Animate the panel in (fade/zoom to its designed state).</summary>
+    /// <summary>Animate the panel in (fade/zoom/glitch to its designed state).</summary>
     public void PlayIn()
     {
         if (!gameObject.activeSelf) gameObject.SetActive(true);
@@ -75,11 +90,28 @@ public class UIPanelAnimator : MonoBehaviour
         KillActive();
         SetInteractable(false);
 
+        if (UsesGlitch)
+        {
+            rectTransform.localScale = baseScale;
+            rectTransform.anchoredPosition = baseAnchoredPos;
+            if (canvasGroup != null) canvasGroup.alpha = 1f;
+
+            PooledGlitchTransitionEffect.SpawnAndPlay(
+                glitchEffectPrefab,
+                ResolveGlitchSpawnParent(),
+                () =>
+                {
+                    SetInteractable(true);
+                    onShowComplete?.Invoke();
+                });
+            return;
+        }
+
         if (UsesZoom) rectTransform.localScale = baseScale * zoomFromScale;
         if (UsesSlide) rectTransform.anchoredPosition = baseAnchoredPos + slideOffset;
         if (UsesFade) canvasGroup.alpha = 0f;
 
-        activeSequence = DOTween.Sequence().SetUpdate(true).SetDelay(showDelay);
+        activeSequence = DOTween.Sequence().SetUpdate(true).SetDelay(showDelay).SetLink(gameObject);
         if (UsesZoom)
             activeSequence.Join(rectTransform.DOScale(baseScale, showDuration).SetEase(showEase).SetUpdate(true));
         if (UsesSlide)
@@ -115,7 +147,21 @@ public class UIPanelAnimator : MonoBehaviour
         KillActive();
         SetInteractable(false);
 
-        activeSequence = DOTween.Sequence().SetUpdate(true);
+        if (UsesGlitch)
+        {
+            PooledGlitchTransitionEffect.SpawnAndPlay(
+                glitchEffectPrefab,
+                ResolveGlitchSpawnParent(),
+                () =>
+                {
+                    onHideComplete?.Invoke();
+                    onComplete?.Invoke();
+                    if (deactivateOnHide) gameObject.SetActive(false);
+                });
+            return;
+        }
+
+        activeSequence = DOTween.Sequence().SetUpdate(true).SetLink(gameObject);
         if (UsesZoom)
             activeSequence.Join(rectTransform.DOScale(baseScale * zoomFromScale, hideDuration).SetEase(hideEase).SetUpdate(true));
         if (UsesSlide)

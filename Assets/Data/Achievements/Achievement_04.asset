@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c6daaaf9690647f44b052a088d41bd0a, type: 3}
+  m_Name: Achievement_04
+  m_EditorClassIdentifier: Assembly-CSharp::AchievementDefinition
+  achievementId: ach_04
+  icon: {fileID: -7709080041201895459, guid: d5d61d96eda6621458a739ca4d2453c6, type: 3}
+  title: Maze Veteran
+  description: Complete 30 Campaign levels
+  requiredUnlockedSector: 1
+  type: 0
+  target: 30
+  rewardAmount: 30
+  rewardType: 1
+  rewardPowerUpId: breaker
+  rewardCosmeticId: 
+  rewardIcon: {fileID: 9129518976865312520, guid: 6bb91eb172f65c54db725588800d7c94, type: 3}
