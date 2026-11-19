@@ -19,12 +19,12 @@ public class AnalyticsEventObserver : MonoBehaviour
 
     private void Awake()
     {
-        flowController     = FindAnyObjectByType<LevelFlowController>();
-        progression        = FindAnyObjectByType<ProgressionManager>();
-        shopManager        = FindAnyObjectByType<ShopManager>();
-        adRewardService    = FindAnyObjectByType<AdRewardService>();
-        dailyRewardService = FindAnyObjectByType<DailyRewardService>();
-        coinBonusService   = FindAnyObjectByType<CoinBonusService>();
+        flowController     = LevelFlowController.ResolveInstance();
+        progression        = ProgressionManager.Instance != null ? ProgressionManager.Instance : FindAnyObjectByType<ProgressionManager>();
+        shopManager        = ShopManager.Instance != null ? ShopManager.Instance : FindAnyObjectByType<ShopManager>();
+        adRewardService    = AdRewardService.Instance != null ? AdRewardService.Instance : FindAnyObjectByType<AdRewardService>();
+        dailyRewardService = DailyRewardService.Instance != null ? DailyRewardService.Instance : FindAnyObjectByType<DailyRewardService>();
+        coinBonusService   = CoinBonusService.Instance != null ? CoinBonusService.Instance : FindAnyObjectByType<CoinBonusService>();
 
         Subscribe();
     }

@@ -104,12 +104,30 @@ public class LootPackDefinition : ScriptableObject
     [Header("Loot Table (Base Rates Sum To 100%)")]
     [SerializeField] private List<LootEntry> entries = new List<LootEntry>();
 
+    [Header("Multi-Drop Configuration")]
+    [SerializeField, Min(1)] private int minRollsPerOpen = 1;
+    [SerializeField, Min(1)] private int maxRollsPerOpen = 1;
+    [Tooltip("Avoids rolling duplicate entries inside a single multi-drop open when enough distinct entries exist.")]
+    [SerializeField] private bool preferDistinctEntriesPerOpen = false;
+
     public string PackId => !string.IsNullOrWhiteSpace(packId) ? packId.Trim() : name;
     public string DisplayName => !string.IsNullOrWhiteSpace(displayName) ? displayName : name;
     public IReadOnlyList<LootEntry> Entries => entries;
+    public int MinRollsPerOpen => Mathf.Max(1, minRollsPerOpen);
+    public int MaxRollsPerOpen => Mathf.Max(MinRollsPerOpen, maxRollsPerOpen);
+    public bool PreferDistinctEntriesPerOpen => preferDistinctEntriesPerOpen;
+
+    public void ConfigureMultiDrop(int minRolls, int maxRolls, bool preferDistinct = true)
+    {
+        minRollsPerOpen = Mathf.Max(1, minRolls);
+        maxRollsPerOpen = Mathf.Max(minRollsPerOpen, maxRolls);
+        preferDistinctEntriesPerOpen = preferDistinct;
+    }
 
     private void OnValidate()
     {
+        minRollsPerOpen = Mathf.Max(1, minRollsPerOpen);
+        maxRollsPerOpen = Mathf.Max(minRollsPerOpen, maxRollsPerOpen);
         if (entries == null || entries.Count == 0)
             return;
 
@@ -463,22 +481,86 @@ public class LootPackDefinition : ScriptableObject
         int rollsCount = 1,
         bool allowGems = true,
         System.Random customRng = null,
-        bool mutateProfilePity = true)
+        bool mutateProfilePity = true,
+        bool preferDistinct = false)
     {
         rollResults = new List<LootRollResult>();
         var bundle = new RewardBundle();
         int safeRolls = Mathf.Max(1, rollsCount);
+        var seenEntryIds = preferDistinct ? new HashSet<string>(StringComparer.OrdinalIgnoreCase) : null;
+        int distinctAvailable = 0;
+        if (preferDistinct && entries != null)
+        {
+            for (int i = 0; i < entries.Count; i++)
+            {
+                LootEntry e = entries[i];
+                if (e != null && (allowGems || e.rewardType != RewardType.Gems))
+                    distinctAvailable++;
+            }
+        }
 
         for (int r = 0; r < safeRolls; r++)
         {
-            if (TryRollSingle(profile, out LootRollResult single, allowGems, customRng, mutateProfilePity))
+            LootRollResult chosen = default;
+            bool rolled = false;
+            int maxAttempts = (preferDistinct && seenEntryIds != null && seenEntryIds.Count < distinctAvailable) ? 8 : 1;
+
+            for (int attempt = 0; attempt < maxAttempts; attempt++)
             {
-                rollResults.Add(single);
-                bundle.Add(single.Reward);
+                // On retry attempts, defer pity mutation until the accepted pick so intermediate rejected rolls do not advance pity twice.
+                bool shouldMutate = mutateProfilePity && attempt == maxAttempts - 1;
+                if (!TryRollSingle(profile, out LootRollResult candidate, allowGems, customRng, shouldMutate))
+                    continue;
+
+                string candEntryId = candidate.Entry != null ? candidate.Entry.EntryId : string.Empty;
+                if (seenEntryIds == null || (!string.IsNullOrEmpty(candEntryId) && seenEntryIds.Add(candEntryId)) || attempt == maxAttempts - 1)
+                {
+                    if (mutateProfilePity && !shouldMutate && entries != null && !string.IsNullOrEmpty(candEntryId))
+                    {
+                        for (int idx = 0; idx < entries.Count; idx++)
+                        {
+                            if (entries[idx] != null && string.Equals(entries[idx].EntryId, candEntryId, StringComparison.OrdinalIgnoreCase))
+                            {
+                                ApplyPityMutationForWinner(profile, idx);
+                                break;
+                            }
+                        }
+                    }
+
+                    chosen = candidate;
+                    rolled = true;
+                    break;
+                }
+            }
+
+            if (rolled)
+            {
+                rollResults.Add(chosen);
+                bundle.Add(chosen.Reward);
             }
         }
 
         return bundle;
+    }
+
+    /// <summary>
+    /// Rolls a random count within [<see cref="MinRollsPerOpen"/>, <see cref="MaxRollsPerOpen"/>]
+    /// respecting <see cref="PreferDistinctEntriesPerOpen"/>.
+    /// </summary>
+    public RewardBundle RollConfiguredBundle(
+        ProfileData profile,
+        out List<LootRollResult> rollResults,
+        bool allowGems = true,
+        System.Random customRng = null,
+        bool mutateProfilePity = true)
+    {
+        int min = MinRollsPerOpen;
+        int max = MaxRollsPerOpen;
+        int rollsCount = min == max
+            ? min
+            : (customRng != null ? customRng.Next(min, max + 1) : UnityEngine.Random.Range(min, max + 1));
+
+        return RollBundle(profile, out rollResults, rollsCount, allowGems, customRng, mutateProfilePity, preferDistinctEntriesPerOpen);
     }
 
     public void ApplyPityMutationForWinner(ProfileData profile, int winningEntryIndex)

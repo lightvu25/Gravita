@@ -161,12 +161,12 @@ public class InteractionEffectPlayer : MonoBehaviour
         if (effectPrefabs != null && effectPrefabs.Count > 0)
         {
             Vector3 spawnPos = ResolveSpawnPosition(defaultAnchor, customDefaultAnchor, context.VisualCenter) + defaultOffset;
-            Quaternion spawnRot = ResolveRotation(alignToInteractionDirection, context.Direction);
 
             for (int i = 0; i < effectPrefabs.Count; i++)
             {
                 GameObject prefab = effectPrefabs[i];
                 if (prefab == null) continue;
+                Quaternion spawnRot = VfxRotationUtility.ResolveRotationForPrefab(prefab, alignToInteractionDirection, context.Direction);
                 VfxSpawner.Spawn(prefab, spawnPos, spawnRot, null, defaultAnimationStateName);
             }
         }
@@ -186,14 +186,15 @@ public class InteractionEffectPlayer : MonoBehaviour
                 if (rule.effectPrefab == null) continue;
 
                 Vector3 pos = ResolveSpawnPosition(rule.anchor, rule.customAnchor, context.VisualCenter) + rule.positionOffset;
-                Quaternion rot = ResolveRotation(rule.alignToDirection, context.Direction);
+                Quaternion rot = VfxRotationUtility.ResolveRotationForPrefab(rule.effectPrefab, rule.alignToDirection, context.Direction);
                 VfxSpawner.Spawn(rule.effectPrefab, pos, rot, null, rule.animationStateName);
             }
         }
 
         if (maxShake > 0f && CinemachineCameraShake2D.Instance != null)
         {
-            CinemachineCameraShake2D.Instance.ShakeCamera(maxShake);
+            Vector2 shakeDir = context.Direction != Vector2.zero ? context.Direction : Vector2.down;
+            CinemachineCameraShake2D.Instance.ShakeCamera(shakeDir, maxShake);
         }
     }
 
@@ -216,15 +217,6 @@ public class InteractionEffectPlayer : MonoBehaviour
             default:
                 return contextVisualCenter;
         }
-    }
-
-    private static Quaternion ResolveRotation(bool align, Vector2 direction)
-    {
-        if (!align || direction.sqrMagnitude < 0.0001f)
-            return Quaternion.identity;
-
-        float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
-        return Quaternion.Euler(0f, 0f, angle);
     }
 
     private Vector3 ResolveFallbackVisualCenter()

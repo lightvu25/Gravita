@@ -60,7 +60,7 @@ public class FirebaseAuthService : IAuthService
     public async Task<AuthResult> SignInWithGoogleAsync()
     {
         if (auth == null)
-            return AuthResult.Fail("Firebase chưa sẵn sàng — vui lòng thử lại sau giây lát.");
+            return AuthResult.Fail("Firebase is unavailable — please try again shortly.");
 
         try
         {
@@ -76,12 +76,19 @@ public class FirebaseAuthService : IAuthService
         }
         catch (FirebaseException e)
         {
+            Debug.LogWarning($"[FirebaseAuthService] Google Firebase sign-in failed ({(AuthError)e.ErrorCode}): {e.Message}");
+            AuthError code = (AuthError)e.ErrorCode;
+            if (code == AuthError.Failure || code == AuthError.InvalidCredential || code == AuthError.OperationNotAllowed)
+            {
+                return AuthResult.Fail(
+                    "Google Sign-In failed: enable Google provider & add Android SHA-1 in Firebase Console, then update google-services.json.");
+            }
             return AuthResult.Fail(ToFriendlyMessage(e));
         }
         catch (Exception e)
         {
             Debug.LogWarning($"[FirebaseAuthService] Google sign-in failed: {e}");
-            return AuthResult.Fail("Đăng nhập Google thất bại — vui lòng thử lại.");
+            return AuthResult.Fail("Google Sign-In failed — please check Firebase OAuth setup and try again.");
         }
     }
 
@@ -89,7 +96,8 @@ public class FirebaseAuthService : IAuthService
     {
         var providerData = new FederatedOAuthProviderData
         {
-            ProviderId = "google.com"
+            ProviderId = "google.com",
+            Scopes = new[] { "email", "profile" }
         };
         var provider = new FederatedOAuthProvider(providerData);
 
@@ -159,7 +167,7 @@ public class FirebaseAuthService : IAuthService
     public async Task<AuthResult> SignInAsync(string email, string password)
     {
         if (auth == null)
-            return AuthResult.Fail("Firebase chưa sẵn sàng — vui lòng thử lại sau giây lát.");
+            return AuthResult.Fail("Firebase is unavailable — please try again shortly.");
 
         try
         {
@@ -186,7 +194,7 @@ public class FirebaseAuthService : IAuthService
     public async Task<AuthResult> RegisterAsync(string email, string password)
     {
         if (auth == null)
-            return AuthResult.Fail("Firebase chưa sẵn sàng — vui lòng thử lại sau giây lát.");
+            return AuthResult.Fail("Firebase is unavailable — please try again shortly.");
 
         try
         {

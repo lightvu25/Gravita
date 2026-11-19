@@ -26,10 +26,10 @@ public class GoogleMobileAdsInterstitialService : MonoBehaviour, IInterstitialAd
     [Header("Trigger (Managed by AdPolicyCoordinator per GDD §8)")]
     [Tooltip("Legacy unconditional map-return trigger. Disabled per GDD §8.2–§8.3.")]
     [SerializeField] private bool showOnReturnToMap = false;
-    [Tooltip("Tracks completed level cadence toward the 2–3 completed-level interstitial schedule.")]
+    [Tooltip("Tracks completed/failed play cadence toward the 2–3 run interstitial schedule.")]
     [SerializeField] private bool showAfterRandomLevelCount = true;
-    [SerializeField] private bool bypassCooldownForLevelCounter = false;
-    [SerializeField, Min(0f)] private float minIntervalSeconds = 30f;
+    [SerializeField] private bool bypassCooldownForLevelCounter = true;
+    [SerializeField, Min(0f)] private float minIntervalSeconds = 0f;
 
     [Header("Reload")]
     [SerializeField, Min(1f)] private float loadRetryDelay = 10f;
@@ -86,7 +86,7 @@ public class GoogleMobileAdsInterstitialService : MonoBehaviour, IInterstitialAd
     private void SubscribeFlowController()
     {
         if (flowController == null)
-            flowController = FindAnyObjectByType<LevelFlowController>();
+            flowController = LevelFlowController.ResolveInstance();
 
         if (flowController != null && !flowSubscribed)
         {
@@ -120,7 +120,10 @@ public class GoogleMobileAdsInterstitialService : MonoBehaviour, IInterstitialAd
 
     private void HandleLevelFailed(string reason)
     {
-        // GDD §8.3: Never count deaths/failed runs toward interstitial cadence.
+        if (!showAfterRandomLevelCount || AdPolicyCoordinator.IsRemoveAdsActive())
+            return;
+
+        AdPolicyCoordinator.RecordFailedRunForInterstitialCadence();
     }
 
     private void OnDestroy()
@@ -163,7 +166,7 @@ public class GoogleMobileAdsInterstitialService : MonoBehaviour, IInterstitialAd
 
     internal bool TryShowFromCoordinator()
     {
-        return TryShowInternal(ignoreCooldown: bypassCooldownForLevelCounter);
+        return TryShowInternal(ignoreCooldown: bypassCooldownForLevelCounter || EconomyBalanceConfig.Active.InterstitialCooldownSeconds <= 0f);
     }
 
     private bool TryShowInternal(bool ignoreCooldown)

@@ -33,7 +33,9 @@ public class MusicManager : MonoBehaviour
 
     private static float musicTime;
     private static int musicVolume = 4;
+    private static int previousMusicVolume = 4;
     private const string PREF_KEY = "MusicVolume";
+    private const string PREV_PREF_KEY = "PreviousMusicVolume";
 
     public event EventHandler OnMusicVolumeChanged;
 
@@ -57,9 +59,12 @@ public class MusicManager : MonoBehaviour
         }
 
         Instance = this;
-        DontDestroyOnLoad(gameObject);
+        if (Application.isPlaying)
+            DontDestroyOnLoad(gameObject);
 
-        musicVolume = PlayerPrefs.GetInt(PREF_KEY, 4);
+        musicVolume = Mathf.Clamp(PlayerPrefs.GetInt(PREF_KEY, 4), 0, MUSIC_VOLUME_MAX);
+        int defaultPrev = musicVolume > 0 ? musicVolume : 4;
+        previousMusicVolume = Mathf.Clamp(PlayerPrefs.GetInt(PREV_PREF_KEY, defaultPrev), 1, MUSIC_VOLUME_MAX);
 
         if (musicMixerGroup != null)
         {
@@ -235,9 +240,20 @@ public class MusicManager : MonoBehaviour
         OnMusicVolumeChanged?.Invoke(this, EventArgs.Empty);
     }
 
+    public int GetPreviousMusicVolume()
+    {
+        return previousMusicVolume > 0 ? previousMusicVolume : 4;
+    }
+
+    public void SetPreviousMusicVolume(int newVolume)
+    {
+        previousMusicVolume = Mathf.Clamp(newVolume, 1, MUSIC_VOLUME_MAX);
+    }
+
     public void SaveVolume()
     {
         PlayerPrefs.SetInt(PREF_KEY, musicVolume);
+        PlayerPrefs.SetInt(PREV_PREF_KEY, GetPreviousMusicVolume());
         PlayerPrefs.Save();
     }
 
@@ -253,6 +269,11 @@ public class MusicManager : MonoBehaviour
 
     public int GetMusicVolume() => musicVolume;
     public float GetMusicVolumeNormalized() => (float)musicVolume / MUSIC_VOLUME_MAX;
+
+    public bool OwnsAudioSource(AudioSource source)
+    {
+        return source != null && (source == musicSource || source == ambientSource);
+    }
 
     public void DuckMusic(bool isDucking)
     {

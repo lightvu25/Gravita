@@ -40,18 +40,39 @@ MonoBehaviour:
   - skillType: 2
     skillId: breaker
     enabledInCampaign: 1
+    unlockedByDefault: 1
     inventoryCap: 12
     initialTutorialCharges: 2
   - skillType: 5
     skillId: freeze
     enabledInCampaign: 1
+    unlockedByDefault: 1
     inventoryCap: 12
     initialTutorialCharges: 2
   - skillType: 4
     skillId: teleport
     enabledInCampaign: 1
+    unlockedByDefault: 1
     inventoryCap: 8
     initialTutorialCharges: 2
+  - skillType: 0
+    skillId: shield
+    enabledInCampaign: 1
+    unlockedByDefault: 0
+    inventoryCap: 10
+    initialTutorialCharges: 0
+  - skillType: 1
+    skillId: magnet
+    enabledInCampaign: 1
+    unlockedByDefault: 0
+    inventoryCap: 10
+    initialTutorialCharges: 0
+  - skillType: 3
+    skillId: echo
+    enabledInCampaign: 1
+    unlockedByDefault: 0
+    inventoryCap: 8
+    initialTutorialCharges: 0
   rewardedAdDailyLimit: 5
   resultScreenAdReward:
     type: 0
@@ -64,7 +85,8 @@ MonoBehaviour:
   rewardedAdCooldownSeconds: 0
   minCompletedLevelsBetweenInterstitials: 2
   maxCompletedLevelsBetweenInterstitials: 3
-  interstitialCooldownSeconds: 30
+  interstitialCooldownSeconds: 0
+  countFailedRunsTowardInterstitial: 1
   bypassPlayerLevelAndExpWorldLocks: 1
   grantWalletCoinsFromInLevelPickups: 0
   enableMidGameplayRevive: 0

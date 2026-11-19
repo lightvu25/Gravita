@@ -14,16 +14,16 @@ public class MockIAPService : MonoBehaviour, IIAPService
 
     private readonly Dictionary<string, string> mockPrices = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
-        { "no_ads", "[MOCK] $2.99" },
-        { "remove_ads", "[MOCK] $2.99" },
-        { "starter_pack", "[MOCK] $4.99" },
-        { "gem_pack_small", "[MOCK] $0.99" },
-        { "gem_pack_tier_1", "[MOCK] $0.99" },
-        { "gem_pack_medium", "[MOCK] $4.99" },
-        { "gem_pack_tier_2", "[MOCK] $4.99" },
-        { "gem_pack_tier_3", "[MOCK] $9.99" },
-        { "gem_pack_large", "[MOCK] $19.99" },
-        { "gem_pack_tier_4", "[MOCK] $19.99" }
+        { "no_ads", "$2.99" },
+        { "remove_ads", "$2.99" },
+        { "starter_pack", "$4.99" },
+        { "gem_pack_small", "$0.99" },
+        { "gem_pack_tier_1", "$0.99" },
+        { "gem_pack_medium", "$4.99" },
+        { "gem_pack_tier_2", "$4.99" },
+        { "gem_pack_tier_3", "$9.99" },
+        { "gem_pack_large", "$19.99" },
+        { "gem_pack_tier_4", "$19.99" }
     };
 
     private readonly HashSet<string> purchasedNonConsumables = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -121,7 +121,7 @@ public class MockIAPService : MonoBehaviour, IIAPService
     {
         if (!string.IsNullOrEmpty(productId) && mockPrices.TryGetValue(productId, out string price))
             return price;
-        return "[MOCK] $0.99";
+        return "$0.99";
     }
 
     public bool IsProductPurchased(string productId)

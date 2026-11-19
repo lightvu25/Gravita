@@ -121,6 +121,7 @@ public class PlayerMovement : MonoBehaviour
     private readonly Collider2D[] overlapResults = new Collider2D[16];
     private readonly Collider2D[] interactionColliderBuffer = new Collider2D[32];
     private readonly List<ICellInteraction> cellInteractionsBuffer = new List<ICellInteraction>(8);
+    private readonly List<ICellInteraction> scratchInteractionsBuffer = new List<ICellInteraction>(8);
 
     private Vector2 moveDirection;
     private Vector2 pendingDirection;
@@ -160,15 +161,16 @@ public class PlayerMovement : MonoBehaviour
     public void EnsureInitialized()
     {
         if (rb == null)
-        {
             rb = GetComponent<Rigidbody2D>();
-            if (rb != null)
-            {
-                rb.bodyType = RigidbodyType2D.Kinematic;
-                rb.gravityScale = 0f;
-                rb.freezeRotation = true;
-                rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
-            }
+
+        if (rb != null)
+        {
+            rb.bodyType = RigidbodyType2D.Kinematic;
+            rb.gravityScale = 0f;
+            rb.freezeRotation = true;
+            rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+            if (Application.isPlaying)
+                rb.interpolation = RigidbodyInterpolation2D.Interpolate;
         }
 
         if (bodyCollider == null)
@@ -327,10 +329,11 @@ public class PlayerMovement : MonoBehaviour
     private void AdvanceSlideStep(float stepBudget)
     {
         int safetySubSteps = 0;
+        Vector2 startPos = rb.position;
+
         while (stepBudget > 0.0001f && !inputLocked && !isPhasing && moveDirection != Vector2.zero && safetySubSteps++ < 4)
         {
-            Vector2 startPos = rb.position;
-            float wallDistance = CastDistance(moveDirection, stepBudget, out RaycastHit2D stopHit);
+            float wallDistance = CastDistance(moveDirection, stepBudget, out RaycastHit2D stopHit, startPos);
             bool hasBluntBlock = FindNearestBlockingCellBoundary(startPos, moveDirection, stepBudget, out float bluntDistance, out ICellInteraction bluntInteraction);
 
             bool bluntWins = hasBluntBlock && (wallDistance < 0f || bluntDistance < wallDistance);
@@ -341,7 +344,9 @@ public class PlayerMovement : MonoBehaviour
             // Check whether a cell centre with ICellInteraction(s) is crossed within maxTravelBeforeObstacle.
             if (TryFindNearestCellCenterAhead(startPos, moveDirection, maxTravelBeforeObstacle, out Vector2 targetCenter, out float centerDist))
             {
-                MoveBodyImmediate(targetCenter);
+                // Avoid calling MoveBodyImmediate (teleporting rb.position) mid-slide unless halting/redirecting,
+                // so RigidbodyInterpolation2D.Interpolate glides smoothly across Continue tiles (switches/coins).
+                startPos = targetCenter;
                 TrackDistance(centerDist);
                 stepBudget -= centerDist;
 
@@ -359,7 +364,7 @@ public class PlayerMovement : MonoBehaviour
                 switch (outcome.Type)
                 {
                     case CellOutcomeType.Continue:
-                        // A switch may have opened/closed a gate ahead — sync transforms and continue remaining stepBudget!
+                        // A switch may have toggled a gate collider ahead — sync transforms and continue remaining stepBudget!
                         Physics2D.SyncTransforms();
                         continue;
 
@@ -412,7 +417,7 @@ public class PlayerMovement : MonoBehaviour
                 {
                     Physics2D.SyncTransforms();
                     float crushAdvance = Mathf.Min(stepBudget, Mathf.Max(0.01f, wallDistance + 0.01f));
-                    MoveBodyImmediate(startPos + moveDirection * crushAdvance);
+                    startPos += moveDirection * crushAdvance;
                     TrackDistance(crushAdvance);
                     stepBudget -= crushAdvance;
                     continue;
@@ -446,7 +451,8 @@ public class PlayerMovement : MonoBehaviour
         float moved = Vector2.Distance(current, next);
 
         rb.MovePosition(next);
-        transform.position = new Vector3(next.x, next.y, transform.position.z);
+        if (!Application.isPlaying)
+            transform.position = new Vector3(next.x, next.y, transform.position.z);
         TrackDistance(moved);
 
         if ((next - phaseTargetPosition).sqrMagnitude <= 0.0001f)
@@ -460,7 +466,6 @@ public class PlayerMovement : MonoBehaviour
                 moveDirection = phasePostDirection;
                 lastMoveDirection = phasePostDirection;
                 pendingDirection = Vector2.zero;
-                OnMoveStarted?.Invoke(moveDirection);
             }
             else
             {
@@ -512,15 +517,12 @@ public class PlayerMovement : MonoBehaviour
             {
                 moveDirection = resolvedDir;
                 lastMoveDirection = resolvedDir;
-                OnRedirected?.Invoke(resolvedDir);
-                OnMoveStarted?.Invoke(resolvedDir);
             }
             return;
         }
 
         lastMoveDirection = resolvedDir != Vector2.zero ? resolvedDir : lastMoveDirection;
         SetPhasing(true);
-        OnRedirected?.Invoke(lastMoveDirection);
     }
 
     private void SetPhasing(bool value)
@@ -558,10 +560,10 @@ public class PlayerMovement : MonoBehaviour
             Collider2D col = interactionColliderBuffer[i];
             if (col == null || col == bodyCollider) continue;
 
-            ICellInteraction[] interactions = col.GetComponentsInParent<ICellInteraction>();
-            for (int k = 0; k < interactions.Length; k++)
+            col.GetComponentsInParent(false, scratchInteractionsBuffer);
+            for (int k = 0; k < scratchInteractionsBuffer.Count; k++)
             {
-                ICellInteraction interaction = interactions[k];
+                ICellInteraction interaction = scratchInteractionsBuffer[k];
                 if (interaction == null || interaction.Priority != CellInteractionPriority.Launcher)
                     continue;
                 if (interaction is Behaviour b && !b.isActiveAndEnabled)
@@ -696,10 +698,10 @@ public class PlayerMovement : MonoBehaviour
             Collider2D col = interactionColliderBuffer[i];
             if (col == null || col == bodyCollider) continue;
 
-            ICellInteraction[] list = col.GetComponentsInParent<ICellInteraction>();
-            for (int k = 0; k < list.Length; k++)
+            col.GetComponentsInParent(false, scratchInteractionsBuffer);
+            for (int k = 0; k < scratchInteractionsBuffer.Count; k++)
             {
-                ICellInteraction interaction = list[k];
+                ICellInteraction interaction = scratchInteractionsBuffer[k];
                 if (interaction == null) continue;
                 if ((interaction.InteractionCellCenter - cellCenter).sqrMagnitude > 0.04f) continue;
                 if (!results.Contains(interaction))
@@ -721,6 +723,8 @@ public class PlayerMovement : MonoBehaviour
             Hazard hazard = col.GetComponentInParent<Hazard>();
             if (hazard != null && hazard.IsLethalToPlayer(this))
             {
+                MoveBodyImmediate(position);
+                Physics2D.SyncTransforms();
                 hazard.CheckOverlappingPlayer();
                 if (inputLocked)
                     return true;
@@ -781,25 +785,54 @@ public class PlayerMovement : MonoBehaviour
     /// direction before touching a wall, or -1 when the path is clear for the
     /// full distance. <paramref name="stopHit"/> receives the blocking hit.
     /// </summary>
-    private float CastDistance(Vector2 direction, float distance, out RaycastHit2D stopHit)
+    private float CastDistance(Vector2 direction, float distance, out RaycastHit2D stopHit, Vector2 castFromPos)
     {
-        int count = bodyCollider.Cast(direction, wallFilter, castHits, distance);
-        float nearest = -1f;
         stopHit = default;
-        bool skippedParallelHit = false;
+        float nearest = -1f;
+        Vector2 bodyOffset = castFromPos - rb.position;
+        bool useShiftedShapeCast = bodyOffset.sqrMagnitude > 0.000001f;
 
-        for (int i = 0; i < count; i++)
+        if (!useShiftedShapeCast)
+        {
+            int count = bodyCollider.Cast(direction, wallFilter, castHits, distance);
+            bool skippedParallelHit = false;
+
+            for (int i = 0; i < count; i++)
+            {
+                RaycastHit2D hit = castHits[i];
+                if (hit.collider == null || hit.collider == bodyCollider) continue;
+                // Ignore parallel wall-grazing hits and T-junction corner skin bevels (normal > 60 deg off travel axis).
+                // Because Collider2D.Cast returns at most 1 hit per CompositeCollider2D, any skipped grazing hit
+                // triggers the laterally-inset forward cast below so real head-on walls ahead are never masked.
+                if (Vector2.Dot(hit.normal, direction) >= -0.5f)
+                {
+                    skippedParallelHit = true;
+                    continue;
+                }
+                if (nearest < 0f || hit.distance < nearest)
+                {
+                    nearest = hit.distance;
+                    stopHit = hit;
+                }
+            }
+
+            if (!skippedParallelHit)
+                return nearest;
+        }
+
+        // Perform a laterally-inset forward shape cast matching bodyCollider's type so head-on walls are never missed
+        // both when grazing CompositeCollider2D seams and when casting from an advanced mid-step sub-position.
+        Bounds bounds = bodyCollider.bounds;
+        if (useShiftedShapeCast)
+            bounds.center += (Vector3)bodyOffset;
+
+        int fallbackCount = CastShapedBounds(bounds, direction, distance, insetPerp: 0.04f, shrinkFactor: 1f, castHits);
+        for (int i = 0; i < fallbackCount; i++)
         {
             RaycastHit2D hit = castHits[i];
             if (hit.collider == null || hit.collider == bodyCollider) continue;
-            // Ignore parallel wall-grazing hits and T-junction corner skin bevels (normal > 60 deg off travel axis).
-            // Because Collider2D.Cast returns at most 1 hit per CompositeCollider2D, any skipped grazing hit
-            // triggers the laterally-inset forward cast below so real head-on walls ahead are never masked.
             if (Vector2.Dot(hit.normal, direction) >= -0.5f)
-            {
-                skippedParallelHit = true;
                 continue;
-            }
             if (nearest < 0f || hit.distance < nearest)
             {
                 nearest = hit.distance;
@@ -807,55 +840,40 @@ public class PlayerMovement : MonoBehaviour
             }
         }
 
-        // Collider2D.Cast returns at most ONE hit per target Collider2D (such as a merged WallTilemap
-        // CompositeCollider2D). When sliding flush along a parallel wall of that CompositeCollider2D,
-        // the zero-distance grazing hit masks head-on walls ahead on the same CompositeCollider2D.
-        // Perform a laterally-inset forward shape cast matching bodyCollider's type so head-on walls are never missed.
-        if (skippedParallelHit)
-        {
-            Bounds bounds = bodyCollider.bounds;
-            Vector2 perpAbs = new Vector2(Mathf.Abs(direction.y), Mathf.Abs(direction.x));
-            int fallbackCount;
-
-            switch (bodyCollider)
-            {
-                case CircleCollider2D:
-                    float radius = Mathf.Max(0.025f, Mathf.Min(bounds.extents.x, bounds.extents.y) - 0.02f);
-                    fallbackCount = Physics2D.CircleCast(bounds.center, radius, direction, wallFilter, castHits, distance);
-                    break;
-
-                case CapsuleCollider2D capsule:
-                    Vector2 capSize = (Vector2)bounds.size - perpAbs * 0.04f;
-                    capSize.x = Mathf.Max(0.05f, capSize.x);
-                    capSize.y = Mathf.Max(0.05f, capSize.y);
-                    fallbackCount = Physics2D.CapsuleCast(bounds.center, capSize, capsule.direction,
-                        transform.eulerAngles.z, direction, wallFilter, castHits, distance);
-                    break;
-
-                default:
-                    Vector2 insetSize = (Vector2)bounds.size - perpAbs * 0.04f;
-                    insetSize.x = Mathf.Max(0.05f, insetSize.x);
-                    insetSize.y = Mathf.Max(0.05f, insetSize.y);
-                    fallbackCount = Physics2D.BoxCast(bounds.center, insetSize, transform.eulerAngles.z,
-                        direction, wallFilter, castHits, distance);
-                    break;
-            }
-
-            for (int i = 0; i < fallbackCount; i++)
-            {
-                RaycastHit2D hit = castHits[i];
-                if (hit.collider == null || hit.collider == bodyCollider) continue;
-                if (Vector2.Dot(hit.normal, direction) >= -0.5f)
-                    continue;
-                if (nearest < 0f || hit.distance < nearest)
-                {
-                    nearest = hit.distance;
-                    stopHit = hit;
-                }
-            }
-        }
-
         return nearest;
+    }
+
+    private int CastShapedBounds(
+        Bounds bounds,
+        Vector2 direction,
+        float distance,
+        float insetPerp,
+        float shrinkFactor,
+        RaycastHit2D[] results)
+    {
+        Vector2 size = (Vector2)bounds.size * shrinkFactor;
+        if (insetPerp > 0f)
+        {
+            Vector2 perpAbs = new Vector2(Mathf.Abs(direction.y), Mathf.Abs(direction.x));
+            size -= perpAbs * insetPerp;
+        }
+        size.x = Mathf.Max(0.05f, size.x);
+        size.y = Mathf.Max(0.05f, size.y);
+
+        switch (bodyCollider)
+        {
+            case CircleCollider2D:
+                float radius = Mathf.Max(0.025f, Mathf.Min(size.x, size.y) * 0.5f);
+                return Physics2D.CircleCast(bounds.center, radius, direction, wallFilter, results, distance);
+
+            case CapsuleCollider2D capsule:
+                return Physics2D.CapsuleCast(bounds.center, size, capsule.direction,
+                    transform.eulerAngles.z, direction, wallFilter, results, distance);
+
+            default:
+                return Physics2D.BoxCast(bounds.center, size, transform.eulerAngles.z,
+                    direction, wallFilter, results, distance);
+        }
     }
 
     /// <summary>
@@ -892,27 +910,7 @@ public class PlayerMovement : MonoBehaviour
     private float ProbeClearance(Vector2 direction)
     {
         const float shrink = 0.9f;
-        Bounds bounds = bodyCollider.bounds;
-        Vector2 center = bounds.center;
-        int count;
-
-        switch (bodyCollider)
-        {
-            case CircleCollider2D:
-                float radius = Mathf.Min(bounds.extents.x, bounds.extents.y) * shrink;
-                count = Physics2D.CircleCast(center, radius, direction, wallFilter, probeHits, turnClearance);
-                break;
-
-            case CapsuleCollider2D capsule:
-                count = Physics2D.CapsuleCast(center, bounds.size * shrink, capsule.direction,
-                    transform.eulerAngles.z, direction, wallFilter, probeHits, turnClearance);
-                break;
-
-            default:
-                count = Physics2D.BoxCast(center, bounds.size * shrink, transform.eulerAngles.z,
-                    direction, wallFilter, probeHits, turnClearance);
-                break;
-        }
+        int count = CastShapedBounds(bodyCollider.bounds, direction, turnClearance, insetPerp: 0f, shrinkFactor: shrink, probeHits);
 
         float nearest = -1f;
         for (int i = 0; i < count; i++)
@@ -995,7 +993,6 @@ public class PlayerMovement : MonoBehaviour
         lastMoveDirection = moveDirection;
         pendingDirection = Vector2.zero;
         OnRedirected?.Invoke(moveDirection);
-        OnMoveStarted?.Invoke(moveDirection);
     }
 
     /// <summary>

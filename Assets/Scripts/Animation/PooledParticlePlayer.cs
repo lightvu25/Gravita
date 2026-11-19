@@ -278,6 +278,12 @@ public class PooledParticlePlayer : MonoBehaviour
             ParticleSystem ps = particleSystems[i];
             if (ps == null) continue;
 
+            if (!ps.main.loop)
+            {
+                ParticleSystem.MainModule main = ps.main;
+                main.useUnscaledTime = true;
+            }
+
             ps.Stop(false, ParticleSystemStopBehavior.StopEmittingAndClear);
             ps.Clear(false);
             ps.time = 0f;
@@ -318,7 +324,7 @@ public class PooledParticlePlayer : MonoBehaviour
         {
             while (!isReturned && elapsed < emptyFallbackDuration)
             {
-                elapsed += Time.deltaTime;
+                elapsed += PlayerImpactFeedback.IsHitStopActive ? Time.unscaledDeltaTime : Time.deltaTime;
                 yield return null;
             }
 
@@ -329,7 +335,7 @@ public class PooledParticlePlayer : MonoBehaviour
 
         while (!isReturned && this != null && gameObject.activeInHierarchy)
         {
-            elapsed += Time.deltaTime;
+            elapsed += PlayerImpactFeedback.IsHitStopActive ? Time.unscaledDeltaTime : Time.deltaTime;
 
             // Handle looping particle systems explicitly: do not recycle while looping unless loopMaxLifetime expires.
             if (IsActivelyLooping())

@@ -24,7 +24,7 @@
   </PropertyGroup>
   <PropertyGroup>
     <NoWarn>0169;USG0001</NoWarn>
-    <DefineConstants>UNITY_6000_4_0;UNITY_6000_4;UNITY_6000;UNITY_5_3_OR_NEWER;UNITY_5_4_OR_NEWER;UNITY_5_5_OR_NEWER;UNITY_5_6_OR_NEWER;UNITY_2017_1_OR_NEWER;UNITY_2017_2_OR_NEWER;UNITY_2017_3_OR_NEWER;UNITY_2017_4_OR_NEWER;UNITY_2018_1_OR_NEWER;UNITY_2018_2_OR_NEWER;UNITY_2018_3_OR_NEWER;UNITY_2018_4_OR_NEWER;UNITY_2019_1_OR_NEWER;UNITY_2019_2_OR_NEWER;UNITY_2019_3_OR_NEWER;UNITY_2019_4_OR_NEWER;UNITY_2020_1_OR_NEWER;UNITY_2020_2_OR_NEWER;UNITY_2020_3_OR_NEWER;UNITY_2021_1_OR_NEWER;UNITY_2021_2_OR_NEWER;UNITY_2021_3_OR_NEWER;UNITY_2022_1_OR_NEWER;UNITY_2022_2_OR_NEWER;UNITY_2022_3_OR_NEWER;UNITY_2023_1_OR_NEWER;UNITY_2023_2_OR_NEWER;UNITY_2023_3_OR_NEWER;UNITY_6000_0_OR_NEWER;UNITY_6000_1_OR_NEWER;UNITY_6000_2_OR_NEWER;UNITY_6000_3_OR_NEWER;UNITY_6000_4_OR_NEWER;UNITY_INCLUDE_TESTS;ENABLE_AR;ENABLE_AUDIO;ENABLE_AUDIO_SCRIPTABLE_PIPELINE;ENABLE_CACHING;ENABLE_CLOTH;ENABLE_EVENT_QUEUE;ENABLE_MICROPHONE;ENABLE_MULTIPLE_DISPLAYS;ENABLE_PHYSICS;ENABLE_TEXTURE_STREAMING;ENABLE_LZMA;ENABLE_UNITYEVENTS;ENABLE_VR;ENABLE_WEBCAM;ENABLE_UNITYWEBREQUEST;ENABLE_WWW;ENABLE_CLOUD_SERVICES;ENABLE_CLOUD_SERVICES_ADS;ENABLE_CLOUD_SERVICES_USE_WEBREQUEST;ENABLE_UNITY_CONSENT;ENABLE_UNITY_CLOUD_IDENTIFIERS;ENABLE_CLOUD_SERVICES_CRASH_REPORTING;ENABLE_CLOUD_SERVICES_NATIVE_CRASH_REPORTING;ENABLE_CLOUD_SERVICES_PURCHASING;ENABLE_CLOUD_SERVICES_ANALYTICS;ENABLE_CLOUD_SERVICES_BUILD;ENABLE_EDITOR_GAME_SERVICES;ENABLE_UNITY_GAME_SERVICES_ANALYTICS_SUPPORT;ENABLE_CLOUD_LICENSE;ENABLE_EDITOR_HUB_LICENSE;ENABLE_WEBSOCKET_CLIENT;ENABLE_GENERATE_NATIVE_PLUGINS_FOR_ASSEMBLIES_API;ENABLE_DIRECTOR_AUDIO;ENABLE_DIRECTOR_TEXTURE;ENABLE_MANAGED_JOBS;ENABLE_MANAGED_TRANSFORM_JOBS;ENABLE_MANAGED_ANIMATION_JOBS;ENABLE_MANAGED_AUDIO_JOBS;ENABLE_ENGINE_CODE_STRIPPING;ENABLE_ONSCREEN_KEYBOARD;ENABLE_MANAGED_UNITYTLS;INCLUDE_DYNAMIC_GI;ENABLE_SCRIPTING_GC_WBARRIERS;PLATFORM_SUPPORTS_MONO;ENABLE_MARSHALLING_TESTS;ENABLE_VIDEO;ENABLE_NAVIGATION_OFFMESHLINK_TO_NAVMESHLINK;ENABLE_ACCELERATOR_CLIENT_DEBUGGING;ENABLE_ACCESSIBILITY_SCREEN_READER;ENABLE_ACCESSIBILITY_SETTINGS;TEXTCORE_1_0_OR_NEWER;EDITOR_ONLY_NAVMESH_BUILDER_DEPRECATED;PLATFORM_ANDROID;UNITY_ANDROID;UNITY_ANDROID_API;ENABLE_EGL;ENABLE_NETWORK;ENABLE_RUNTIME_GI;ENABLE_CRUNCH_TEXTURE_COMPRESSION;ENABLE_CLOUD_SERVICES_ENGINE_DIAGNOSTICS;ENABLE_FIREBASE_IDENTIFIERS;UNITY_CAN_SHOW_SPLASH_SCREEN;UNITY_HAS_GOOGLEVR;UNITY_HAS_TANGO;ENABLE_SPATIALTRACKING;ENABLE_ETC_COMPRESSION;PLATFORM_EXTENDS_VULKAN_DEVICE;PLATFORM_HAS_MULTIPLE_SWAPCHAINS;UNITY_ANDROID_SUPPORTS_SHADOWFILES;PLATFORM_UPDATES_TIME_OUTSIDE_OF_PLAYER_LOOP;PLATFORM_EXTENDS_VULKAN_PIPELINE_CACHE;PLATFORM_SUPPORTS_SPLIT_GRAPHICS_JOBS;PLATFORM_HAS_ADDITIONAL_API_CHECKS;PLATFORM_HAS_GRAPHICS_JOBS_SUPPORT_CHECK_OVERRIDE;PLATFORM_IMPLEMENTS_INSIGHTS_ANR;PLATFORM_SUPPORTS_INSIGHTS_DEVICE_INFO;ENABLE_ANDROID_ADVERTISING_IDS;PLATFORM_HAS_BUGGY_MSAA_RESOLVE;ENABLE_ANDROID_APP_SET_ID;ENABLE_INSIGHTS_PLATFORM_SPECIFIC_RESOURCES;ENABLE_UNITYADS_RUNTIME;UNITY_UNITYADS_API;ENABLE_MONO;NET_STANDARD_2_0;NET_STANDARD;NET_STANDARD_2_1;NETSTANDARD;NETSTANDARD2_1;ENABLE_PROFILER;ENABLE_PROFILER_ASSISTANT_INTEGRATION;DEBUG;TRACE;UNITY_ASSERTIONS;UNITY_EDITOR;UNITY_EDITOR_64;UNITY_EDITOR_WIN;ENABLE_UNITY_COLLECTIONS_CHECKS;ENABLE_BURST_AOT;UNITY_TEAM_LICENSE;ENABLE_CUSTOM_RENDER_TEXTURE;ENABLE_DIRECTOR;ENABLE_LOCALIZATION;ENABLE_SPRITES;ENABLE_TERRAIN;ENABLE_TILEMAP;ENABLE_TIMELINE;ENABLE_INPUT_SYSTEM;TEXTCORE_FONT_ENGINE_1_5_OR_NEWER;TEXTCORE_TEXT_ENGINE_1_5_OR_NEWER;TEXTCORE_FONT_ENGINE_1_6_OR_NEWER;DOTWEEN;UNITY_MCP_READY;UNITY_MCP_DEPS_43;CSHARP_7_OR_LATER;CSHARP_7_3_OR_NEWER</DefineConstants>
+    <DefineConstants>UNITY_6000_4_0;UNITY_6000_4;UNITY_6000;UNITY_5_3_OR_NEWER;UNITY_5_4_OR_NEWER;UNITY_5_5_OR_NEWER;UNITY_5_6_OR_NEWER;UNITY_2017_1_OR_NEWER;UNITY_2017_2_OR_NEWER;UNITY_2017_3_OR_NEWER;UNITY_2017_4_OR_NEWER;UNITY_2018_1_OR_NEWER;UNITY_2018_2_OR_NEWER;UNITY_2018_3_OR_NEWER;UNITY_2018_4_OR_NEWER;UNITY_2019_1_OR_NEWER;UNITY_2019_2_OR_NEWER;UNITY_2019_3_OR_NEWER;UNITY_2019_4_OR_NEWER;UNITY_2020_1_OR_NEWER;UNITY_2020_2_OR_NEWER;UNITY_2020_3_OR_NEWER;UNITY_2021_1_OR_NEWER;UNITY_2021_2_OR_NEWER;UNITY_2021_3_OR_NEWER;UNITY_2022_1_OR_NEWER;UNITY_2022_2_OR_NEWER;UNITY_2022_3_OR_NEWER;UNITY_2023_1_OR_NEWER;UNITY_2023_2_OR_NEWER;UNITY_2023_3_OR_NEWER;UNITY_6000_0_OR_NEWER;UNITY_6000_1_OR_NEWER;UNITY_6000_2_OR_NEWER;UNITY_6000_3_OR_NEWER;UNITY_6000_4_OR_NEWER;UNITY_INCLUDE_TESTS;ENABLE_AR;ENABLE_AUDIO;ENABLE_AUDIO_SCRIPTABLE_PIPELINE;ENABLE_CACHING;ENABLE_CLOTH;ENABLE_EVENT_QUEUE;ENABLE_MICROPHONE;ENABLE_MULTIPLE_DISPLAYS;ENABLE_PHYSICS;ENABLE_TEXTURE_STREAMING;ENABLE_LZMA;ENABLE_UNITYEVENTS;ENABLE_VR;ENABLE_WEBCAM;ENABLE_UNITYWEBREQUEST;ENABLE_WWW;ENABLE_CLOUD_SERVICES;ENABLE_CLOUD_SERVICES_ADS;ENABLE_CLOUD_SERVICES_USE_WEBREQUEST;ENABLE_UNITY_CONSENT;ENABLE_UNITY_CLOUD_IDENTIFIERS;ENABLE_CLOUD_SERVICES_CRASH_REPORTING;ENABLE_CLOUD_SERVICES_NATIVE_CRASH_REPORTING;ENABLE_CLOUD_SERVICES_PURCHASING;ENABLE_CLOUD_SERVICES_ANALYTICS;ENABLE_CLOUD_SERVICES_BUILD;ENABLE_EDITOR_GAME_SERVICES;ENABLE_UNITY_GAME_SERVICES_ANALYTICS_SUPPORT;ENABLE_CLOUD_LICENSE;ENABLE_EDITOR_HUB_LICENSE;ENABLE_WEBSOCKET_CLIENT;ENABLE_GENERATE_NATIVE_PLUGINS_FOR_ASSEMBLIES_API;ENABLE_DIRECTOR_AUDIO;ENABLE_DIRECTOR_TEXTURE;ENABLE_MANAGED_JOBS;ENABLE_MANAGED_TRANSFORM_JOBS;ENABLE_MANAGED_ANIMATION_JOBS;ENABLE_MANAGED_AUDIO_JOBS;ENABLE_ENGINE_CODE_STRIPPING;ENABLE_ONSCREEN_KEYBOARD;ENABLE_MANAGED_UNITYTLS;INCLUDE_DYNAMIC_GI;ENABLE_SCRIPTING_GC_WBARRIERS;PLATFORM_SUPPORTS_MONO;ENABLE_MARSHALLING_TESTS;ENABLE_VIDEO;ENABLE_NAVIGATION_OFFMESHLINK_TO_NAVMESHLINK;ENABLE_ACCELERATOR_CLIENT_DEBUGGING;ENABLE_ACCESSIBILITY_SCREEN_READER;ENABLE_ACCESSIBILITY_SETTINGS;TEXTCORE_1_0_OR_NEWER;EDITOR_ONLY_NAVMESH_BUILDER_DEPRECATED;PLATFORM_ANDROID;UNITY_ANDROID;UNITY_ANDROID_API;ENABLE_EGL;ENABLE_NETWORK;ENABLE_RUNTIME_GI;ENABLE_CRUNCH_TEXTURE_COMPRESSION;ENABLE_CLOUD_SERVICES_ENGINE_DIAGNOSTICS;ENABLE_FIREBASE_IDENTIFIERS;UNITY_CAN_SHOW_SPLASH_SCREEN;UNITY_HAS_GOOGLEVR;UNITY_HAS_TANGO;ENABLE_SPATIALTRACKING;ENABLE_ETC_COMPRESSION;PLATFORM_EXTENDS_VULKAN_DEVICE;PLATFORM_HAS_MULTIPLE_SWAPCHAINS;UNITY_ANDROID_SUPPORTS_SHADOWFILES;PLATFORM_UPDATES_TIME_OUTSIDE_OF_PLAYER_LOOP;PLATFORM_EXTENDS_VULKAN_PIPELINE_CACHE;PLATFORM_SUPPORTS_SPLIT_GRAPHICS_JOBS;PLATFORM_HAS_ADDITIONAL_API_CHECKS;PLATFORM_HAS_GRAPHICS_JOBS_SUPPORT_CHECK_OVERRIDE;PLATFORM_IMPLEMENTS_INSIGHTS_ANR;PLATFORM_SUPPORTS_INSIGHTS_DEVICE_INFO;ENABLE_ANDROID_ADVERTISING_IDS;PLATFORM_HAS_BUGGY_MSAA_RESOLVE;ENABLE_ANDROID_APP_SET_ID;ENABLE_INSIGHTS_PLATFORM_SPECIFIC_RESOURCES;ENABLE_UNITYADS_RUNTIME;UNITY_UNITYADS_API;ENABLE_MONO;NET_STANDARD_2_0;NET_STANDARD;NET_STANDARD_2_1;NETSTANDARD;NETSTANDARD2_1;ENABLE_PROFILER;ENABLE_PROFILER_ASSISTANT_INTEGRATION;DEBUG;TRACE;UNITY_ASSERTIONS;UNITY_EDITOR;UNITY_EDITOR_64;UNITY_EDITOR_WIN;ENABLE_UNITY_COLLECTIONS_CHECKS;ENABLE_BURST_AOT;UNITY_TEAM_LICENSE;ENABLE_CUSTOM_RENDER_TEXTURE;ENABLE_DIRECTOR;ENABLE_LOCALIZATION;ENABLE_SPRITES;ENABLE_TERRAIN;ENABLE_TILEMAP;ENABLE_TIMELINE;ENABLE_INPUT_SYSTEM;TEXTCORE_FONT_ENGINE_1_5_OR_NEWER;TEXTCORE_TEXT_ENGINE_1_5_OR_NEWER;TEXTCORE_FONT_ENGINE_1_6_OR_NEWER;DOTWEEN;UNITY_MCP_READY;UNITY_MCP_DEPS_48;CSHARP_7_OR_LATER;CSHARP_7_3_OR_NEWER</DefineConstants>
     <AllowUnsafeBlocks>False</AllowUnsafeBlocks>
   </PropertyGroup>
   <PropertyGroup>
@@ -63,8 +63,10 @@
     <Compile Include="Assets\Scripts\MazeGen\MazePattern.cs" />
     <Compile Include="Assets\Scripts\Services\Economy\UnityPurchasingService.cs" />
     <Compile Include="Assets\Scripts\Animation\PooledParticlePlayer.cs" />
+    <Compile Include="Assets\Scripts\Core\FramePacingBootstrap.cs" />
     <Compile Include="Assets\Scripts\UI\Panels\LoginUI.cs" />
     <Compile Include="Assets\Scripts\Services\Ads\RewardedAdResult.cs" />
+    <Compile Include="Assets\Scripts\Data\Runner\RunnerPopulationProfile.cs" />
     <Compile Include="Assets\Scripts\UI\Core\UIGlitchSpriteAnimator.cs" />
     <Compile Include="Assets\Scripts\Core\ObjectPoolManager.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\Benchmark02.cs" />
@@ -79,6 +81,7 @@
     <Compile Include="Assets\Scripts\Firebase\FirebaseCloudSaveProvider.cs" />
     <Compile Include="Assets\Scripts\Services\Economy\CampaignEconomyService.cs" />
     <Compile Include="Assets\Scripts\Feedback\Haptics\GameHaptics.cs" />
+    <Compile Include="Assets\Scripts\Gameplay\PowerUpAutoTrigger.cs" />
     <Compile Include="Assets\Scripts\Gameplay\Mechanics\HazardActivation.cs" />
     <Compile Include="Assets\Scripts\Data\AchievementDatabase.cs" />
     <Compile Include="Assets\Scripts\Data\Cosmetics\CosmeticCategory.cs" />
@@ -87,6 +90,7 @@
     <Compile Include="Assets\Scripts\Services\Analytics\AnalyticsEventObserver.cs" />
     <Compile Include="Assets\Scripts\Services\Ads\IRewardedAdService.cs" />
     <Compile Include="Assets\Scripts\UI\Core\PooledGlitchTransitionEffect.cs" />
+    <Compile Include="Assets\Scripts\UI\Widgets\WorldButtonWidget.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\VertexShakeB.cs" />
     <Compile Include="Assets\Scripts\Data\PowerUpType.cs" />
     <Compile Include="Assets\ThirdParty\DOTween\Modules\DOTweenModuleUnityVersion.cs" />
@@ -101,10 +105,14 @@
     <Compile Include="Assets\Scripts\Feedback\Haptics\IHapticsBackend.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\VertexJitter.cs" />
     <Compile Include="Assets\Scripts\UI\Core\ScreenTransition.cs" />
+    <Compile Include="Assets\Scripts\UI\Panels\RewardUI.cs" />
     <Compile Include="Assets\Scripts\Services\Ads\AdMob\GoogleMobileAdsController.cs" />
     <Compile Include="Assets\Scripts\Gameplay\Mechanics\FailingTile.cs" />
+    <Compile Include="Assets\Scripts\Feedback\KineticRunwayFeedback.cs" />
     <Compile Include="Assets\Scripts\Services\Ads\AdMob\GoogleMobileAdsConsentController.cs" />
+    <Compile Include="Assets\Scripts\UI\Widgets\EventBannerCardWidget.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\VertexZoom.cs" />
+    <Compile Include="Assets\Scripts\Services\RewardS\NetworkTimeGuard.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\SkewTextExample.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\WarpTextExample.cs" />
     <Compile Include="Assets\Scripts\Firebase\IAuthService.cs" />
@@ -133,7 +141,7 @@
     <Compile Include="Assets\Scripts\Feedback\PlayerCosmeticApplier.cs" />
     <Compile Include="Assets\Scripts\Services\Analytics\MockAnalyticsProvider.cs" />
     <Compile Include="Assets\Scripts\Feedback\CinemachineCameraShake2D.cs" />
-    <Compile Include="Assets\Scripts\UI\Panels\CoinUI.cs" />
+    <Compile Include="Assets\Scripts\Level\RuntimeLevelPopulator.cs" />
     <Compile Include="Assets\Scripts\Data\Cosmetics\CosmeticDatabase.cs" />
     <Compile Include="Assets\Scripts\UI\Widgets\AchievementRowWidget.cs" />
     <Compile Include="Assets\Scripts\Data\PlayerExpConfig.cs" />
@@ -142,15 +150,21 @@
     <Compile Include="Assets\Scripts\Data\ShopDatabase.cs" />
     <Compile Include="Assets\Scripts\Data\ShopCostType.cs" />
     <Compile Include="Assets\Scripts\Services\Ads\AdMob\GoogleMobileAdsRewardedService.cs" />
+    <Compile Include="Assets\Scripts\Level\RuntimeTilemapMerger.cs" />
     <Compile Include="Assets\Scripts\Gameplay\Mechanics\CircuitSwitch.cs" />
+    <Compile Include="Assets\Scripts\Audio\AudioVolumeControl.cs" />
     <Compile Include="Assets\Scripts\UI\Panels\BlindBoxUI.cs" />
     <Compile Include="Assets\Scripts\Services\RewardS\RewardItem.cs" />
     <Compile Include="Assets\Scripts\Data\LevelData.cs" />
+    <Compile Include="Assets\Scripts\Save\SaveIntegrityGuard.cs" />
     <Compile Include="Assets\Scripts\UI\Panels\RunnerUI.cs" />
     <Compile Include="Assets\Scripts\Audio\UIAudio.cs" />
     <Compile Include="Assets\Scripts\Services\RewardS\RewardService.cs" />
     <Compile Include="Assets\Scripts\UI\Panels\SettingUI.cs" />
+    <Compile Include="Assets\Scripts\UI\Panels\EventPanelUI.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\ObjectSpin.cs" />
+    <Compile Include="Assets\Scripts\Gameplay\PowerUpVfxPool.cs" />
+    <Compile Include="Assets\Scripts\Level\Runner\MazeRunnerService.cs" />
     <Compile Include="Assets\Scripts\Data\ShopItemDefinition.cs" />
     <Compile Include="Assets\Scripts\Services\Analytics\AnalyticsEvents.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TextConsoleSimulator.cs" />
@@ -180,6 +194,7 @@
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\EnvMapAnimator.cs" />
     <Compile Include="Assets\Scripts\UI\Panels\PauseMenuUI.cs" />
     <Compile Include="Assets\Scripts\Data\MissionDatabase.cs" />
+    <Compile Include="Assets\Scripts\Level\Runner\RunnerSpawnNode.cs" />
     <Compile Include="Assets\Scripts\Feedback\StarCollectFeedback.cs" />
     <Compile Include="Assets\Scripts\MazeGen\MazeGenerator.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TMP_TextSelector_A.cs" />
@@ -195,7 +210,9 @@
     <Compile Include="Assets\Scripts\Gameplay\MazeTile.cs" />
     <Compile Include="Assets\Scripts\Audio\RandomPitchAudio.cs" />
     <Compile Include="Assets\Scripts\UI\Panels\ResultPanelUI.cs" />
+    <Compile Include="Assets\Scripts\Animation\VfxRotationUtility.cs" />
     <Compile Include="Assets\Scripts\Firebase\FirebaseService.cs" />
+    <Compile Include="Assets\Scripts\Level\Runner\RunnerSessionState.cs" />
     <Compile Include="Assets\Scripts\UI\Widgets\LevelNodeWidget.cs" />
     <Compile Include="Assets\Scripts\UI\Panels\CurrencyUI.cs" />
     <Compile Include="Assets\Scripts\Core\ReturnToPool.cs" />
@@ -217,10 +234,12 @@
     <Compile Include="Assets\Scripts\Data\LootPackDefinition.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TMP_UiFrameRateCounter.cs" />
     <Compile Include="Assets\Scripts\Audio\MusicManager.cs" />
+    <Compile Include="Assets\Scripts\Feedback\OverclockPostFxController.cs" />
     <Compile Include="Assets\ThirdParty\DOTween\Modules\DOTweenModulePhysics.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TMP_TextSelector_B.cs" />
     <Compile Include="Assets\Scripts\UI\Core\UIManager.cs" />
     <Compile Include="Assets\ThirdParty\DOTween\Modules\DOTweenModuleAudio.cs" />
+    <Compile Include="Assets\Scripts\UI\Panels\EventDetailPopupUI.cs" />
     <Compile Include="Assets\Scripts\UI\Panels\SimplePanelUI.cs" />
     <Compile Include="Assets\Scripts\Level\LevelLoader.cs" />
     <Compile Include="Assets\Scripts\Data\MissionMilestoneDefinition.cs" />
@@ -232,14 +251,18 @@
     <Compile Include="Assets\Scripts\Gameplay\Mechanics\CellOutcome.cs" />
     <Compile Include="Assets\Scripts\Gameplay\Mechanics\IHazardActivation.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TMP_TextInfoDebugTool.cs" />
+    <Compile Include="Assets\Scripts\Data\Runner\RunnerModeConfig.cs" />
     <Compile Include="Assets\Scripts\Data\Economy\EconomyBalanceConfig.cs" />
     <Compile Include="Assets\Scripts\UI\Panels\PostGameAdsUI.cs" />
     <Compile Include="Assets\Scripts\Core\LoadingScreen.cs" />
+    <Compile Include="Assets\Scripts\Level\Runner\RunnerPortalNode.cs" />
     <Compile Include="Assets\Scripts\Feedback\CloseCallDetector.cs" />
     <Compile Include="Assets\Scripts\UI\Panels\InGameHUD.cs" />
     <Compile Include="Assets\Scripts\Gameplay\ICrushable.cs" />
+    <Compile Include="Assets\Scripts\Level\Runner\RunnerRoomController.cs" />
     <Compile Include="Assets\Scripts\Services\RewardS\CoinBonusService.cs" />
     <Compile Include="Assets\Scripts\Gameplay\Mechanics\CardinalDirection.cs" />
+    <Compile Include="Assets\Scripts\Services\RewardS\EventService.cs" />
     <Compile Include="Assets\Scripts\Save\SaveManager.cs" />
     <Compile Include="Assets\Scripts\Gameplay\Mechanics\EnergyGate.cs" />
     <Compile Include="Assets\Scripts\Level\LevelFlowController.cs" />
@@ -248,11 +271,14 @@
     <Compile Include="Assets\Scripts\UI\Widgets\PowerUpSlotWidget.cs" />
     <Compile Include="Assets\Scripts\Services\Ads\IInterstitialAdService.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TMP_DigitValidator.cs" />
+    <Compile Include="Assets\Scripts\Level\LevelEvents.cs" />
     <Compile Include="Assets\Scripts\Gameplay\BrakeTile.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\Benchmark01.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TextMeshSpawner.cs" />
     <Compile Include="Assets\Scripts\UI\Panels\AchievementPanelUI.cs" />
     <Compile Include="Assets\Scripts\Services\RewardS\RewardType.cs" />
+    <Compile Include="Assets\Scripts\Data\Events\EventDatabase.cs" />
+    <Compile Include="Assets\Scripts\Feedback\PlayerVisual.cs" />
     <Compile Include="Assets\Scripts\Data\ProfileData.cs" />
     <Compile Include="Assets\Scripts\UI\Core\IUIPanel.cs" />
     <Compile Include="Assets\Scripts\MazeGen\MazeValidator.cs" />
@@ -299,6 +325,7 @@
     <Compile Include="Assets\Scripts\Services\Economy\IAPResult.cs" />
     <Compile Include="Assets\Scripts\Services\Ads\AdRewardService.cs" />
     <Compile Include="Assets\Scripts\UI\Core\UIImageSpriteExtensions.cs" />
+    <Compile Include="Assets\Scripts\Data\Events\GameEventDefinition.cs" />
     <Compile Include="Assets\Scripts\Gameplay\Mechanics\GravityBlock.cs" />
     <Compile Include="Assets\Scripts\UI\Core\UIPanelAnimator.cs" />
   </ItemGroup>
@@ -2183,8 +2210,10 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="GoogleMobileAds.Editor.csproj" />
+    <ProjectReference Include="Google.Play.Games.csproj" />
     <ProjectReference Include="Firebase.Functions.csproj" />
     <ProjectReference Include="Firebase.App.Internal.csproj" />
+    <ProjectReference Include="Google.Play.Games.Editor.csproj" />
     <ProjectReference Include="FirebaseMessagingActivityGenerator.csproj" />
     <ProjectReference Include="Firebase.FirebaseAI.csproj" />
   </ItemGroup>

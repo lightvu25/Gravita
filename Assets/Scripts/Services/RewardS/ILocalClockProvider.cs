@@ -61,6 +61,7 @@ public static class LocalClock
     public static void ResetToSystemClock()
     {
         customProvider = null;
+        NetworkTimeGuard.ResetSessionBaseline();
     }
 
     public static int DayOfWeekToOneBased(DayOfWeek dayOfWeek)
@@ -123,6 +124,15 @@ public static class LocalClock
         {
             isClockRolledBack = true;
             effectiveLocalNow = new DateTime(profile.highWaterLocalTicks);
+            return false;
+        }
+
+        if (NetworkTimeGuard.EvaluateForwardTamper(rawLocalNow, customProvider != null, out DateTime clampedNow))
+        {
+            isClockRolledBack = true;
+            effectiveLocalNow = profile.highWaterLocalTicks > clampedNow.Ticks
+                ? new DateTime(profile.highWaterLocalTicks)
+                : clampedNow;
             return false;
         }
 

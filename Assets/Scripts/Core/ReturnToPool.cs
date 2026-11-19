@@ -101,7 +101,12 @@ public class ReturnToPool : MonoBehaviour
 
     private IEnumerator Routine(float delay)
     {
-        yield return new WaitForSeconds(delay);
+        float elapsed = 0f;
+        while (elapsed < delay)
+        {
+            elapsed += PlayerImpactFeedback.IsHitStopActive ? Time.unscaledDeltaTime : Time.deltaTime;
+            yield return null;
+        }
         ReturnNow();
     }
 

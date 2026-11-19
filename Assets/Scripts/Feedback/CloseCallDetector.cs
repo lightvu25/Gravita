@@ -13,6 +13,7 @@ using UnityEngine;
 public class CloseCallDetector : MonoBehaviour
 {
     public static event Action<Vector3> OnCloseCallTriggered;
+    public static event Action<Vector3, Vector2> OnCloseCallTriggeredWithDirection;
 
     [Header("Near-Miss Thresholds")]
     [Tooltip("Crossing a warning laser/floor within this many seconds before ignition counts as a Close Call.")]
@@ -26,7 +27,7 @@ public class CloseCallDetector : MonoBehaviour
 
     [Header("Reward & Feedback")]
     [SerializeField, Min(0)] private int bonusCoins = 5;
-    [SerializeField, Min(0f)] private float cameraPulseForce = 0.06f;
+    [SerializeField, Min(0f)] private float cameraPulseForce = 0.12f;
     [SerializeField] private GameObject closeCallVfxPrefab;
 
     private readonly Collider2D[] scanBuffer = new Collider2D[16];
@@ -76,7 +77,10 @@ public class CloseCallDetector : MonoBehaviour
                 && IsWithinCloseCallWindow(activation.TimeUntilActive, closeCallWindowSeconds)
                 && ((Vector2)hazard.transform.position - pos).sqrMagnitude <= (movement.CellSize * 0.55f) * (movement.CellSize * 0.55f))
             {
-                TriggerCloseCall(id, now, pos);
+                Vector2 dir = movement.CurrentDirection != Vector2.zero
+                    ? movement.CurrentDirection
+                    : movement.LastMoveDirection;
+                TriggerCloseCall(id, now, pos, dir);
                 continue;
             }
 
@@ -86,26 +90,29 @@ public class CloseCallDetector : MonoBehaviour
                 float dist = Vector2.Distance(pos, hazard.transform.position);
                 if (dist > movement.CellSize * 0.72f && dist <= enemyNearMissRadius)
                 {
-                    TriggerCloseCall(id, now, pos);
+                    Vector2 away = (pos - (Vector2)hazard.transform.position).normalized;
+                    TriggerCloseCall(id, now, pos, away);
                 }
             }
         }
     }
 
-    private void TriggerCloseCall(EntityId hazardId, float now, Vector3 worldPos)
+    private void TriggerCloseCall(EntityId hazardId, float now, Vector3 worldPos, Vector2 impulseDir)
     {
         hazardCooldownUntil[hazardId] = now + perHazardCooldown;
 
         if (bonusCoins > 0 && EconomyBalanceConfig.Active.EnableLegacyExtraRewardSystems && EconomyManager.Instance != null)
             EconomyManager.Instance.AddCoins(bonusCoins, "CloseCall");
 
+        Vector2 resolvedDir = impulseDir.sqrMagnitude > 0.0001f ? impulseDir.normalized : Vector2.down;
         if (cameraPulseForce > 0f && CinemachineCameraShake2D.Instance != null)
-            CinemachineCameraShake2D.Instance.ShakeCamera(cameraPulseForce);
+            CinemachineCameraShake2D.Instance.ShakeCamera(resolvedDir, cameraPulseForce);
 
         if (closeCallVfxPrefab != null)
             VfxSpawner.Spawn(closeCallVfxPrefab, worldPos, Quaternion.identity);
 
         OnCloseCallTriggered?.Invoke(worldPos);
+        OnCloseCallTriggeredWithDirection?.Invoke(worldPos, resolvedDir);
     }
 }
 

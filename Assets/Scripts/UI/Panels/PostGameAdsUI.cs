@@ -35,7 +35,7 @@ public class PostGameAdsUI : MonoBehaviour
     private void Awake()
     {
         if (flowController == null)
-            flowController = FindAnyObjectByType<LevelFlowController>();
+            flowController = LevelFlowController.ResolveInstance();
         if (adRewardService == null)
             adRewardService = AdRewardService.Instance != null ? AdRewardService.Instance : FindAnyObjectByType<AdRewardService>();
 

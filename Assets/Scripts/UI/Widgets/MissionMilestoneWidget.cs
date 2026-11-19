@@ -140,7 +140,7 @@ public class MissionMilestoneWidget : MonoBehaviour
         if (milestoneIconImage != null)
         {
             if (activeSprite != null)
-                milestoneIconImage.SetSpriteNative(activeSprite);
+                milestoneIconImage.sprite = activeSprite;
 
             float targetAlpha = isClaimed ? claimedIconAlpha : 1f;
             milestoneIconImage.color = new Color(1f, 1f, 1f, targetAlpha);

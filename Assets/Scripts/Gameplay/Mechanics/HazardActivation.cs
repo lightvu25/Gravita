@@ -77,10 +77,13 @@ public class HazardActivation : MonoBehaviour, IHazardActivation, ISwitchable, I
     public float TimeUntilActive { get; private set; } = float.PositiveInfinity;
 
     public bool IsHazardGenerallyActive =>
-        IsPowered && (mode == HazardActivationMode.SkateVelocityGate || CurrentPhase == HazardCyclePhase.Active);
+        !isHaltedForDeath
+        && IsPowered
+        && (mode == HazardActivationMode.SkateVelocityGate || CurrentPhase == HazardCyclePhase.Active);
 
     private Hazard hazard;
     private float lastClockTime;
+    private bool isHaltedForDeath;
 
     private void Awake()
     {
@@ -201,6 +204,7 @@ public class HazardActivation : MonoBehaviour, IHazardActivation, ISwitchable, I
 
     public void ResetSwitchState()
     {
+        isHaltedForDeath = false;
         IsPowered = poweredByDefault;
         lastClockTime = 0f;
         EvaluateAndApply(0f, checkOverlapOnActivate: false);
@@ -208,15 +212,43 @@ public class HazardActivation : MonoBehaviour, IHazardActivation, ISwitchable, I
 
     public void OnLevelClockTick(float levelTime, float deltaTime)
     {
+        if (isHaltedForDeath)
+            return;
+
         lastClockTime = levelTime;
         EvaluateAndApply(levelTime, checkOverlapOnActivate: true);
     }
 
     public void OnLevelClockReset()
     {
+        isHaltedForDeath = false;
         lastClockTime = 0f;
         IsPowered = poweredByDefault;
         EvaluateAndApply(0f, checkOverlapOnActivate: false);
+    }
+
+    public void EnterPlayerDeathIdle()
+    {
+        if (isHaltedForDeath)
+            return;
+
+        isHaltedForDeath = true;
+        TimeUntilActive = float.PositiveInfinity;
+        if (CurrentPhase != HazardCyclePhase.Inactive)
+        {
+            CurrentPhase = HazardCyclePhase.Inactive;
+            OnPhaseChanged?.Invoke(HazardCyclePhase.Inactive);
+        }
+        ApplyVisualState(HazardCyclePhase.Inactive);
+    }
+
+    public void RestoreFromPlayerDeathIdle()
+    {
+        if (!isHaltedForDeath)
+            return;
+
+        isHaltedForDeath = false;
+        EvaluateAndApply(lastClockTime, checkOverlapOnActivate: false);
     }
 
     private void EvaluateAndApply(float clockTime, bool checkOverlapOnActivate)

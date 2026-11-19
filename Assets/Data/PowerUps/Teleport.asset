@@ -18,30 +18,39 @@ MonoBehaviour:
   statValueFormat: 0
   levelSteps:
   - upgradeCostCoins: 0
-    statValue: 3
+    statValue: 2
+    cooldownSeconds: 14
   - upgradeCostCoins: 100
-    statValue: 4
+    statValue: 3
+    cooldownSeconds: 12.5
   - upgradeCostCoins: 200
     statValue: 4
+    cooldownSeconds: 11
   - upgradeCostCoins: 350
     statValue: 5
+    cooldownSeconds: 9.5
   - upgradeCostCoins: 500
-    statValue: 5
+    statValue: 6
+    cooldownSeconds: 8
   displayName: Phase Shift
-  description: Tunnels Subject G-0 through 1 to 3 consecutive solid bulkhead cells
-    along the active slide vector.
+  description: Phases cleanly across solid walls in your path.
   icon: {fileID: -4765593614856404733, guid: 81134d1f6f7bbe043a40c40cc558e957, type: 3}
   powerUpType: 4
   isCampaignActiveSkill: 1
   inventoryCap: 8
   initialTutorialCharges: 2
   duration: 0
-  effectValue: 3
+  effectValue: 2
   pullSpeed: 12
   maxWallCells: 2
   maxTrapsDestroyed: 1
   minWallTraversal: 1
-  maxWallTraversal: 3
-  usageLimit: 1
+  maxWallTraversal: 2
+  usageLimit: 0
   cooldown: 0
-  isConsumable: 1
+  isConsumable: 0
+  activationMode: 0
+  unlockedByDefault: 1
+  coinDiscountPerShard: 25
+  timeDilationScale: 0.3
+  baseCooldownSeconds: 14

@@ -12,9 +12,18 @@ using UnityEngine.UI;
 /// </summary>
 public class MissionRowWidget : MonoBehaviour
 {
+    private enum RowBindingMode
+    {
+        Mission = 0,
+        Achievement = 1,
+        EventTask = 2,
+    }
+
     [Header("Row Elements")]
     [SerializeField] private Image iconImage;
     [SerializeField] private TMP_Text titleText;
+    [Tooltip("Optional description text used when bound to Achievements or Event tasks.")]
+    [SerializeField] private TMP_Text descriptionText;
     [Tooltip("Read-only Slider displaying current mission progress (0 .. Target).")]
     [SerializeField] private Slider progressSlider;
     [Tooltip("Legacy fallback fill Image when progressSlider is unassigned.")]
@@ -23,6 +32,8 @@ public class MissionRowWidget : MonoBehaviour
     [SerializeField] private TMP_Text progressText;
     [Tooltip("Reward amount text.")]
     [SerializeField] private TMP_Text rewardText;
+    [Tooltip("Optional icon displaying the reward type sprite.")]
+    [SerializeField] private Image rewardIconImage;
 
     [Header("Progress Text Character Color")]
     [Tooltip("Color applied to each character of progressText as the Slider fill passes over it.")]
@@ -45,13 +56,14 @@ public class MissionRowWidget : MonoBehaviour
     [SerializeField] private float claimedSliderWidthOffset = 0f;
     [SerializeField] private bool hideRowCompletelyAfterPushToBottom = false;
 
-    [Header("Button State Colors (100% Opacity)")]
-    [SerializeField] private Color claimableButtonColor = new Color(0.18f, 0.78f, 0.38f, 1f);
-    [SerializeField] private Color incompleteButtonColor = new Color(0.24f, 0.29f, 0.40f, 1f);
-    [SerializeField] private Color claimedButtonColor = new Color(0.18f, 0.42f, 0.30f, 1f);
-
+    private RowBindingMode bindingMode = RowBindingMode.Mission;
     private MissionDefinition missionDefinition;
     private Action<MissionDefinition> onClaimDefinition;
+    private AchievementDefinition achievementDefinition;
+    private Action<AchievementDefinition> onClaimAchievement;
+    private GameEventDefinition eventDefinition;
+    private GameEventTaskEntry eventTaskEntry;
+    private Action<GameEventDefinition, GameEventTaskEntry> onClaimEventTask;
     private Sequence claimSequence;
     private bool buttonBound;
 
@@ -63,6 +75,8 @@ public class MissionRowWidget : MonoBehaviour
     private Vector3 initialTickScale = Vector3.one;
 
     public MissionDefinition MissionDefinition => missionDefinition;
+    public AchievementDefinition AchievementDefinition => achievementDefinition;
+    public string EventTaskId => eventTaskEntry.taskId;
     public Button ClaimButton => claimButton;
     public Slider ProgressSlider => progressSlider;
     public Image ClaimedTickImage => claimedTickImage;
@@ -164,9 +178,54 @@ public class MissionRowWidget : MonoBehaviour
 
     public void Setup(MissionDefinition definition, Action<MissionDefinition> claimCallback)
     {
+        bindingMode = RowBindingMode.Mission;
         missionDefinition = definition;
         onClaimDefinition = claimCallback;
+        achievementDefinition = null;
+        onClaimAchievement = null;
+        eventDefinition = null;
+        eventTaskEntry = default;
+        onClaimEventTask = null;
 
+        PrepareRowBinding();
+        Refresh();
+    }
+
+    public void SetupAchievement(AchievementDefinition definition, Action<AchievementDefinition> claimCallback)
+    {
+        bindingMode = RowBindingMode.Achievement;
+        achievementDefinition = definition;
+        onClaimAchievement = claimCallback;
+        missionDefinition = null;
+        onClaimDefinition = null;
+        eventDefinition = null;
+        eventTaskEntry = default;
+        onClaimEventTask = null;
+
+        PrepareRowBinding();
+        Refresh();
+    }
+
+    public void SetupEventTask(
+        GameEventDefinition parentEvent,
+        GameEventTaskEntry task,
+        Action<GameEventDefinition, GameEventTaskEntry> claimCallback)
+    {
+        bindingMode = RowBindingMode.EventTask;
+        eventDefinition = parentEvent;
+        eventTaskEntry = task;
+        onClaimEventTask = claimCallback;
+        missionDefinition = null;
+        onClaimDefinition = null;
+        achievementDefinition = null;
+        onClaimAchievement = null;
+
+        PrepareRowBinding();
+        Refresh();
+    }
+
+    private void PrepareRowBinding()
+    {
         CaptureInitialLayoutIfNeeded();
         KillTweensAndRestoreTransform();
         ConfigureNonBlockingSlider();
@@ -177,17 +236,29 @@ public class MissionRowWidget : MonoBehaviour
             claimButton.onClick.AddListener(HandleClaimClicked);
             buttonBound = true;
         }
-
-        Refresh();
     }
 
     private void HandleClaimClicked()
     {
-        if (missionDefinition == null)
-            return;
-
         GameHaptics.Play(HapticEvent.UISelect);
-        onClaimDefinition?.Invoke(missionDefinition);
+
+        switch (bindingMode)
+        {
+            case RowBindingMode.Achievement:
+                if (achievementDefinition != null)
+                    onClaimAchievement?.Invoke(achievementDefinition);
+                break;
+
+            case RowBindingMode.EventTask:
+                if (eventDefinition != null && !string.IsNullOrEmpty(eventTaskEntry.taskId))
+                    onClaimEventTask?.Invoke(eventDefinition, eventTaskEntry);
+                break;
+
+            default:
+                if (missionDefinition != null)
+                    onClaimDefinition?.Invoke(missionDefinition);
+                break;
+        }
     }
 
     public void Refresh()
@@ -197,27 +268,102 @@ public class MissionRowWidget : MonoBehaviour
 
     private void RefreshInternal(bool applyClaimedSizeImmediate)
     {
-        if (missionDefinition == null)
-            return;
+        switch (bindingMode)
+        {
+            case RowBindingMode.Achievement:
+                if (achievementDefinition == null)
+                    return;
 
+                ApplyPresentation(
+                    icon: achievementDefinition.Icon,
+                    title: achievementDefinition.Title,
+                    description: achievementDefinition.Description,
+                    rawProgress: AchievementService.GetProgress(achievementDefinition),
+                    rawTarget: achievementDefinition.Target,
+                    rewardAmount: achievementDefinition.RewardAmount,
+                    rewardSprite: achievementDefinition.RewardIcon,
+                    complete: AchievementService.IsComplete(achievementDefinition),
+                    claimed: AchievementService.IsClaimed(achievementDefinition),
+                    allowClaimWhenComplete: true,
+                    applyClaimedSizeImmediate: applyClaimedSizeImmediate);
+                break;
+
+            case RowBindingMode.EventTask:
+                if (eventDefinition == null || string.IsNullOrEmpty(eventTaskEntry.taskId))
+                    return;
+
+                ApplyPresentation(
+                    icon: eventTaskEntry.rewardIcon != null ? eventTaskEntry.rewardIcon : eventDefinition.BannerSprite,
+                    title: eventTaskEntry.title,
+                    description: string.Empty,
+                    rawProgress: EventService.GetTaskProgress(eventDefinition, eventTaskEntry),
+                    rawTarget: eventTaskEntry.target,
+                    rewardAmount: eventTaskEntry.rewardAmount,
+                    rewardSprite: eventTaskEntry.rewardIcon,
+                    complete: EventService.IsTaskComplete(eventDefinition, eventTaskEntry),
+                    claimed: EventService.IsTaskClaimed(eventDefinition, eventTaskEntry),
+                    allowClaimWhenComplete: EventService.IsEventActive(eventDefinition),
+                    applyClaimedSizeImmediate: applyClaimedSizeImmediate);
+                break;
+
+            default:
+                if (missionDefinition == null)
+                    return;
+
+                ApplyPresentation(
+                    icon: missionDefinition.Icon,
+                    title: missionDefinition.Title,
+                    description: missionDefinition.Description,
+                    rawProgress: MissionService.GetProgress(missionDefinition),
+                    rawTarget: missionDefinition.Target,
+                    rewardAmount: missionDefinition.RewardAmount,
+                    rewardSprite: missionDefinition.RewardIcon,
+                    complete: MissionService.IsComplete(missionDefinition),
+                    claimed: MissionService.IsClaimed(missionDefinition),
+                    allowClaimWhenComplete: true,
+                    applyClaimedSizeImmediate: applyClaimedSizeImmediate);
+                break;
+        }
+    }
+
+    private void ApplyPresentation(
+        Sprite icon,
+        string title,
+        string description,
+        int rawProgress,
+        int rawTarget,
+        int rewardAmount,
+        Sprite rewardSprite,
+        bool complete,
+        bool claimed,
+        bool allowClaimWhenComplete,
+        bool applyClaimedSizeImmediate)
+    {
         CaptureInitialLayoutIfNeeded();
 
-        int progress = MissionService.GetProgress(missionDefinition);
-        bool claimed = MissionService.IsClaimed(missionDefinition);
-        bool complete = MissionService.IsComplete(missionDefinition);
-
-        int safeTarget = Mathf.Max(1, missionDefinition.Target);
-        int clampedProgress = Mathf.Clamp(progress, 0, safeTarget);
+        int safeTarget = Mathf.Max(1, rawTarget);
+        int clampedProgress = Mathf.Clamp(rawProgress, 0, safeTarget);
 
         if (iconImage != null)
         {
-            iconImage.SetSpriteNative(missionDefinition.Icon);
-            iconImage.enabled = missionDefinition.Icon != null;
-            iconImage.color = Color.white;
+            iconImage.sprite = icon;
+            iconImage.enabled = icon != null;
         }
 
         if (titleText != null)
-            titleText.text = missionDefinition.Title ?? string.Empty;
+            titleText.text = title ?? string.Empty;
+
+        if (descriptionText != null)
+        {
+            descriptionText.text = description ?? string.Empty;
+            descriptionText.gameObject.SetActive(!string.IsNullOrEmpty(description));
+        }
+
+        if (rewardIconImage != null && rewardSprite != null)
+        {
+            rewardIconImage.sprite = rewardSprite;
+            rewardIconImage.enabled = true;
+        }
 
         if (progressSlider != null)
         {
@@ -242,9 +388,9 @@ public class MissionRowWidget : MonoBehaviour
         }
 
         if (rewardText != null)
-            rewardText.text = missionDefinition.GetFormattedRewardText() ?? string.Empty;
+            rewardText.text = rewardAmount.ToString();
 
-        ApplyClaimButtonAndTickVisuals(complete, claimed, clampedProgress, safeTarget);
+        ApplyClaimButtonAndTickVisuals(complete && allowClaimWhenComplete, claimed, clampedProgress, safeTarget);
 
         if (applyClaimedSizeImmediate)
             ApplyRowDimensions(claimed ? 1f : 0f);
@@ -269,24 +415,21 @@ public class MissionRowWidget : MonoBehaviour
             claimedTickImage.enabled = claimed;
             if (claimed)
             {
-                if (claimedTickImage.sprite != null)
-                    claimedTickImage.SetNativeSize();
-                claimedTickImage.color = Color.white;
+                Color c = claimedTickImage.color;
+                claimedTickImage.color = new Color(c.r, c.g, c.b, 1f);
             }
         }
 
         if (claimButton == null)
             return;
 
+        TMP_Text label = (claimButtonLabel != null && claimButtonLabel != rewardText) ? claimButtonLabel : null;
+
         if (claimed)
         {
-            if (claimButtonLabel == null)
-                claimButtonLabel = claimButton.GetComponentInChildren<TMP_Text>(true);
-
-            if (claimButtonLabel != null && claimButtonLabel != rewardText)
+            if (label != null)
             {
-                claimButtonLabel.text = string.Empty;
-                claimButtonLabel.gameObject.SetActive(false);
+                label.gameObject.SetActive(false);
             }
 
             claimButton.interactable = false;
@@ -300,19 +443,11 @@ public class MissionRowWidget : MonoBehaviour
         MissionMilestoneWidget.EnsureOpaqueButtonColors(claimButton);
         claimButton.interactable = canClaim;
 
-        if (claimButtonLabel == null)
-            claimButtonLabel = claimButton.GetComponentInChildren<TMP_Text>(true);
-
-        if (claimButtonLabel != null && claimButtonLabel != rewardText)
+        if (label != null)
         {
-            claimButtonLabel.gameObject.SetActive(true);
-            claimButtonLabel.text = canClaim ? "CLAIM" : $"{clampedProgress}/{safeTarget}";
-        }
-
-        Image buttonImg = claimButton.targetGraphic as Image ?? claimButton.image;
-        if (buttonImg != null)
-        {
-            buttonImg.color = complete ? claimableButtonColor : incompleteButtonColor;
+            label.gameObject.SetActive(true);
+            if (string.IsNullOrEmpty(label.text))
+                label.text = "CLAIM";
         }
     }
 
@@ -341,7 +476,10 @@ public class MissionRowWidget : MonoBehaviour
         {
             float baseHeight = initialRowSizeDelta.y > 1f ? initialRowSizeDelta.y : rowRect.sizeDelta.y;
             float targetHeight = baseHeight > 1f ? Mathf.Max(40f, baseHeight - heightReduction) : rowRect.sizeDelta.y;
-            rowRect.sizeDelta = new Vector2(initialRowSizeDelta.x + widthDelta, targetHeight);
+            float targetWidth = Mathf.Abs(claimedRowWidthOffset) > 0.01f
+                ? initialRowSizeDelta.x + widthDelta
+                : rowRect.sizeDelta.x;
+            rowRect.sizeDelta = new Vector2(targetWidth, targetHeight);
         }
 
         if (TryGetComponent(out LayoutElement layoutElement))

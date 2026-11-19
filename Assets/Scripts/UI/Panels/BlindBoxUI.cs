@@ -29,24 +29,27 @@ public class BlindBoxUI : MonoBehaviour, IUIPanel
     [Tooltip("Delay between tapping the box and revealing the reward.")]
     [SerializeField, Min(0f)] private float revealDelay = 0.5f;
 
-    private UIPanelAnimator panelAnimator;
+    [Header("Optional Animation (Leave Empty for No Panel Animation)")]
+    [SerializeField] private UIPanelAnimator panelAnimator;
+
     private bool buttonsBound;
 
-    private UIPanelAnimator PanelAnimator =>
-        panelAnimator != null ? panelAnimator
-            : (panelAnimator = (blindBoxPanel != null ? blindBoxPanel : gameObject).GetComponent<UIPanelAnimator>());
+    private UIPanelAnimator PanelAnimator => panelAnimator;
+
+    private bool HasDedicatedCompletionButton =>
+        openBoxButton != null && openBoxButton.GetComponentInParent<MainMenuUI>(true) == null;
 
     private void Awake()
     {
         if (flowController == null)
-            flowController = FindAnyObjectByType<LevelFlowController>();
+            flowController = LevelFlowController.ResolveInstance();
         if (blindBoxService == null)
             blindBoxService = BlindBoxService.Instance != null ? BlindBoxService.Instance : FindAnyObjectByType<BlindBoxService>();
 
         BindButtons();
 
         if (blindBoxPanel != null) blindBoxPanel.SetActive(false);
-        if (openBoxButton != null) openBoxButton.gameObject.SetActive(false);
+        if (HasDedicatedCompletionButton) openBoxButton.gameObject.SetActive(false);
     }
 
     private void OnEnable()
@@ -78,7 +81,7 @@ public class BlindBoxUI : MonoBehaviour, IUIPanel
         if (buttonsBound) return;
         buttonsBound = true;
 
-        if (openBoxButton != null) openBoxButton.onClick.AddListener(OnOpenBoxButtonClicked);
+        if (HasDedicatedCompletionButton) openBoxButton.onClick.AddListener(OnOpenBoxButtonClicked);
         if (boxButton != null) boxButton.onClick.AddListener(OpenBox);
         if (doubleButton != null) doubleButton.onClick.AddListener(DoubleReward);
         if (exitButton != null) exitButton.onClick.AddListener(OnExitButtonClicked);
@@ -108,18 +111,18 @@ public class BlindBoxUI : MonoBehaviour, IUIPanel
         if (!EconomyBalanceConfig.Active.EnablePostLevelBlindBox)
         {
             if (blindBoxPanel != null) blindBoxPanel.SetActive(false);
-            if (openBoxButton != null) openBoxButton.gameObject.SetActive(false);
+            if (HasDedicatedCompletionButton) openBoxButton.gameObject.SetActive(false);
             return;
         }
 
-        if (openBoxButton != null) openBoxButton.gameObject.SetActive(true);
+        if (HasDedicatedCompletionButton) openBoxButton.gameObject.SetActive(true);
     }
 
     private void HandleLevelStarted()
     {
         blindBoxService?.ResetBox();
         if (blindBoxPanel != null) blindBoxPanel.SetActive(false);
-        if (openBoxButton != null) openBoxButton.gameObject.SetActive(false);
+        if (HasDedicatedCompletionButton) openBoxButton.gameObject.SetActive(false);
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -136,6 +139,15 @@ public class BlindBoxUI : MonoBehaviour, IUIPanel
     /// <summary>Opens the blind box panel — also used by the Map screen's chest button.</summary>
     public void ShowPanel()
     {
+        if (blindBoxService != null && !BlindBoxService.CanClaimDailyBox() && !blindBoxService.IsOpened)
+        {
+            ClosePanelThroughManagerOrSelf();
+            return;
+        }
+
+        if (BlindBoxService.CanClaimDailyBox())
+            blindBoxService?.ResetBox();
+
         GameObject targetPanel = blindBoxPanel != null ? blindBoxPanel : gameObject;
         if (!targetPanel.activeSelf)
             targetPanel.SetActive(true);
@@ -181,10 +193,8 @@ public class BlindBoxUI : MonoBehaviour, IUIPanel
         RewardBundle bundle = blindBoxService != null ? blindBoxService.Open(allowDirectMenuOpen: true) : null;
         UIAudio.Play(UISoundType.BlindBoxOpen);
 
-        if (bundle != null && bundle.CoinCount > 0)
-        {
-            CoinUI.TryShowCoinRewardPopup(bundle.CoinCount, alreadyGrantedBase: true);
-        }
+        bool shownPopup = bundle != null && !bundle.IsEmpty &&
+                          CoinUI.TryShowRewardPopup(bundle, alreadyGrantedBase: true, onClosedCallback: CloseBlindBoxAfterRewardPopup);
 
         if (rewardText != null)
         {
@@ -199,12 +209,26 @@ public class BlindBoxUI : MonoBehaviour, IUIPanel
 
         if (doubleButton != null)
         {
-            bool canDouble = bundle != null;
+            bool canDouble = !shownPopup && bundle != null && bundle.GemCount == 0;
             doubleButton.gameObject.SetActive(canDouble);
             doubleButton.interactable = canDouble;
         }
 
         if (exitButton != null) exitButton.gameObject.SetActive(true);
+    }
+
+    private void CloseBlindBoxAfterRewardPopup()
+    {
+        if (this == null) return;
+        ClosePanelThroughManagerOrSelf();
+    }
+
+    private void ClosePanelThroughManagerOrSelf()
+    {
+        if (UIManager.Instance != null && UIManager.Instance.IsPanelOpen(UIPanelType.BlindBox))
+            UIManager.Instance.ClosePanelIfOpen(UIPanelType.BlindBox);
+        else
+            ClosePanel();
     }
 
     private void SetOpenedVisuals()

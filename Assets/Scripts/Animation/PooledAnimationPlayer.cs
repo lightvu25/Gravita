@@ -289,7 +289,7 @@ public class PooledAnimationPlayer : MonoBehaviour
                 continue;
             }
 
-            elapsed += Time.deltaTime;
+            elapsed += PlayerImpactFeedback.IsHitStopActive ? Time.unscaledDeltaTime : Time.deltaTime;
 
             if (animator != null && animator.runtimeAnimatorController != null)
             {

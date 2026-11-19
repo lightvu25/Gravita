@@ -1,4 +1,5 @@
 using System;
+using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -6,14 +7,19 @@ using UnityEngine.UI;
 [RequireComponent(typeof(Button))]
 public class PowerupLoadoutSlotWidget : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IDropHandler
 {
-    [SerializeField] private Image iconImage;      // power icon (hidden when empty)
-    [SerializeField] private GameObject emptyRoot; // the "+" image
+    [SerializeField] private Image iconImage;        // power icon (also shows '+' fallback when emptyRoot is null)
+    [SerializeField] private TMP_Text countText;     // optional count label on the loadout slot
+    [SerializeField] private GameObject emptyRoot;   // optional dedicated "+" child object (never self)
+    [SerializeField] private Sprite emptyPlusSprite; // optional "+" sprite shown on iconImage when empty
 
     public int SlotIndex { get; private set; }
     public string SkillId { get; private set; } = string.Empty;
     public Sprite Icon { get; private set; }
+    public TMP_Text CountText => countText;
 
     private Button button;
+    private Sprite cachedEmptySprite;
+    private bool cacheInitialized;
     private Func<bool> isLocked;
     private Action<int> onTap;
     private Action<PowerupLoadoutSlotWidget, PointerEventData> onBeginDrag;
@@ -21,10 +27,28 @@ public class PowerupLoadoutSlotWidget : MonoBehaviour, IBeginDragHandler, IDragH
     private Action<PowerupLoadoutSlotWidget, PointerEventData> onEndDrag;
     private Action<int, PointerEventData> onDrop;   // slot index that received the drop
 
+    private void Awake()
+    {
+        InitializeEmptyStateCache();
+    }
+
+    private void InitializeEmptyStateCache()
+    {
+        if (cacheInitialized) return;
+        cacheInitialized = true;
+
+        if (emptyRoot == gameObject)
+            emptyRoot = null;
+
+        if (cachedEmptySprite == null && iconImage != null && iconImage.sprite != null)
+            cachedEmptySprite = iconImage.sprite;
+    }
+
     public void Bind(int index, Func<bool> locked, Action<int> tap,
         Action<PowerupLoadoutSlotWidget, PointerEventData> begin, Action<PointerEventData> drag,
         Action<PowerupLoadoutSlotWidget, PointerEventData> end, Action<int, PointerEventData> drop)
     {
+        InitializeEmptyStateCache();
         SlotIndex = index;
         isLocked = locked;
         onTap = tap;
@@ -37,18 +61,61 @@ public class PowerupLoadoutSlotWidget : MonoBehaviour, IBeginDragHandler, IDragH
         button.onClick.AddListener(HandleTap);
     }
 
-    public void Refresh(string skillId, Sprite icon)
+    public void Refresh(string skillId, Sprite icon, int count = 0)
     {
+        InitializeEmptyStateCache();
         SkillId = skillId ?? string.Empty;
         Icon = icon;
         bool filled = !string.IsNullOrEmpty(SkillId);
-        if (iconImage != null)
+        bool hasSeparateEmptyRoot = emptyRoot != null && emptyRoot != gameObject;
+
+        if (filled)
         {
-            iconImage.SetSpriteNative(filled ? icon : null);
-            iconImage.enabled = filled && icon != null;
+            if (iconImage != null)
+            {
+                iconImage.sprite = icon;
+                iconImage.enabled = icon != null;
+            }
+            if (hasSeparateEmptyRoot)
+                emptyRoot.SetActive(false);
+
+            if (countText != null)
+            {
+                countText.text = Mathf.Max(0, count).ToString();
+                countText.gameObject.SetActive(true);
+            }
+            return;
         }
-        if (emptyRoot != null)
-            emptyRoot.SetActive(!filled);
+
+        if (countText != null)
+        {
+            countText.text = string.Empty;
+            countText.gameObject.SetActive(false);
+        }
+
+        if (hasSeparateEmptyRoot)
+        {
+            emptyRoot.SetActive(true);
+            if (iconImage != null && iconImage.gameObject != emptyRoot)
+            {
+                iconImage.sprite = null;
+                iconImage.enabled = false;
+            }
+        }
+        else if (iconImage != null)
+        {
+            Sprite plus = emptyPlusSprite != null ? emptyPlusSprite : cachedEmptySprite;
+            if (plus != null)
+            {
+                iconImage.sprite = plus;
+                iconImage.enabled = true;
+            }
+            else
+            {
+                iconImage.sprite = null;
+                iconImage.enabled = false;
+            }
+        }
     }
 
     private void OnDestroy()

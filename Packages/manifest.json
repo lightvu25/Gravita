@@ -1,7 +1,8 @@
 {
   "dependencies": {
     "com.coplaydev.coplay": "https://github.com/CoplayDev/coplay-unity-plugin.git#beta",
-    "com.ivanmurzak.unity.mcp": "1.11.0",
+    "com.google.play.games": "file:C:/Users/VuQuang/Downloads/play-games-plugin-for-unity-2.3.0/play-games-plugin-for-unity-2.3.0/Assets/Public/GooglePlayGames/com.google.play.games",
+    "com.ivanmurzak.unity.mcp": "1.12.0",
     "com.qiaozhilei.easy-text-effects": "https://github.com/LeiQiaoZhi/Easy-Text-Effect.git",
     "com.unity.2d.animation": "14.0.3",
     "com.unity.2d.aseprite": "4.0.1",
@@ -67,7 +68,8 @@
       "url": "https://package.openupm.com",
       "scopes": [
         "com.ivanmurzak",
-        "extensions.unity"
+        "extensions.unity",
+        "com.google.external-dependency-manager"
       ]
     }
   ]

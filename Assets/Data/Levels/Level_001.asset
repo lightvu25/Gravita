@@ -21,7 +21,10 @@ MonoBehaviour:
     objectiveType: 0
     requiredCount: 1
     description: 'Intro: Stop-to-Stop Gravity Slide to the Exit'
-  optionalObjectives: []
+  optionalObjectives:
+  - objectiveType: 1
+    requiredCount: 2
+    description: Collect bonus stars along the route
   baseCoinReward: 15
   optionalCoinBonus: 5
   baseExpReward: 50

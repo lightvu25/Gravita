@@ -20,15 +20,51 @@ public static class SaveManager
     public static string BackupProfileFilePath => ProfileFilePath + ".bak";
 
     private static ProfileData cachedProfile;
+    private static ProfileData pendingDeferredProfile;
+    private static bool hasPendingDeferredSave;
+    private static PlayerMovement boundSlideFlushPlayer;
+    private static bool slideFlushAppHooksRegistered;
 
     /// <summary>
     /// Optional testing hook to simulate a disk write failure and verify rollback/retry behavior.
     /// </summary>
     public static bool SimulateSaveFailureForTesting { get; set; } = false;
 
+    /// <summary>
+    /// Optional testing hook enabling slide-deferral semantics in EditMode tests where
+    /// <see cref="Application.isPlaying"/> is false.
+    /// </summary>
+    public static bool ForceSlideSaveDeferralForTesting { get; set; } = false;
+
+    /// <summary>
+    /// Enables strict HMAC-SHA256 verification against <c>.sig</c> sidecar files when loading saves (L5).
+    /// Enabled automatically in Player builds; tests can toggle explicitly while verifying tamper recovery.
+    /// </summary>
+    public static bool EnforceSaveIntegrity { get; set; } = !Application.isEditor;
+
+    public static bool HasPendingDeferredSave => hasPendingDeferredSave;
+    public static int DiskSaveWriteCountForTesting { get; private set; }
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStaticSaveState()
+    {
+        cachedProfile = null;
+        pendingDeferredProfile = null;
+        hasPendingDeferredSave = false;
+        DiskSaveWriteCountForTesting = 0;
+        UnbindSlideFlushPlayer();
+        ForceSlideSaveDeferralForTesting = false;
+        SimulateSaveFailureForTesting = false;
+        EnforceSaveIntegrity = !Application.isEditor;
+    }
+
     public static void ClearMemoryCacheForTesting()
     {
         cachedProfile = null;
+        pendingDeferredProfile = null;
+        hasPendingDeferredSave = false;
+        DiskSaveWriteCountForTesting = 0;
+        UnbindSlideFlushPlayer();
         if (GameSession.Instance != null)
             GameSession.Instance.currentProfile = null;
     }
@@ -36,6 +72,106 @@ public static class SaveManager
     public static void saveProfile(ProfileData data)
     {
         TrySaveProfile(data);
+    }
+
+    /// <summary>
+    /// Updates the in-memory profile immediately, and defers the synchronous disk write until
+    /// the current high-speed slide stops so pickups/abilities never stall frame pacing mid-corridor.
+    /// Falls back to immediate disk persistence when stationary or outside active slides.
+    /// </summary>
+    public static bool SaveOrDeferDuringSlide(ProfileData data)
+    {
+        if (data == null)
+        {
+            Debug.LogWarning("[SaveManager] Cannot save a null ProfileData.");
+            return false;
+        }
+
+        PlayerMovement activePlayer = PlayerMovement.Instance;
+        bool shouldDefer = (Application.isPlaying || ForceSlideSaveDeferralForTesting)
+            && !SimulateSaveFailureForTesting
+            && activePlayer != null
+            && activePlayer.IsMoving;
+
+        if (!shouldDefer)
+            return TrySaveProfile(data);
+
+        if (data.saveSchemaVersion < ProfileData.CurrentSaveSchemaVersion)
+            data.saveSchemaVersion = ProfileData.CurrentSaveSchemaVersion;
+
+        data.Sanitize();
+        cachedProfile = data;
+        if (GameSession.Instance != null)
+            GameSession.Instance.currentProfile = data;
+
+        pendingDeferredProfile = data;
+        hasPendingDeferredSave = true;
+        EnsureSlideFlushHooks(activePlayer);
+        return true;
+    }
+
+    /// <summary>Flushes any deferred mid-slide profile write immediately to disk.</summary>
+    public static bool FlushPendingSave()
+    {
+        if (!hasPendingDeferredSave)
+            return true;
+
+        ProfileData toSave = pendingDeferredProfile ?? cachedProfile;
+        hasPendingDeferredSave = false;
+        pendingDeferredProfile = null;
+        UnbindSlideFlushPlayer();
+
+        if (toSave == null)
+            return true;
+
+        return TrySaveProfile(toSave);
+    }
+
+    private static void EnsureSlideFlushHooks(PlayerMovement player)
+    {
+        if (boundSlideFlushPlayer != player)
+        {
+            UnbindSlideFlushPlayer();
+            if (player != null)
+            {
+                boundSlideFlushPlayer = player;
+                boundSlideFlushPlayer.OnMoveStopped += HandlePlayerStoppedForDeferredSave;
+            }
+        }
+
+        if (!slideFlushAppHooksRegistered)
+        {
+            slideFlushAppHooksRegistered = true;
+            Application.focusChanged -= HandleApplicationFocusChangedForDeferredSave;
+            Application.focusChanged += HandleApplicationFocusChangedForDeferredSave;
+            Application.quitting -= HandleApplicationQuittingForDeferredSave;
+            Application.quitting += HandleApplicationQuittingForDeferredSave;
+        }
+    }
+
+    private static void UnbindSlideFlushPlayer()
+    {
+        if (boundSlideFlushPlayer != null)
+        {
+            boundSlideFlushPlayer.OnMoveStopped -= HandlePlayerStoppedForDeferredSave;
+            boundSlideFlushPlayer = null;
+        }
+    }
+
+    private static void HandlePlayerStoppedForDeferredSave()
+    {
+        FlushPendingSave();
+    }
+
+    private static void HandleApplicationFocusChangedForDeferredSave(bool hasFocus)
+    {
+        if (!hasFocus)
+            FlushPendingSave();
+    }
+
+    private static void HandleApplicationQuittingForDeferredSave()
+    {
+        FlushPendingSave();
     }
 
     /// <summary>
@@ -72,7 +208,7 @@ public static class SaveManager
             if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
                 Directory.CreateDirectory(directory);
 
-            string json = JsonUtility.ToJson(data, true);
+            string json = JsonUtility.ToJson(data, !Application.isPlaying);
             if (string.IsNullOrWhiteSpace(json))
             {
                 Debug.LogError("[SaveManager] Serialized profile JSON was empty; aborting save.");
@@ -80,6 +216,7 @@ public static class SaveManager
             }
 
             File.WriteAllText(tempPath, json);
+            SaveIntegrityGuard.WriteSignature(tempPath, json);
 
             // Preserve previous known-good save in .bak before replacing profile.json (GDD §12.3)
             if (File.Exists(targetPath))
@@ -90,6 +227,7 @@ public static class SaveManager
                     if (existingInfo.Length > 2)
                     {
                         File.Copy(targetPath, backupPath, overwrite: true);
+                        SaveIntegrityGuard.CopySignatureIfExists(targetPath, backupPath);
                     }
                 }
                 catch (Exception bakEx)
@@ -101,6 +239,12 @@ public static class SaveManager
             }
 
             File.Move(tempPath, targetPath);
+            SaveIntegrityGuard.MoveSignatureIfExists(tempPath, targetPath);
+
+            DiskSaveWriteCountForTesting++;
+            hasPendingDeferredSave = false;
+            pendingDeferredProfile = null;
+            UnbindSlideFlushPlayer();
 
             cachedProfile = data;
             if (GameSession.Instance != null)
@@ -161,6 +305,7 @@ public static class SaveManager
                 try
                 {
                     File.Copy(backupPath, primaryPath, overwrite: true);
+                    SaveIntegrityGuard.CopySignatureIfExists(backupPath, primaryPath);
                     Debug.Log("[SaveManager] Successfully restored primary profile.json from profile.json.bak.");
                 }
                 catch (Exception restoreEx)
@@ -230,6 +375,13 @@ public static class SaveManager
         try
         {
             string json = File.ReadAllText(path);
+            if (EnforceSaveIntegrity && !SaveIntegrityGuard.VerifyFileSignature(path, json))
+            {
+                if (logWarningOnFailure)
+                    Debug.LogWarning($"[SaveManager] Profile file '{path}' failed HMAC integrity verification.");
+                return null;
+            }
+
             ProfileData parsed = DeserializeAndMigrateJson(json);
             if (parsed == null && logWarningOnFailure)
             {

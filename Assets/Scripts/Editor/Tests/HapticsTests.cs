@@ -273,6 +273,42 @@ public class HapticsTests
         Assert.AreEqual(MOST_HapticFeedback.HapticTypes.MediumImpact, MostHapticsBackend.MapPreset(HapticEvent.LaunchStart));
         Assert.AreEqual(MOST_HapticFeedback.HapticTypes.Selection,    MostHapticsBackend.MapPreset(HapticEvent.SwitchToggle));
         Assert.AreEqual(MOST_HapticFeedback.HapticTypes.Failure,      MostHapticsBackend.MapPreset(HapticEvent.Death));
+        Assert.AreEqual(MOST_HapticFeedback.HapticTypes.MediumImpact, MostHapticsBackend.MapPreset(HapticEvent.CruiseImpact));
+        Assert.AreEqual(MOST_HapticFeedback.HapticTypes.RigidImpact,  MostHapticsBackend.MapPreset(HapticEvent.KineticRamImpact));
+        Assert.AreEqual(MOST_HapticFeedback.HapticTypes.RigidImpact,  MostHapticsBackend.MapPreset(HapticEvent.BlockSmash));
+        Assert.AreEqual(MOST_HapticFeedback.HapticTypes.SoftImpact,   MostHapticsBackend.MapPreset(HapticEvent.TierUp));
+        Assert.AreEqual(MOST_HapticFeedback.HapticTypes.Selection,    MostHapticsBackend.MapPreset(HapticEvent.CloseCall));
+        Assert.AreEqual(MOST_HapticFeedback.HapticTypes.MediumImpact, MostHapticsBackend.MapPreset(HapticEvent.StarCollect));
+        Assert.AreEqual(MOST_HapticFeedback.HapticTypes.Selection,    MostHapticsBackend.MapPreset(HapticEvent.FloorCrack));
+    }
+
+    [Test]
+    public void PriorityPreemption_AllowsHigherPriorityInsideGlobalMinGap_WhileSuppressingEqualOrLower()
+    {
+        GameHaptics.Play(HapticEvent.TierUp);           // P0 at 10.00 -> plays
+        fakeUnscaledTime += 0.01f;                        // 10.01 (< 0.03s global gap)
+        GameHaptics.Play(HapticEvent.KineticRamImpact); // P3 > P0 -> preempts and plays!
+
+        fakeUnscaledTime += 1.00f;
+        GameHaptics.Play(HapticEvent.BlockSmash);       // P2 at 11.01 -> plays
+        fakeUnscaledTime += 0.02f;                        // 11.03 (< 0.03s global gap)
+        GameHaptics.Play(HapticEvent.CruiseImpact);     // P3 > P2 -> preempts and plays!
+
+        fakeUnscaledTime += 1.00f;
+        GameHaptics.Play(HapticEvent.WallImpact);       // P2 at 12.03 -> plays
+        fakeUnscaledTime += 0.01f;                        // 12.04 (< 0.03s global gap)
+        GameHaptics.Play(HapticEvent.GravityAnchor);    // P2 <= P2 -> suppressed!
+
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                HapticEvent.TierUp,
+                HapticEvent.KineticRamImpact,
+                HapticEvent.BlockSmash,
+                HapticEvent.CruiseImpact,
+                HapticEvent.WallImpact,
+            },
+            backend.PlayedEvents);
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -293,7 +329,7 @@ public class HapticsTests
         PlayerMovement player = CreateTestPlayerWithHaptics(CellCenter(1, 1), speed: 15f);
         player.QueueDirection(Vector2.right);
 
-        // Run 40 physics frames (0.80s): player slides across 4 cells, hits East wall, and rests against it.
+        // Run 40 physics frames (0.80s): player slides across 4 cells (Cruise tier), hits East wall, and rests against it.
         for (int i = 0; i < 40; i++)
         {
             fakeUnscaledTime += Dt;
@@ -304,9 +340,37 @@ public class HapticsTests
 
         Assert.IsFalse(player.IsMoving);
         CollectionAssert.AreEqual(
-            new[] { HapticEvent.WallImpact },
+            new[] { HapticEvent.CruiseImpact },
             backend.PlayedEvents,
-            "Colliding with and resting against a wall must emit exactly one WallImpact haptic across all physics ticks.");
+            "Colliding with and resting against a wall after 4 tiles must emit exactly one CruiseImpact haptic.");
+    }
+
+    [Test]
+    public void WallSlide_SixCells_FiresTierUpThenKineticRamImpact()
+    {
+        string[] map =
+        {
+            "#########",
+            "#.......#",
+            "#########",
+        };
+        BuildAsciiWallTilemap(map);
+
+        PlayerMovement player = CreateTestPlayerWithHaptics(CellCenter(1, 1), speed: 15f);
+        player.QueueDirection(Vector2.right);
+
+        for (int i = 0; i < 45; i++)
+        {
+            fakeUnscaledTime += Dt;
+            player.SimulateStep(Dt);
+            Physics2D.Simulate(Dt);
+            Physics2D.SyncTransforms();
+        }
+
+        Assert.IsFalse(player.IsMoving);
+        CollectionAssert.AreEqual(
+            new[] { HapticEvent.TierUp, HapticEvent.KineticRamImpact },
+            backend.PlayedEvents);
     }
 
     [Test]

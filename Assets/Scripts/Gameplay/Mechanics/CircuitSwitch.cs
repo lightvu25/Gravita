@@ -88,7 +88,22 @@ public class CircuitSwitch : MazeTile, ICellInteraction
             return CellOutcome.Continue();
 
         disarmedWhileOccupying = true;
+        ExecuteSwitchActivation(incomingDirection);
+        return CellOutcome.Continue();
+    }
 
+    /// <summary>Toggles or pulses this switch remotely (e.g. from Kinetic Surge shockwave).</summary>
+    public bool TriggerRemotePulse(Vector2 impulseDirection)
+    {
+        if (oneShotConsumed && (mode == SwitchMode.OneShotToggle || mode == SwitchMode.OneShotPowerOn || mode == SwitchMode.OneShotPowerOff))
+            return false;
+
+        ExecuteSwitchActivation(impulseDirection);
+        return true;
+    }
+
+    private void ExecuteSwitchActivation(Vector2 incomingDirection)
+    {
         switch (mode)
         {
             case SwitchMode.Toggle:
@@ -123,7 +138,6 @@ public class CircuitSwitch : MazeTile, ICellInteraction
         RefreshVisual();
         RaisePlayerInteracted(InteractionKind.Switch, incomingDirection);
         OnSwitchStateChanged?.Invoke(IsActivatedVisualState);
-        return CellOutcome.Continue();
     }
 
     protected override void OnPlayerExit(PlayerMovement player)

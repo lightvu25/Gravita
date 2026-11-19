@@ -20,6 +20,9 @@ public class RewardOverlayUI : MonoBehaviour
     [SerializeField] private Button doubleCoinsButton;
     [SerializeField] private Button continueButton;
 
+    [Header("Optional Animation (Leave Empty for No Panel Animation)")]
+    [SerializeField] private UIPanelAnimator panelAnimator;
+
     private RewardBundle lastBundle;
     private LevelData lastBundleLevel;
     private int displayedCoinsCount;
@@ -28,10 +31,17 @@ public class RewardOverlayUI : MonoBehaviour
     private bool flowSubscribed;
     private bool buttonsBound;
     private bool continueBound;
-    private UIPanelAnimator panelAnimator;
 
-    private UIPanelAnimator PanelAnimator =>
-        panelAnimator != null ? panelAnimator : (panelAnimator = GetComponent<UIPanelAnimator>());
+    private UIPanelAnimator PanelAnimator => panelAnimator;
+    private bool IsManagedByParentResultPanel => GetComponentInParent<ResultPanelUI>(true) != null;
+
+    public void NotifyBonusCoinsClaimed(int addedCoins)
+    {
+        hasClaimedDouble = true;
+        displayedCoinsCount += Mathf.Max(0, addedCoins);
+        if (doubleCoinsButton != null)
+            doubleCoinsButton.gameObject.SetActive(false);
+    }
 
     private void Awake()
     {
@@ -59,7 +69,7 @@ public class RewardOverlayUI : MonoBehaviour
     private void EnsureInitialized()
     {
         if (flowController == null)
-            flowController = FindAnyObjectByType<LevelFlowController>();
+            flowController = LevelFlowController.ResolveInstance();
 
         BindButtons();
 
@@ -82,7 +92,7 @@ public class RewardOverlayUI : MonoBehaviour
         if (doubleCoinsButton != null)
             doubleCoinsButton.onClick.AddListener(OnDoubleCoinsClicked);
 
-        if (continueButton != null && GetComponentInParent<ResultPanelUI>(true) == null)
+        if (continueButton != null && !IsManagedByParentResultPanel)
         {
             continueButton.onClick.AddListener(OnContinueClicked);
             continueBound = true;
@@ -138,7 +148,7 @@ public class RewardOverlayUI : MonoBehaviour
         lastBundleLevel = null;
         displayedCoinsCount = 0;
 
-        if (GetComponentInParent<ResultPanelUI>(true) == null)
+        if (!IsManagedByParentResultPanel)
             gameObject.SetActive(false);
 
         if (doubleCoinsButton != null)
@@ -148,6 +158,9 @@ public class RewardOverlayUI : MonoBehaviour
     private void HandleRewardGranted(RewardBundle bundle)
     {
         if (bundle == null || hasClaimedDouble || lastBundle == bundle)
+            return;
+
+        if (IsManagedByParentResultPanel && (flowController == null || flowController.LastClearReward != bundle))
             return;
 
         if (flowController != null && flowController.CurrentState == LevelState.Completed)
@@ -161,7 +174,8 @@ public class RewardOverlayUI : MonoBehaviour
 
             AnalyticsService.Track(AnalyticsEvents.RewardShown, RewardParams());
 
-            CurrencyUI.Animate(coinsText, 0, displayedCoinsCount);
+            if (!IsManagedByParentResultPanel)
+                CurrencyUI.Animate(coinsText, 0, displayedCoinsCount);
             CurrencyUI.Animate(gemsText, 0, Mathf.Max(0, bundle.GemCount));
             if (expText != null) expText.text = string.Empty;
             if (starsText != null)

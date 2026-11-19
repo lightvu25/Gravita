@@ -128,7 +128,17 @@ public class GoogleMobileAdsRewardedService : MonoBehaviour, IRewardedAdService
     {
         ad.OnAdFullScreenContentClosed += () =>
         {
+#if UNITY_EDITOR
+            // Unity Editor placeholder ad keeps its Close button disabled until countdown finishes.
+            rewardEarned = true;
+#endif
             Debug.Log($"[GoogleMobileAdsRewardedService] Ad closed. rewardEarned={rewardEarned}");
+            if (!rewardEarned && isActiveAndEnabled)
+            {
+                StartCoroutine(WaitOneFrameThenResolveRoutine());
+                return;
+            }
+
             Resolve(rewardEarned
                 ? RewardedAdResult.Success(pendingPlacement)
                 : RewardedAdResult.Skipped(pendingPlacement));
@@ -151,6 +161,19 @@ public class GoogleMobileAdsRewardedService : MonoBehaviour, IRewardedAdService
             Debug.Log($"[GoogleMobileAdsRewardedService] Paid: {value.Value} {value.CurrencyCode} ({value.Precision})");
     }
 
+    private IEnumerator WaitOneFrameThenResolveRoutine()
+    {
+        yield return null;
+        if (pendingCallback != null)
+        {
+            Resolve(rewardEarned
+                ? RewardedAdResult.Success(pendingPlacement)
+                : RewardedAdResult.Skipped(pendingPlacement));
+        }
+        CleanupAd();
+        LoadAd();
+    }
+
     /// <summary>
     /// Single resolution point — clears in-flight state before invoking so a
     /// callback that immediately re-requests can't hit the busy guard.
@@ -162,6 +185,7 @@ public class GoogleMobileAdsRewardedService : MonoBehaviour, IRewardedAdService
         showing = false;
         rewardEarned = false;
         GoogleMobileAdsController.AnyFullScreenAdShowing = false;
+        UIManager.Instance?.RefreshTimeScale();
 
         Debug.Log($"[GoogleMobileAdsRewardedService] {result.Placement} -> {result.Status}");
         callback?.Invoke(result);

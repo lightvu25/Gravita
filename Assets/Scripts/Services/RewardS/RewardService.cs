@@ -159,10 +159,12 @@ public class RewardService : MonoBehaviour
             // 3. Payout validation (Gems restriction, Skill Inventory Cap, Cosmetic duplicate check)
             EconomyBalanceConfig balanceConfig = EconomyBalanceConfig.Active;
             var pendingSkillAdditions = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var pendingSkillUnlocks = new List<string>();
             var pendingCosmetics = new HashSet<string>(StringComparer.Ordinal);
             int coinGain = 0;
             int gemGain = 0;
             int expGain = 0;
+            int overflowCoins = 0;
 
             if (tx.Payout != null && !tx.Payout.IsEmpty)
             {
@@ -187,6 +189,12 @@ public class RewardService : MonoBehaviour
                         case RewardType.PowerUp:
                             if (item.Amount <= 0 || string.IsNullOrEmpty(item.ItemId))
                                 break;
+
+                            if (!tx.RejectIfSkillCapExceeded && profile.GetPowerUpLevel(item.ItemId) >= 5)
+                            {
+                                coinGain += item.Amount * 25;
+                                break;
+                            }
 
                             int currentOwned = GetProfileSkillCount(profile, item.ItemId);
                             int alreadyQueued = pendingSkillAdditions.TryGetValue(item.ItemId, out int q) ? q : 0;
@@ -222,6 +230,11 @@ public class RewardService : MonoBehaviour
                             if (item.Amount > 0)
                                 expGain += item.Amount;
                             break;
+
+                        case RewardType.SkillUnlock:
+                            if (!string.IsNullOrEmpty(item.ItemId) && !pendingSkillUnlocks.Contains(item.ItemId))
+                                pendingSkillUnlocks.Add(item.ItemId);
+                            break;
                     }
                 }
             }
@@ -239,13 +252,37 @@ public class RewardService : MonoBehaviour
             {
                 int currentOwned = GetProfileSkillCount(profile, kv.Key);
                 int cap = balanceConfig.GetSkillInventoryCap(kv.Key);
-                int clampedNewTotal = Mathf.Clamp(currentOwned + kv.Value, 0, cap);
+                int uncappedTotal = currentOwned + kv.Value;
+                int clampedNewTotal = Mathf.Clamp(uncappedTotal, 0, cap);
                 int appliedDelta = clampedNewTotal - currentOwned;
                 if (appliedDelta > 0)
                 {
                     SetProfileSkillCount(profile, kv.Key, clampedNewTotal);
                     actualSkillDeltas[kv.Key] = appliedDelta;
                     skillsChanged = true;
+                }
+
+                int excessShards = Mathf.Max(0, uncappedTotal - cap);
+                if (!tx.RejectIfSkillCapExceeded && excessShards > 0)
+                {
+                    int convCoins = excessShards * 25;
+                    overflowCoins += convCoins;
+                    profile.coins = Mathf.Max(0, profile.coins + convCoins);
+                }
+            }
+
+            for (int i = 0; i < pendingSkillUnlocks.Count; i++)
+            {
+                string unlockId = pendingSkillUnlocks[i];
+                if (!profile.HasSkill(unlockId))
+                {
+                    profile.UnlockSkill(unlockId);
+                    skillsChanged = true;
+                }
+                else if (!tx.RejectIfSkillCapExceeded)
+                {
+                    overflowCoins += 25;
+                    profile.coins = Mathf.Max(0, profile.coins + 25);
                 }
             }
 
@@ -309,7 +346,7 @@ public class RewardService : MonoBehaviour
             }
 
             // 7. Synchronize live runtime services & fire events strictly post-commit
-            int netCoinsDelta = coinGain - coinCost;
+            int netCoinsDelta = coinGain + overflowCoins - coinCost;
             int netGemsDelta = gemGain - gemCost;
 
             EconomyManager economy = EconomyManager.Instance ?? FindAnyObjectByType<EconomyManager>();

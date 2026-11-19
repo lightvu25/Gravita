@@ -60,7 +60,7 @@ public class MissionPanelUI : MonoBehaviour, IUIPanel
 
     [Header("Mission List")]
     [SerializeField] private Transform rowContainer;
-    [SerializeField] private MissionRowWidget rowPrefab;
+    [SerializeField] private GameObject rowPrefab;
     [SerializeField] private GameObject emptyStateRoot;
 
     [Header("Optional Animation (Leave Empty for No Panel Animation)")]
@@ -72,6 +72,7 @@ public class MissionPanelUI : MonoBehaviour, IUIPanel
     [SerializeField] private int debugDayOfWeekOverride = 0;
 
     private readonly List<MissionRowWidget> spawnedRows = new List<MissionRowWidget>();
+    private readonly List<MissionRowWidget> rowPool = new List<MissionRowWidget>();
     private readonly List<UnityEngine.Events.UnityAction> categoryTabActions = new List<UnityEngine.Events.UnityAction>();
     private MissionCategory selectedCategory = MissionCategory.Weekly;
     private int selectedDayIndex = 1;
@@ -85,15 +86,10 @@ public class MissionPanelUI : MonoBehaviour, IUIPanel
 
     private void Awake()
     {
-        if (rowPrefab != null && rowPrefab.gameObject.scene.IsValid())
-            rowPrefab.gameObject.SetActive(false);
-
         ConfigureNonBlockingWeeklySlider();
         EnsureChestOpaque();
 
-        selectedCategory = defaultCategory == MissionCategory.Achievement
-            ? MissionCategory.Weekly
-            : defaultCategory;
+        selectedCategory = defaultCategory;
         ApplyDebugDayOverride();
         MissionService.EnsureProfileMigratedAndUpdated();
         selectedDayIndex = MissionService.GetCurrentDayOfWeekIndex();
@@ -242,11 +238,6 @@ public class MissionPanelUI : MonoBehaviour, IUIPanel
 
         if (ProgressionManager.Instance != null)
             ProgressionManager.Instance.OnProgressionChanged += RefreshAll;
-        if (EconomyManager.Instance != null)
-        {
-            EconomyManager.Instance.OnCoinsChanged += HandleCurrencyChanged;
-            EconomyManager.Instance.OnGemsChanged += HandleCurrencyChanged;
-        }
 
         MissionService.OnWeeklyProgressChanged += RefreshAll;
         MissionService.OnMissionProgressChanged += RefreshAll;
@@ -259,11 +250,6 @@ public class MissionPanelUI : MonoBehaviour, IUIPanel
 
         if (ProgressionManager.Instance != null)
             ProgressionManager.Instance.OnProgressionChanged -= RefreshAll;
-        if (EconomyManager.Instance != null)
-        {
-            EconomyManager.Instance.OnCoinsChanged -= HandleCurrencyChanged;
-            EconomyManager.Instance.OnGemsChanged -= HandleCurrencyChanged;
-        }
 
         MissionService.OnWeeklyProgressChanged -= RefreshAll;
         MissionService.OnMissionProgressChanged -= RefreshAll;
@@ -273,8 +259,6 @@ public class MissionPanelUI : MonoBehaviour, IUIPanel
     {
         MissionService.DebugOverrideDayIndex = debugDayOfWeekOverride;
     }
-
-    private void HandleCurrencyChanged(int newBalance, int delta) => RefreshAll();
 
     private void OnCloseClicked()
     {
@@ -343,9 +327,6 @@ public class MissionPanelUI : MonoBehaviour, IUIPanel
 
     public void SelectCategory(MissionCategory category, bool playSound = true)
     {
-        if (category == MissionCategory.Achievement)
-            category = MissionCategory.Weekly;
-
         selectedCategory = category;
         if (playSound)
             UIAudio.Play(UISoundType.TabSwitch);
@@ -378,21 +359,10 @@ public class MissionPanelUI : MonoBehaviour, IUIPanel
 
         ApplyDebugDayOverride();
         MissionService.EnsureProfileMigratedAndUpdated();
-        SanitizeEllipsisOverflowModes();
         RefreshCategoryTabs();
         RefreshWeeklyProgressBar();
         RefreshDayTabs();
         RefreshList();
-    }
-
-    private void SanitizeEllipsisOverflowModes()
-    {
-        TMP_Text[] texts = GetComponentsInChildren<TMP_Text>(true);
-        for (int i = 0; i < texts.Length; i++)
-        {
-            if (texts[i] != null && texts[i].overflowMode == TextOverflowModes.Ellipsis)
-                texts[i].overflowMode = TextOverflowModes.Truncate;
-        }
     }
 
     public void RefreshCategoryTabs()
@@ -402,12 +372,8 @@ public class MissionPanelUI : MonoBehaviour, IUIPanel
             MissionCategoryTabUI tab = categoryTabs[i];
             if (tab == null) continue;
 
-            if (tab.category == MissionCategory.Achievement)
-            {
-                if (tab.button != null)
-                    tab.button.gameObject.SetActive(false);
-                continue;
-            }
+            if (tab.button != null && !tab.button.gameObject.activeSelf)
+                tab.button.gameObject.SetActive(true);
 
             bool isSelected = tab.category == selectedCategory;
 
@@ -438,11 +404,12 @@ public class MissionPanelUI : MonoBehaviour, IUIPanel
     {
         return category switch
         {
-            MissionCategory.NewPlayer => "NEW PLAYER",
-            MissionCategory.Daily     => "DAILY",
-            MissionCategory.Weekly    => "WEEKLY",
-            MissionCategory.Sector    => "SECTOR",
-            _                         => category.ToString().ToUpperInvariant()
+            MissionCategory.NewPlayer   => "NEW PLAYER",
+            MissionCategory.Daily       => "DAILY",
+            MissionCategory.Weekly      => "WEEKLY",
+            MissionCategory.Achievement => "ACHIEVEMENT",
+            MissionCategory.Sector      => "SECTOR",
+            _                           => category.ToString().ToUpperInvariant()
         };
     }
 
@@ -482,6 +449,8 @@ public class MissionPanelUI : MonoBehaviour, IUIPanel
 
     public void RefreshWeeklyProgressBar()
     {
+        SetWeeklyTopDecorationsVisible(true);
+
         if (weeklyResetTimeText != null)
         {
             bool hasCumulativeWeekly = missionDatabase != null && missionDatabase.HasMonthlyCumulativeWeeklyMissions();
@@ -645,7 +614,7 @@ public class MissionPanelUI : MonoBehaviour, IUIPanel
                 ? chestDef.ClaimedSprite
                 : (complete ? chestDef.CompleteSprite : chestDef.IncompleteSprite);
             if (chestSprite != null)
-                topRewardChestImage.SetSpriteNative(chestSprite);
+                topRewardChestImage.sprite = chestSprite;
 
             float targetAlpha = claimed ? claimedChestAlpha : 1f;
             topRewardChestImage.color = new Color(1f, 1f, 1f, targetAlpha);
@@ -786,28 +755,61 @@ public class MissionPanelUI : MonoBehaviour, IUIPanel
         return false;
     }
 
+    private void SetWeeklyTopDecorationsVisible(bool visible)
+    {
+        if (weeklyResetTimeText != null)
+            weeklyResetTimeText.gameObject.SetActive(visible);
+
+        if (topRewardChestButton != null)
+            topRewardChestButton.gameObject.SetActive(visible);
+
+        for (int i = 0; i < milestoneWidgets.Count; i++)
+        {
+            if (milestoneWidgets[i] != null)
+                milestoneWidgets[i].gameObject.SetActive(visible);
+        }
+    }
+
+    private void UpdateTopBarSliderAndLabel(int value, int max, string label)
+    {
+        int safeMax = Mathf.Max(1, max);
+        int clamped = Mathf.Clamp(value, 0, safeMax);
+
+        if (weeklyProgressSlider != null)
+        {
+            weeklyProgressSlider.minValue = 0f;
+            weeklyProgressSlider.maxValue = safeMax;
+            weeklyProgressSlider.wholeNumbers = false;
+            weeklyProgressSlider.value = clamped;
+        }
+        else if (weeklyProgressFill != null)
+        {
+            weeklyProgressFill.fillAmount = Mathf.Clamp01((float)clamped / safeMax);
+        }
+
+        if (weeklyProgressText != null)
+        {
+            weeklyProgressText.text = label;
+            UIProgressTextCharacterColorizer.EnsureAndRefresh(
+                weeklyProgressText,
+                weeklyProgressSlider,
+                weeklyProgressFill,
+                weeklyProgressCoveredTextColor);
+        }
+    }
+
     public void RefreshList()
     {
         if (rowContainer == null || rowPrefab == null) return;
 
-        RectTransform prefabRect = rowPrefab.transform as RectTransform;
-        float templateHeight = prefabRect != null
-            ? (prefabRect.rect.height > 0.01f ? prefabRect.rect.height : Mathf.Abs(prefabRect.sizeDelta.y))
-            : 0f;
-
-        if (rowPrefab.gameObject.scene.IsValid() && rowPrefab.gameObject.activeSelf)
-            rowPrefab.gameObject.SetActive(false);
-
-        for (int i = 0; i < spawnedRows.Count; i++)
-        {
-            if (spawnedRows[i] != null)
-                Destroy(spawnedRows[i].gameObject);
-        }
         spawnedRows.Clear();
-
-        RectTransform containerRect = rowContainer as RectTransform;
-        VerticalLayoutGroup layoutGroup = rowContainer.GetComponent<VerticalLayoutGroup>();
-        float containerWidth = ResolveContainerWidth(containerRect);
+        for (int i = rowPool.Count - 1; i >= 0; i--)
+        {
+            if (rowPool[i] == null)
+                rowPool.RemoveAt(i);
+            else
+                rowPool[i].gameObject.SetActive(false);
+        }
 
         IReadOnlyList<MissionDefinition> activeMissions = GetMissionsForCurrentSelection();
         if (activeMissions != null)
@@ -828,11 +830,11 @@ public class MissionPanelUI : MonoBehaviour, IUIPanel
                     unclaimedMissions.Add(missionDef);
             }
 
-            SpawnMissionRows(unclaimedMissions, prefabRect, layoutGroup, containerWidth, templateHeight);
-            SpawnMissionRows(claimedMissions, prefabRect, layoutGroup, containerWidth, templateHeight);
+            SpawnMissionRows(unclaimedMissions);
+            SpawnMissionRows(claimedMissions);
         }
 
-        if (containerRect != null)
+        if (rowContainer is RectTransform containerRect)
         {
             LayoutRebuilder.ForceRebuildLayoutImmediate(containerRect);
             ScrollRect parentScroll = containerRect.GetComponentInParent<ScrollRect>();
@@ -840,97 +842,52 @@ public class MissionPanelUI : MonoBehaviour, IUIPanel
                 parentScroll.verticalNormalizedPosition = 1f;
         }
 
-        if (emptyStateRoot != null && (rowPrefab == null || emptyStateRoot != rowPrefab.gameObject))
+        if (emptyStateRoot != null && emptyStateRoot != rowPrefab)
             emptyStateRoot.SetActive(spawnedRows.Count == 0);
     }
 
-    private void SpawnMissionRows(
-        List<MissionDefinition> list,
-        RectTransform prefabRect,
-        VerticalLayoutGroup layoutGroup,
-        float containerWidth,
-        float templateHeight)
+    private void SpawnMissionRows(List<MissionDefinition> list)
     {
         for (int i = 0; i < list.Count; i++)
         {
-            MissionDefinition missionDef = list[i];
-            MissionRowWidget row = Instantiate(rowPrefab, rowContainer, false);
-            ConfigureSpawnedRowLayout(row, prefabRect, layoutGroup, containerWidth, templateHeight);
-            row.gameObject.SetActive(true);
-            row.Setup(missionDef, OnClaimDefinitionPressed);
-            spawnedRows.Add(row);
+            MissionRowWidget row = InstantiateOrReuseRow(spawnedRows.Count);
+            if (row == null)
+                return;
+            row.Setup(list[i], OnClaimDefinitionPressed);
         }
     }
 
-    private static float ResolveContainerWidth(RectTransform containerRect)
+    private MissionRowWidget InstantiateOrReuseRow(int poolIndex)
     {
-        if (containerRect == null)
-            return 0f;
-
-        if (containerRect.rect.width > 0.01f)
-            return containerRect.rect.width;
-
-        Canvas.ForceUpdateCanvases();
-        if (containerRect.rect.width > 0.01f)
-            return containerRect.rect.width;
-
-        Transform current = containerRect.parent;
-        while (current != null)
+        MissionRowWidget row;
+        if (poolIndex < rowPool.Count && rowPool[poolIndex] != null)
         {
-            if (current is RectTransform parentRect && parentRect.rect.width > 0.01f)
-                return parentRect.rect.width;
-            current = current.parent;
+            row = rowPool[poolIndex];
+        }
+        else
+        {
+            GameObject rowObj = Instantiate(rowPrefab, rowContainer, false);
+            if (!rowObj.TryGetComponent(out row))
+            {
+                Debug.LogError("[MissionPanelUI] Assigned rowPrefab is missing MissionRowWidget component.", this);
+                if (Application.isPlaying)
+                    Destroy(rowObj);
+                else
+                    DestroyImmediate(rowObj);
+                return null;
+            }
+
+            if (poolIndex < rowPool.Count)
+                rowPool[poolIndex] = row;
+            else
+                rowPool.Add(row);
         }
 
-        return 0f;
-    }
-
-    private static void ConfigureSpawnedRowLayout(
-        MissionRowWidget row,
-        RectTransform prefabRect,
-        VerticalLayoutGroup layoutGroup,
-        float containerWidth,
-        float templateHeight)
-    {
-        if (row == null)
-            return;
-
-        RectTransform rowRect = row.transform as RectTransform;
-        if (rowRect == null)
-            return;
-
-        rowRect.localScale = Vector3.one;
-
-        if (layoutGroup == null)
-            return;
-
-        bool prefabStretchedHorizontally = prefabRect != null
-            && (prefabRect.anchorMax.x - prefabRect.anchorMin.x) > 0.5f;
-
-        float horizontalMargin = prefabStretchedHorizontally ? prefabRect.sizeDelta.x : 0f;
-        float targetWidth = containerWidth > 0.01f
-            ? Mathf.Max(0f, containerWidth - layoutGroup.padding.left - layoutGroup.padding.right + horizontalMargin)
-            : rowRect.sizeDelta.x;
-        float targetHeight = templateHeight > 0.01f ? templateHeight : rowRect.sizeDelta.y;
-
-        Vector2 updatedSize = rowRect.sizeDelta;
-        if (!layoutGroup.childControlWidth && prefabStretchedHorizontally && targetWidth > 0.01f)
-            updatedSize.x = targetWidth;
-        if (!layoutGroup.childControlHeight && targetHeight > 0.01f)
-            updatedSize.y = targetHeight;
-        rowRect.sizeDelta = updatedSize;
-
-        LayoutElement layoutElement = row.GetComponent<LayoutElement>();
-        if (layoutElement == null && (layoutGroup.childControlWidth || layoutGroup.childControlHeight))
-            layoutElement = row.gameObject.AddComponent<LayoutElement>();
-
-        if (layoutElement != null)
-        {
-            if (targetHeight > 0.01f && layoutElement.preferredHeight <= 0f)
-                layoutElement.preferredHeight = targetHeight;
-            if (prefabStretchedHorizontally && layoutElement.flexibleWidth <= 0f)
-                layoutElement.flexibleWidth = 1f;
-        }
+        row.transform.SetSiblingIndex(poolIndex);
+        row.transform.localScale = Vector3.one;
+        row.gameObject.SetActive(true);
+        spawnedRows.Add(row);
+        return row;
     }
 
     private IReadOnlyList<MissionDefinition> GetMissionsForCurrentSelection()
@@ -989,13 +946,16 @@ public class MissionPanelUI : MonoBehaviour, IUIPanel
 
     private void OnClaimDefinitionPressed(MissionDefinition mission)
     {
-        MissionRowWidget claimedRow = FindSpawnedRow(mission);
+        ExecuteClaimWithAnimation(FindSpawnedRow(mission), () => MissionService.TryClaim(mission));
+    }
 
+    private void ExecuteClaimWithAnimation(MissionRowWidget claimedRow, Func<bool> tryClaimAction)
+    {
         isAnimatingRowClaim = true;
         bool claimed;
         try
         {
-            claimed = MissionService.TryClaim(mission);
+            claimed = tryClaimAction != null && tryClaimAction();
         }
         finally
         {

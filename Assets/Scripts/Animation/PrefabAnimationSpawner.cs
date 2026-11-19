@@ -36,6 +36,25 @@ public class PrefabAnimationSpawner : MonoBehaviour
     [SerializeField, Min(0f)] private float maxLifetime = 10f;
 
     private readonly HashSet<GameObject> tracked = new HashSet<GameObject>();
+    private static readonly Dictionary<EntityId, bool> ValidAnimationPrefabCache = new Dictionary<EntityId, bool>(32);
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStaticCache()
+    {
+        ValidAnimationPrefabCache.Clear();
+    }
+
+    private static bool HasAnimatorOrAnimationCached(GameObject prefab)
+    {
+        EntityId id = prefab.GetEntityId();
+        if (ValidAnimationPrefabCache.TryGetValue(id, out bool hasAnim))
+            return hasAnim;
+
+        hasAnim = prefab.GetComponentInChildren<Animator>(true) != null
+            || prefab.GetComponentInChildren<Animation>(true) != null;
+        ValidAnimationPrefabCache[id] = hasAnim;
+        return hasAnim;
+    }
 
     private void Awake()
     {
@@ -137,8 +156,7 @@ public class PrefabAnimationSpawner : MonoBehaviour
             return null;
         }
 
-        if (prefab.GetComponentInChildren<Animator>(true) == null &&
-            prefab.GetComponentInChildren<Animation>(true) == null)
+        if (!HasAnimatorOrAnimationCached(prefab))
         {
             Debug.LogWarning($"[PrefabAnimationSpawner] '{prefab.name}' has no Animator or Animation — it will be returned after the fallback duration.", prefab);
         }

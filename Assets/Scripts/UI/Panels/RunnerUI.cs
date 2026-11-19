@@ -11,9 +11,17 @@ public class RunnerUI : MonoBehaviour, IUIPanel
 
     [Header("Labels")]
     [SerializeField] private TMP_Text bestDepthText;
+    [SerializeField] private TMP_Text bestDepthScoreText;
+
+    [Header("Mode Selection (Endless active now; 10/20 unlockable when ready)")]
+    [SerializeField] private Button endlessModeButton;
+    [SerializeField] private Button rooms10ModeButton;
+    [SerializeField] private Button rooms20ModeButton;
+    [SerializeField] private bool enable10And20RoomModes = false;
 
     [Header("System References")]
     [SerializeField] private LevelFlowController flowController;
+    [SerializeField] private MazeRunnerService runnerService;
 
     [Header("Optional Animation (Leave Empty for No Animation)")]
     [Tooltip("Only animates when explicitly assigned in the Inspector. Never auto-fetches GetComponent<UIPanelAnimator>().")]
@@ -23,43 +31,38 @@ public class RunnerUI : MonoBehaviour, IUIPanel
     public event Action OnStartRunRequested;
 
     private bool buttonsBound;
-    private bool trackingActiveRunnerFloor;
+    private RunnerModeKind selectedMode = RunnerModeKind.Endless;
 
     public const string BEST_DEPTH_PREF_KEY = "Runner_BestDepth";
 
     private void Awake()
     {
         if (flowController == null)
-            flowController = FindAnyObjectByType<LevelFlowController>();
+            flowController = LevelFlowController.ResolveInstance();
+        if (runnerService == null)
+            runnerService = MazeRunnerService.Instance != null
+                ? MazeRunnerService.Instance
+                : FindAnyObjectByType<MazeRunnerService>();
 
         BindButtons();
-        SubscribeFlow();
+        SubscribeEvents();
     }
 
     private void OnDestroy()
     {
         UnbindButtons();
-        UnsubscribeFlow();
+        UnsubscribeEvents();
     }
 
-    private void SubscribeFlow()
+    private void SubscribeEvents()
     {
-        if (flowController == null)
-            return;
-
-        flowController.OnLevelCompleted -= HandleRunnerFloorCompleted;
-        flowController.OnLevelCompleted += HandleRunnerFloorCompleted;
-        flowController.OnReturnToMapRequested -= HandleRunnerEnded;
-        flowController.OnReturnToMapRequested += HandleRunnerEnded;
+        MazeRunnerService.OnAnyRunEnded -= HandleRunnerRunEnded;
+        MazeRunnerService.OnAnyRunEnded += HandleRunnerRunEnded;
     }
 
-    private void UnsubscribeFlow()
+    private void UnsubscribeEvents()
     {
-        if (flowController == null)
-            return;
-
-        flowController.OnLevelCompleted -= HandleRunnerFloorCompleted;
-        flowController.OnReturnToMapRequested -= HandleRunnerEnded;
+        MazeRunnerService.OnAnyRunEnded -= HandleRunnerRunEnded;
     }
 
     private void BindButtons()
@@ -69,6 +72,12 @@ public class RunnerUI : MonoBehaviour, IUIPanel
 
         if (startRunButton != null)
             startRunButton.onClick.AddListener(OnStartRunClicked);
+        if (endlessModeButton != null)
+            endlessModeButton.onClick.AddListener(SelectEndlessMode);
+        if (rooms10ModeButton != null)
+            rooms10ModeButton.onClick.AddListener(Select10RoomsMode);
+        if (rooms20ModeButton != null)
+            rooms20ModeButton.onClick.AddListener(Select20RoomsMode);
     }
 
     private void UnbindButtons()
@@ -78,6 +87,12 @@ public class RunnerUI : MonoBehaviour, IUIPanel
 
         if (startRunButton != null)
             startRunButton.onClick.RemoveListener(OnStartRunClicked);
+        if (endlessModeButton != null)
+            endlessModeButton.onClick.RemoveListener(SelectEndlessMode);
+        if (rooms10ModeButton != null)
+            rooms10ModeButton.onClick.RemoveListener(Select10RoomsMode);
+        if (rooms20ModeButton != null)
+            rooms20ModeButton.onClick.RemoveListener(Select20RoomsMode);
     }
 
     public void Show() => OpenRunner();
@@ -86,6 +101,7 @@ public class RunnerUI : MonoBehaviour, IUIPanel
     public void OpenRunner()
     {
         BindButtons();
+        RefreshModeButtons();
         RefreshDisplay();
 
         if (panelAnimator != null)
@@ -108,12 +124,74 @@ public class RunnerUI : MonoBehaviour, IUIPanel
         OnRunnerClosed?.Invoke();
     }
 
+    public void SetMode(RunnerModeKind mode)
+    {
+        if (!enable10And20RoomModes && mode != RunnerModeKind.Endless)
+            return;
+
+        selectedMode = mode;
+        RefreshModeButtons();
+        RefreshDisplay();
+    }
+
     public void RefreshDisplay()
     {
-        int bestDepth = PlayerPrefs.GetInt(BEST_DEPTH_PREF_KEY, 0);
+        if (!enable10And20RoomModes)
+            selectedMode = RunnerModeKind.Endless;
+
+        ProfileData profile = LoadAndMigrateBestProfile();
+        int bestRooms = profile != null
+            ? profile.GetBestRunnerRooms(selectedMode)
+            : Mathf.Max(0, PlayerPrefs.GetInt(BEST_DEPTH_PREF_KEY, 0));
+
         if (bestDepthText != null)
-            bestDepthText.text = $"BEST DEPTH: FLOOR {bestDepth}";
+        {
+            bestDepthText.text = selectedMode switch
+            {
+                RunnerModeKind.Rooms10 => $"10 ROOMS CLEARS: {bestRooms}",
+                RunnerModeKind.Rooms20 => $"20 ROOMS CLEARS: {bestRooms}",
+                _                      => $"BEST: {bestRooms} ROOMS",
+            };
+        }
+
+        if (bestDepthScoreText != null)
+            bestDepthScoreText.text = bestRooms.ToString();
     }
+
+    private static ProfileData LoadAndMigrateBestProfile()
+    {
+        ProfileData profile = SaveManager.loadProfile();
+        if (profile == null)
+            return null;
+
+        int legacyBest = Mathf.Max(0, PlayerPrefs.GetInt(BEST_DEPTH_PREF_KEY, 0));
+        if (legacyBest > profile.bestRunnerEndlessRooms)
+        {
+            profile.bestRunnerEndlessRooms = legacyBest;
+            SaveManager.TrySaveProfile(profile);
+        }
+
+        return profile;
+    }
+
+    private void RefreshModeButtons()
+    {
+        if (rooms10ModeButton != null)
+            rooms10ModeButton.gameObject.SetActive(enable10And20RoomModes);
+        if (rooms20ModeButton != null)
+            rooms20ModeButton.gameObject.SetActive(enable10And20RoomModes);
+
+        if (endlessModeButton != null)
+            endlessModeButton.interactable = selectedMode != RunnerModeKind.Endless;
+        if (rooms10ModeButton != null)
+            rooms10ModeButton.interactable = enable10And20RoomModes && selectedMode != RunnerModeKind.Rooms10;
+        if (rooms20ModeButton != null)
+            rooms20ModeButton.interactable = enable10And20RoomModes && selectedMode != RunnerModeKind.Rooms20;
+    }
+
+    private void SelectEndlessMode() => SetMode(RunnerModeKind.Endless);
+    private void Select10RoomsMode() => SetMode(RunnerModeKind.Rooms10);
+    private void Select20RoomsMode() => SetMode(RunnerModeKind.Rooms20);
 
     private void OnStartRunClicked()
     {
@@ -122,63 +200,32 @@ public class RunnerUI : MonoBehaviour, IUIPanel
         OnStartRunRequested?.Invoke();
 
         if (flowController == null)
-            flowController = FindAnyObjectByType<LevelFlowController>();
+            flowController = LevelFlowController.ResolveInstance();
+        if (runnerService == null)
+            runnerService = MazeRunnerService.Instance != null
+                ? MazeRunnerService.Instance
+                : FindAnyObjectByType<MazeRunnerService>();
 
-        if (flowController != null && flowController.CurrentState == LevelState.Idle)
+        if (runnerService == null)
         {
-            SubscribeFlow();
-            LevelData floorLevel = ResolveNextRunnerLevel();
-            if (floorLevel != null)
-            {
-                trackingActiveRunnerFloor = true;
-                flowController.StartLevel(floorLevel);
-            }
-        }
-    }
-
-    private LevelData ResolveNextRunnerLevel()
-    {
-        if (ProgressionManager.Instance != null && ProgressionManager.Instance.Database != null)
-        {
-            CampaignDatabase db = ProgressionManager.Instance.Database;
-            if (db.Worlds != null)
-            {
-                var allLevels = new List<LevelData>();
-                for (int w = 0; w < db.Worlds.Count; w++)
-                {
-                    WorldData world = db.Worlds[w];
-                    if (world == null || world.levels == null) continue;
-                    foreach (LevelData lvl in world.levels)
-                    {
-                        if (lvl != null)
-                            allLevels.Add(lvl);
-                    }
-                }
-
-                if (allLevels.Count > 0)
-                {
-                    int currentDepth = Mathf.Max(0, PlayerPrefs.GetInt(BEST_DEPTH_PREF_KEY, 0));
-                    return allLevels[currentDepth % allLevels.Count];
-                }
-            }
+            Debug.LogError("[RunnerUI] Cannot start Maze Runner — MazeRunnerService reference is missing in scene.", this);
+            return;
         }
 
-        return flowController != null ? flowController.CurrentLevelData : null;
-    }
-
-    private void HandleRunnerFloorCompleted()
-    {
-        if (!trackingActiveRunnerFloor)
+        if (flowController != null && flowController.CurrentState != LevelState.Idle)
             return;
 
-        int nextDepth = Mathf.Max(0, PlayerPrefs.GetInt(BEST_DEPTH_PREF_KEY, 0)) + 1;
-        PlayerPrefs.SetInt(BEST_DEPTH_PREF_KEY, nextDepth);
-        PlayerPrefs.Save();
-        RefreshDisplay();
+        if (runnerService.StartRun(selectedMode))
+        {
+            if (UIManager.Instance != null)
+                UIManager.Instance.ClosePanelIfOpen(UIPanelType.Runner);
+            else
+                CloseRunner();
+        }
     }
 
-    private void HandleRunnerEnded()
+    private void HandleRunnerRunEnded(RunnerRunSummary _)
     {
-        trackingActiveRunnerFloor = false;
+        RefreshDisplay();
     }
 }

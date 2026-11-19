@@ -27,6 +27,16 @@ public class StarCollectFeedback : MonoBehaviour
     [Tooltip("Optional pooled animation prefab spawned when a regular Collectible (coin/dot) is collected.")]
     [SerializeField] private GameObject collectibleAnimationPrefab;
 
+    private void Start()
+    {
+        if (!Application.isPlaying) return;
+
+        VfxSpawner.Prewarm(starParticlePrefab, 2);
+        VfxSpawner.Prewarm(starAnimationPrefab, 2);
+        VfxSpawner.Prewarm(collectibleParticlePrefab, 2);
+        VfxSpawner.Prewarm(collectibleAnimationPrefab, 2);
+    }
+
     private void OnEnable()
     {
         Collectible.OnAnyStarCollected += HandleStarCollected;
@@ -45,7 +55,12 @@ public class StarCollectFeedback : MonoBehaviour
 
         bool hasPerPrefabShake = star.TryGetComponent<InteractionEffectPlayer>(out var iep) && iep.HasConfiguredShake;
         if (!hasPerPrefabShake && starShake > 0f && CinemachineCameraShake2D.Instance != null)
-            CinemachineCameraShake2D.Instance.ShakeCamera(starShake);
+        {
+            Vector2 travelDir = PlayerMovement.Instance != null && PlayerMovement.Instance.LastMoveDirection != Vector2.zero
+                ? PlayerMovement.Instance.LastMoveDirection
+                : Vector2.down;
+            CinemachineCameraShake2D.Instance.ShakeCamera(travelDir, starShake);
+        }
 
         Vector3 pos = star.LastCollectWorldPosition;
 

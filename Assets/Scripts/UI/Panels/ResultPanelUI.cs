@@ -13,10 +13,10 @@ public class ResultPanelUI : MonoBehaviour, IUIPanel
     private bool isSubscribed;
     private bool hasClaimedResultAdThisRun;
     private int lastDisplayedCoins;
-    private UIPanelAnimator panelAnimator;
 
-    private UIPanelAnimator PanelAnimator =>
-        panelAnimator != null ? panelAnimator : (panelAnimator = GetComponent<UIPanelAnimator>());
+    [Header("Optional Animation (Leave Empty for No Animation)")]
+    [Tooltip("Only animates when explicitly assigned in the Inspector. Never auto-fetches GetComponent<UIPanelAnimator>().")]
+    [SerializeField] private UIPanelAnimator panelAnimator;
 
     [Header("System References")]
     [SerializeField] private LevelFlowController flowController;
@@ -68,7 +68,7 @@ public class ResultPanelUI : MonoBehaviour, IUIPanel
     private void EnsureInitialized()
     {
         if (flowController == null)
-            flowController = FindAnyObjectByType<LevelFlowController>();
+            flowController = LevelFlowController.ResolveInstance();
 
         BindButtons();
 
@@ -142,7 +142,7 @@ public class ResultPanelUI : MonoBehaviour, IUIPanel
     {
         EnsureInitialized();
 
-        if (PanelAnimator != null) PanelAnimator.PlayIn();
+        if (panelAnimator != null) panelAnimator.PlayIn();
         else gameObject.SetActive(true);
 
         PendingResult result = pendingResult;
@@ -162,7 +162,7 @@ public class ResultPanelUI : MonoBehaviour, IUIPanel
 
     public void Hide()
     {
-        if (PanelAnimator != null) PanelAnimator.PlayOut(FinishHide);
+        if (panelAnimator != null && gameObject.activeInHierarchy) panelAnimator.PlayOut(FinishHide);
         else FinishHide();
     }
 
@@ -201,8 +201,10 @@ public class ResultPanelUI : MonoBehaviour, IUIPanel
     {
         if (UIManager.Instance != null && UIManager.Instance.IsPanelOpen(UIPanelType.Result))
             UIManager.Instance.ClosePanelIfOpen(UIPanelType.Result);
-        else
+        else if (gameObject.activeSelf)
             Hide();
+
+        UIManager.Instance?.RefreshTimeScale();
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -211,12 +213,32 @@ public class ResultPanelUI : MonoBehaviour, IUIPanel
 
     private void ShowCompletion()
     {
-        var level = flowController != null ? flowController.CurrentLevelData : null;
-        int earnedStars = Mathf.Clamp(flowController != null ? flowController.LastCompletedStars : 0, 0, 3);
-
         if (failurePanel != null) failurePanel.SetActive(false);
         if (completionPanel != null) completionPanel.SetActive(true);
         UIAudio.Play(UISoundType.VictoryPopup);
+
+        if (TryGetActiveRunnerSummary(out RunnerRunSummary runnerSummary))
+        {
+            SetStarVisibility(false);
+            if (completionTitleText != null)
+            {
+                completionTitleText.text = runnerSummary.IsNewBest
+                    ? $"CLEARED {runnerSummary.ClearedRooms} ROOMS \u2022 NEW BEST!"
+                    : $"CLEARED {runnerSummary.ClearedRooms} ROOMS";
+            }
+
+            lastDisplayedCoins = runnerSummary.TotalCoinsGranted;
+            CurrencyUI.Animate(coinsEarnedText, 0, lastDisplayedCoins);
+            RefreshBonusAdButton();
+
+            if (nextLevelButton != null)
+                nextLevelButton.gameObject.SetActive(false);
+            return;
+        }
+
+        SetStarVisibility(true);
+        var level = flowController != null ? flowController.CurrentLevelData : null;
+        int earnedStars = Mathf.Clamp(flowController != null ? flowController.LastCompletedStars : 0, 0, 3);
 
         int stage = GetStageNumber(level);
         if (completionTitleText != null)
@@ -288,7 +310,8 @@ public class ResultPanelUI : MonoBehaviour, IUIPanel
             watchBonusAdButton.interactable = false;
 
         RewardItem fixedItem = AdPolicyCoordinator.GetFixedRewardForPlacement(RewardedAdPlacement.ResultScreenBonus);
-        AdRewardService.Instance.WatchAdForReward(RewardedAdPlacement.ResultScreenBonus, fixedItem.Amount, success =>
+        int bonusCoins = lastDisplayedCoins > 0 ? lastDisplayedCoins : Mathf.Max(1, fixedItem.Amount);
+        AdRewardService.Instance.WatchAdForReward(RewardedAdPlacement.ResultScreenBonus, bonusCoins, success =>
         {
             if (this == null)
                 return;
@@ -296,11 +319,21 @@ public class ResultPanelUI : MonoBehaviour, IUIPanel
             if (success)
             {
                 hasClaimedResultAdThisRun = true;
+                if (!gameObject.activeSelf)
+                    gameObject.SetActive(true);
+                if (completionPanel != null && !completionPanel.activeSelf)
+                    completionPanel.SetActive(true);
+
                 UIAudio.Play(UISoundType.RewardClaim);
                 if (fixedItem.Type == RewardType.Coins)
-                    NotifyBonusCoinsAdded(fixedItem.Amount);
+                {
+                    GetComponentInChildren<RewardOverlayUI>(true)?.NotifyBonusCoinsClaimed(bonusCoins);
+                    NotifyBonusCoinsAdded(bonusCoins);
+                }
                 else if (watchBonusAdButton != null)
+                {
                     watchBonusAdButton.gameObject.SetActive(false);
+                }
             }
             else
             {
@@ -320,7 +353,7 @@ public class ResultPanelUI : MonoBehaviour, IUIPanel
             if (starImage == null) continue;
 
             bool isEarned = i < earnedStars;
-            starImage.SetSpriteNative(isEarned ? starFilled : starEmpty);
+            starImage.sprite = isEarned ? starFilled : starEmpty;
 
             starImage.transform.DOKill();
             if (isEarned)
@@ -361,16 +394,60 @@ public class ResultPanelUI : MonoBehaviour, IUIPanel
 
     private void ShowFailure(string reason)
     {
+        if (completionPanel != null) completionPanel.SetActive(false);
+        if (failurePanel != null) failurePanel.SetActive(true);
+        UIAudio.Play(UISoundType.DefeatPopup);
+
+        if (TryGetActiveRunnerSummary(out RunnerRunSummary runnerSummary))
+        {
+            if (failTitleText != null)
+            {
+                failTitleText.text = runnerSummary.IsNewBest
+                    ? $"NEW BEST: {runnerSummary.ClearedRooms} ROOMS!"
+                    : $"ROOMS CLEARED: {runnerSummary.ClearedRooms}";
+            }
+
+            if (failureReasonText != null)
+            {
+                failureReasonText.text =
+                    $"REACHED ROOM {runnerSummary.ClearedRooms + 1}  \u2022  +{runnerSummary.TotalCoinsGranted} COINS";
+            }
+            return;
+        }
+
         var failedLevel = flowController != null ? flowController.CurrentLevelData : null;
         int failedStage = GetStageNumber(failedLevel);
         if (failTitleText != null)
             failTitleText.text = $"STAGE {failedStage}";
 
-        if (completionPanel != null) completionPanel.SetActive(false);
-        if (failurePanel != null) failurePanel.SetActive(true);
-        UIAudio.Play(UISoundType.DefeatPopup);
         if (failureReasonText != null)
             failureReasonText.text = string.IsNullOrEmpty(reason) ? "LEVEL FAILED" : reason;
+    }
+
+    private void SetStarVisibility(bool visible)
+    {
+        if (stars == null) return;
+        for (int i = 0; i < stars.Length; i++)
+        {
+            if (stars[i] != null && stars[i].gameObject.activeSelf != visible)
+                stars[i].gameObject.SetActive(visible);
+        }
+    }
+
+    private static bool TryGetActiveRunnerSummary(out RunnerRunSummary summary)
+    {
+        MazeRunnerService runner = MazeRunnerService.Instance != null
+            ? MazeRunnerService.Instance
+            : FindAnyObjectByType<MazeRunnerService>();
+
+        if (runner != null && runner.IsShowingRunnerResult && runner.HasLastRunSummary)
+        {
+            summary = runner.LastRunSummary;
+            return true;
+        }
+
+        summary = default;
+        return false;
     }
 
     public void HideAll()
@@ -383,41 +460,82 @@ public class ResultPanelUI : MonoBehaviour, IUIPanel
     //  Buttons
     // ─────────────────────────────────────────────────────────────
 
-    private bool IsExitingCompletedState()
+    private bool IsExitingPlayResult()
     {
-        if (pendingResult == PendingResult.Completed)
+        if (pendingResult != PendingResult.None)
             return true;
-        return flowController != null && flowController.CurrentState == LevelState.Completed;
+
+        return flowController != null
+            && (flowController.CurrentState == LevelState.Completed || flowController.CurrentState == LevelState.Failed);
     }
 
     private void OnNextLevel()
     {
-        bool completedExit = IsExitingCompletedState();
+        bool shouldCheckInterstitial = IsExitingPlayResult();
         GameHaptics.Play(HapticEvent.UISelect);
         UIAudio.Play(UISoundType.ButtonClick);
         HandleResultClosed();
-        if (completedExit)
+        if (shouldCheckInterstitial)
             AdPolicyCoordinator.TryShowPostResultTransitionInterstitial();
         flowController?.LoadNextLevel();
     }
 
     private void OnRestart()
     {
-        // GDD §8.3: Never show Interstitial on Restart or Death
+        bool shouldCheckInterstitial = IsExitingPlayResult();
         GameHaptics.Play(HapticEvent.UISelect);
         UIAudio.Play(UISoundType.ButtonClick);
         HandleResultClosed();
+        if (shouldCheckInterstitial)
+            AdPolicyCoordinator.TryShowPostResultTransitionInterstitial();
+
+        if (TryGetActiveRunnerSummary(out _))
+        {
+            MazeRunnerService runner = MazeRunnerService.Instance != null
+                ? MazeRunnerService.Instance
+                : FindAnyObjectByType<MazeRunnerService>();
+            if (runner != null)
+            {
+                runner.RestartRun();
+                return;
+            }
+        }
+
         flowController?.RestartLevel();
     }
 
     private void OnReturnToMap()
     {
-        bool completedExit = IsExitingCompletedState();
+        if (flowController == null)
+            flowController = LevelFlowController.ResolveInstance();
+
+        bool shouldCheckInterstitial = IsExitingPlayResult();
         GameHaptics.Play(HapticEvent.UISelect);
         UIAudio.Play(UISoundType.ButtonClick);
         HandleResultClosed();
-        if (completedExit)
+        if (shouldCheckInterstitial)
             AdPolicyCoordinator.TryShowPostResultTransitionInterstitial();
-        flowController?.ReturnToMap();
+
+        if (TryGetActiveRunnerSummary(out _))
+        {
+            MazeRunnerService runner = MazeRunnerService.Instance != null
+                ? MazeRunnerService.Instance
+                : FindAnyObjectByType<MazeRunnerService>();
+            if (runner != null)
+            {
+                runner.AbandonRunToMenu();
+                return;
+            }
+        }
+
+        if (flowController != null)
+        {
+            flowController.ReturnToMap();
+        }
+        else if (UIManager.Instance != null)
+        {
+            UIManager.Instance.OpenPanel(UIPanelType.MainMenu);
+            UIManager.Instance.ShowScreen(UIPanelType.Map);
+        }
     }
 }

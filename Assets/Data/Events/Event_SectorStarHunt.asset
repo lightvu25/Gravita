@@ -1,0 +1,61 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 75843622abe6a4e4e83942ec1c339387, type: 3}
+  m_Name: Event_SectorStarHunt
+  m_EditorClassIdentifier: Assembly-CSharp::GameEventDefinition
+  eventId: event_sector_star_hunt
+  title: SECTOR STAR HUNT
+  bannerDescription: Collect stars and shatter cracked bulkheads across Story stages.
+  detailRulesText: Replay or advance through Campaign sectors to gather Stars, shatter
+    Cracked Blocks, and beat levels cleanly without dying.
+  bannerSprite: {fileID: 0}
+  detailBannerSprite: {fileID: 0}
+  useFixedDateSchedule: 0
+  startDateIso: 
+  durationDays: 10
+  hideWhenExpired: 0
+  bannerAction: 0
+  ctaButtonLabel: GO TO CAMPAIGN MAP
+  ctaActionType: 1
+  ctaTargetPanel: 2
+  ctaRunnerMode: 0
+  tasks:
+  - taskId: hunt_stars_10
+    title: Earn 10 Stars Across Stages
+    objectiveKind: 0
+    missionType: 1
+    target: 10
+    rewardType: 0
+    rewardAmount: 120
+    rewardPowerUpId: breaker
+    rewardCosmeticId: 
+    rewardIcon: {fileID: 0}
+  - taskId: hunt_walls_15
+    title: Break 15 Cracked Bulkheads
+    objectiveKind: 0
+    missionType: 8
+    target: 15
+    rewardType: 0
+    rewardAmount: 180
+    rewardPowerUpId: breaker
+    rewardCosmeticId: 
+    rewardIcon: {fileID: 0}
+  - taskId: hunt_nodeath_05
+    title: Clear 5 Stages Without Dying
+    objectiveKind: 0
+    missionType: 9
+    target: 5
+    rewardType: 1
+    rewardAmount: 15
+    rewardPowerUpId: breaker
+    rewardCosmeticId: 
+    rewardIcon: {fileID: 0}

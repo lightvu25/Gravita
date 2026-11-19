@@ -503,7 +503,7 @@ public class ProgressionManager : MonoBehaviour
         int remaining = profile.powerUpCounts[idx];
         int cap = GetPowerUpCap(powerUpId);
 
-        SaveManager.saveProfile(profile);
+        SaveManager.SaveOrDeferDuringSlide(profile);
         OnSkillInventoryChanged?.Invoke(powerUpId, -1, remaining, cap, "SkillUsed");
         OnProgressionChanged?.Invoke();
         return true;
@@ -705,23 +705,60 @@ public class ProgressionManager : MonoBehaviour
         return profile != null ? profile.GetPowerUpLevel(powerUpId) : 1;
     }
 
+    public bool IsSkillUnlocked(string skillId) =>
+        !string.IsNullOrEmpty(skillId) && EconomyBalanceConfig.Active.IsSkillActiveInCampaign(skillId);
+
+    /// <summary>
+    /// Choice A upgrade economy: base coin cost reduced by owned skill shards (each shard reduces Coin cost).
+    /// Returns -1 when already at max level.
+    /// </summary>
+    public int GetEffectiveUpgradeCoinCost(string powerUpId, PowerUpData data, out int shardsConsumed)
+    {
+        shardsConsumed = 0;
+        if (data == null || string.IsNullOrEmpty(powerUpId))
+            return -1;
+
+        int level = GetSavedPowerUpLevel(powerUpId);
+        int baseCost = data.GetUpgradeCost(level);
+        if (baseCost <= 0)
+            return baseCost;
+
+        int ownedShards = GetPowerUpCount(powerUpId);
+        int discountPerShard = data.CoinDiscountPerShard;
+        if (discountPerShard <= 0 || ownedShards <= 0)
+            return baseCost;
+
+        int maxUsefulShards = (baseCost + discountPerShard - 1) / discountPerShard;
+        shardsConsumed = Mathf.Min(ownedShards, maxUsefulShards);
+        return Mathf.Max(0, baseCost - shardsConsumed * discountPerShard);
+    }
+
     public bool TryUpgradePowerUp(string powerUpId, PowerUpData data, out string failReason)
     {
         failReason = null;
         if (data == null || string.IsNullOrEmpty(powerUpId)) { failReason = "Invalid power."; return false; }
+        if (!IsSkillUnlocked(powerUpId)) { failReason = "Core locked (unlock via Achievements)."; return false; }
 
         int level = GetSavedPowerUpLevel(powerUpId);
-        int cost = data.GetUpgradeCost(level);
-        if (cost < 0) { failReason = "Max level."; return false; }
+        int baseCost = data.GetUpgradeCost(level);
+        if (baseCost < 0) { failReason = "Max level."; return false; }
 
+        int effectiveCoinCost = GetEffectiveUpgradeCoinCost(powerUpId, data, out int shardsConsumed);
         int nextLevel = level + 1;
+        ProfileData mutatedProfile = null;
+
         var tx = new RewardTransaction
         {
-            CostType = cost > 0 ? ShopCostType.Coins : ShopCostType.Free,
-            CostAmount = cost,
+            CostType = effectiveCoinCost > 0 ? ShopCostType.Coins : ShopCostType.Free,
+            CostAmount = Mathf.Max(0, effectiveCoinCost),
             Payout = new RewardBundle(),
             Reason = $"PowerUpUpgrade_{powerUpId}_L{nextLevel}",
-            OnBeforeSaveMutateProfile = p => p.SetPowerUpLevel(powerUpId, nextLevel)
+            OnBeforeSaveMutateProfile = p =>
+            {
+                mutatedProfile = p;
+                p.SetPowerUpLevel(powerUpId, nextLevel);
+                ConsumeProfileShards(p, powerUpId, shardsConsumed);
+            }
         };
         RewardTransactionResult result = RewardService.ExecuteTransaction(tx);
         if (!result.Succeeded)
@@ -731,15 +768,42 @@ public class ProgressionManager : MonoBehaviour
         }
 
         ProfileData activeProfile = GetProfile();
-        if (activeProfile != null)
+        if (activeProfile != null && !ReferenceEquals(activeProfile, mutatedProfile))
+        {
             activeProfile.SetPowerUpLevel(powerUpId, nextLevel);
+            ConsumeProfileShards(activeProfile, powerUpId, shardsConsumed);
+        }
 
-        if (GameSession.Instance != null && GameSession.Instance.currentProfile != null && GameSession.Instance.currentProfile != activeProfile)
+        if (GameSession.Instance != null
+            && GameSession.Instance.currentProfile != null
+            && !ReferenceEquals(GameSession.Instance.currentProfile, mutatedProfile)
+            && !ReferenceEquals(GameSession.Instance.currentProfile, activeProfile))
+        {
             GameSession.Instance.currentProfile.SetPowerUpLevel(powerUpId, nextLevel);
+            ConsumeProfileShards(GameSession.Instance.currentProfile, powerUpId, shardsConsumed);
+        }
+
+        if (shardsConsumed > 0)
+        {
+            int remaining = GetPowerUpCount(powerUpId);
+            int cap = GetPowerUpCap(powerUpId);
+            OnSkillInventoryChanged?.Invoke(powerUpId, -shardsConsumed, remaining, cap, "PowerUpUpgradeShardDiscount");
+        }
 
         OnPowerUpUpgraded?.Invoke(powerUpId, nextLevel);
         OnProgressionChanged?.Invoke();
         return true;
+    }
+
+    private static void ConsumeProfileShards(ProfileData profile, string powerUpId, int count)
+    {
+        if (profile == null || count <= 0 || string.IsNullOrEmpty(powerUpId)
+            || profile.powerUpIds == null || profile.powerUpCounts == null)
+            return;
+
+        int idx = profile.powerUpIds.IndexOf(powerUpId);
+        if (idx >= 0 && idx < profile.powerUpCounts.Count)
+            profile.powerUpCounts[idx] = Mathf.Max(0, profile.powerUpCounts[idx] - count);
     }
 
     private int GetSavedPowerUpLevel(string id)

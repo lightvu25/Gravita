@@ -33,6 +33,7 @@ public static class EconomyRewardIds
     public static string SectorMission(string missionId) => $"sector_mission_{missionId}";
     public static string NewPlayerMission(string missionId) => $"newplayer_mission_{missionId}";
     public static string Achievement(string achievementId) => $"achievement_{achievementId}";
+    public static string EventTask(string eventId, string taskId) => $"event_{eventId}_task_{taskId}";
     public static string RewardedAdGrant(string localDateKey, string placement, string requestGuid) => $"ad_{localDateKey}_{placement}_{requestGuid}";
     public static string IapTransaction(string storeTransactionId) => $"iap_transaction_{storeTransactionId}";
     public static string IapNonConsumable(string productId) => $"iap_nonconsumable_{productId}";

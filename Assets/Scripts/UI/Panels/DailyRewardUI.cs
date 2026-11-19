@@ -23,13 +23,14 @@ public class DailyRewardUI : MonoBehaviour, IUIPanel
     [SerializeField] private TMP_Text claimButtonLabel;
     [SerializeField] private TMP_Text feedbackText;
 
+    [Header("Optional Animation (Leave Empty for No Panel Animation)")]
+    [SerializeField] private UIPanelAnimator panelAnimator;
+
     private DailyRewardService dailyService;
-    private UIPanelAnimator panelAnimator;
     private bool buttonsBound;
     private bool subscribed;
 
-    private UIPanelAnimator PanelAnimator =>
-        panelAnimator != null ? panelAnimator : (panelAnimator = GetComponent<UIPanelAnimator>());
+    private UIPanelAnimator PanelAnimator => panelAnimator;
 
     private void Awake()
     {

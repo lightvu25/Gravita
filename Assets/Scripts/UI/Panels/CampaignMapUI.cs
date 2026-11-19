@@ -13,20 +13,13 @@ public class CampaignMapUI : MonoBehaviour, IUIPanel
 
     [Header("World Selection UI")]
     [SerializeField] private Transform worldButtonContainer;
-    [SerializeField] private Button worldButtonPrefab;
+    [SerializeField] private GameObject worldButtonPrefab;
     [SerializeField] private TMP_Text selectedWorldTitleText;
 
     [Header("Level Selection UI")]
     [SerializeField] private Transform levelGridContainer;
-    [SerializeField] private LevelNodeWidget levelNodePrefab;
+    [SerializeField] private GameObject levelNodePrefab;
     [SerializeField] private Button backToWorldsButton;
-
-    [Header("Pre-Level 4-Slot Loadout Confirmation (Optional — GDD §5.5)")]
-    [SerializeField] private GameObject preLevelLoadoutPopup;
-    [SerializeField] private TMP_Text preLevelLoadoutSummaryText;
-    [SerializeField] private Button confirmStartLevelButton;
-    [SerializeField] private Button editLoadoutButton;
-    [SerializeField] private Button cancelPreLevelButton;
 
     [Header("Scene Transition")]
     [SerializeField] private string gameplaySceneName = "GameScene";
@@ -34,19 +27,20 @@ public class CampaignMapUI : MonoBehaviour, IUIPanel
     [Header("System References")]
     [SerializeField] private LevelFlowController flowController;
 
+    [Header("Optional Animation (Leave Empty for No Panel Animation)")]
+    [SerializeField] private UIPanelAnimator panelAnimator;
+
     public event Action OnMapClosed;
 
     private CampaignDatabase database;
     private int currentWorldIndex;
-    private LevelData pendingSelectedLevel;
     private bool subscribedToFlow;
     private bool subscribedToProgression;
     private bool buttonsBound;
-    private UIPanelAnimator panelAnimator;
 
-    private UIPanelAnimator PanelAnimator =>
-        panelAnimator != null ? panelAnimator : (panelAnimator = GetComponent<UIPanelAnimator>());
+    private UIPanelAnimator PanelAnimator => panelAnimator;
 
+    private readonly List<GameObject> spawnedWorldObjects = new List<GameObject>();
     private readonly List<LevelNodeWidget> spawnedLevelWidgets = new List<LevelNodeWidget>();
 
     // ─────────────────────────────────────────────────────────────
@@ -55,12 +49,6 @@ public class CampaignMapUI : MonoBehaviour, IUIPanel
 
     private void Awake()
     {
-        if (worldButtonPrefab != null && worldButtonPrefab.gameObject.scene.IsValid())
-            worldButtonPrefab.gameObject.SetActive(false);
-
-        if (levelNodePrefab != null && levelNodePrefab.gameObject.scene.IsValid())
-            levelNodePrefab.gameObject.SetActive(false);
-
         BindButtons();
     }
 
@@ -86,9 +74,6 @@ public class CampaignMapUI : MonoBehaviour, IUIPanel
         if (ProgressionManager.Instance != null)
             database = ProgressionManager.Instance.Database;
 
-        if (preLevelLoadoutPopup != null)
-            preLevelLoadoutPopup.SetActive(false);
-
         RefreshUI();
     }
 
@@ -112,12 +97,6 @@ public class CampaignMapUI : MonoBehaviour, IUIPanel
 
         if (backToWorldsButton != null)
             backToWorldsButton.onClick.AddListener(OnBackToWorldsClicked);
-        if (confirmStartLevelButton != null)
-            confirmStartLevelButton.onClick.AddListener(OnConfirmPreLevelStart);
-        if (editLoadoutButton != null)
-            editLoadoutButton.onClick.AddListener(OnEditLoadoutFromPreLevel);
-        if (cancelPreLevelButton != null)
-            cancelPreLevelButton.onClick.AddListener(OnCancelPreLevelClicked);
     }
 
     private void UnbindButtons()
@@ -127,19 +106,13 @@ public class CampaignMapUI : MonoBehaviour, IUIPanel
 
         if (backToWorldsButton != null)
             backToWorldsButton.onClick.RemoveListener(OnBackToWorldsClicked);
-        if (confirmStartLevelButton != null)
-            confirmStartLevelButton.onClick.RemoveListener(OnConfirmPreLevelStart);
-        if (editLoadoutButton != null)
-            editLoadoutButton.onClick.RemoveListener(OnEditLoadoutFromPreLevel);
-        if (cancelPreLevelButton != null)
-            cancelPreLevelButton.onClick.RemoveListener(OnCancelPreLevelClicked);
     }
 
     private void SubscribeToFlow()
     {
         if (subscribedToFlow) return;
         if (flowController == null)
-            flowController = FindAnyObjectByType<LevelFlowController>();
+            flowController = LevelFlowController.ResolveInstance();
         if (flowController == null) return;
 
         flowController.OnReturnToMapRequested += HandleReturnToMap;
@@ -151,7 +124,6 @@ public class CampaignMapUI : MonoBehaviour, IUIPanel
     {
         if (subscribedToProgression || ProgressionManager.Instance == null) return;
         ProgressionManager.Instance.OnProgressionChanged += RefreshUI;
-        ProgressionManager.Instance.OnLoadoutChanged += RefreshPreLevelSummary;
         subscribedToProgression = true;
     }
 
@@ -159,10 +131,7 @@ public class CampaignMapUI : MonoBehaviour, IUIPanel
     {
         if (!subscribedToProgression) return;
         if (ProgressionManager.Instance != null)
-        {
             ProgressionManager.Instance.OnProgressionChanged -= RefreshUI;
-            ProgressionManager.Instance.OnLoadoutChanged -= RefreshPreLevelSummary;
-        }
         subscribedToProgression = false;
     }
 
@@ -175,14 +144,12 @@ public class CampaignMapUI : MonoBehaviour, IUIPanel
         BindButtons();
         if (PanelAnimator != null) PanelAnimator.PlayIn();
         else gameObject.SetActive(true);
-        ClosePreLevelPopup();
         ShowWorldMap();
         RefreshUI();
     }
 
     public void CloseMap()
     {
-        ClosePreLevelPopup();
         if (PanelAnimator != null) PanelAnimator.PlayOut(FinishCloseMap);
         else FinishCloseMap();
     }
@@ -204,7 +171,6 @@ public class CampaignMapUI : MonoBehaviour, IUIPanel
 
     public void ShowWorldMap()
     {
-        ClosePreLevelPopup();
         if (worldMapPanel != null) worldMapPanel.SetActive(true);
         if (levelSelectPanel != null) levelSelectPanel.SetActive(false);
     }
@@ -248,55 +214,56 @@ public class CampaignMapUI : MonoBehaviour, IUIPanel
 
         if (worldButtonContainer != null && worldButtonPrefab != null)
         {
-            if (worldButtonPrefab.gameObject.scene.IsValid())
-                worldButtonPrefab.gameObject.SetActive(false);
-
-            for (int i = worldButtonContainer.childCount - 1; i >= 0; i--)
-            {
-                var child = worldButtonContainer.GetChild(i).gameObject;
-                if (child != worldButtonPrefab.gameObject)
-                    Destroy(child);
-            }
+            ClearSpawnedObjects(spawnedWorldObjects);
 
             for (int i = 0; i < database.Worlds.Count; i++)
             {
                 var world = database.Worlds[i];
                 int index = i;
-                Button btn = Instantiate(worldButtonPrefab, worldButtonContainer);
-                btn.gameObject.SetActive(true);
+                GameObject worldObj = Instantiate(worldButtonPrefab, worldButtonContainer, false);
+                worldObj.transform.localScale = Vector3.one;
+                worldObj.SetActive(true);
 
-                TMP_Text label = btn.GetComponentInChildren<TMP_Text>();
                 bool unlocked = ProgressionManager.Instance == null || ProgressionManager.Instance.IsWorldUnlocked(world);
+                string reqText = !unlocked && ProgressionManager.Instance != null
+                    ? ProgressionManager.Instance.GetWorldUnlockRequirementText(world)
+                    : string.Empty;
 
-                if (label != null)
+                if (worldObj.TryGetComponent(out WorldButtonWidget worldWidget))
                 {
-                    if (unlocked)
-                    {
-                        label.text = world.worldName;
-                    }
-                    else
-                    {
-                        string reqText = ProgressionManager.Instance != null
-                            ? ProgressionManager.Instance.GetWorldUnlockRequirementText(world)
-                            : "Locked";
-                        label.text = string.IsNullOrEmpty(reqText)
-                            ? $"{world.worldName} (Locked)"
-                            : $"{world.worldName}\n<size=65%>{reqText}</size>";
-                    }
+                    worldWidget.Setup(world.worldName, unlocked, reqText, () => SelectWorld(index));
+                    spawnedWorldObjects.Add(worldObj);
                 }
-
-                btn.interactable = unlocked;
-                btn.onClick.AddListener(() =>
+                else if (worldObj.TryGetComponent(out Button btn))
                 {
-                    GameHaptics.Play(HapticEvent.UISelect);
-                    UIAudio.Play(UISoundType.ButtonClick);
-                    SelectWorld(index);
-                });
+                    TMP_Text label = btn.GetComponentInChildren<TMP_Text>(true);
+                    if (label != null)
+                    {
+                        label.text = unlocked
+                            ? world.worldName
+                            : (string.IsNullOrEmpty(reqText)
+                                ? $"{world.worldName} (Locked)"
+                                : $"{world.worldName}\n<size=65%>{reqText}</size>");
+                    }
+
+                    btn.interactable = unlocked;
+                    btn.onClick.AddListener(() =>
+                    {
+                        GameHaptics.Play(HapticEvent.UISelect);
+                        UIAudio.Play(UISoundType.ButtonClick);
+                        SelectWorld(index);
+                    });
+                    spawnedWorldObjects.Add(worldObj);
+                }
+                else
+                {
+                    Debug.LogError("[CampaignMapUI] Assigned worldButtonPrefab is missing WorldButtonWidget or Button component.", this);
+                    DestroyObjectSafely(worldObj);
+                }
             }
         }
 
         RefreshSpawnedLevelWidgets();
-        RefreshPreLevelSummary();
     }
 
     public void RefreshSpawnedLevelWidgets()
@@ -322,14 +289,10 @@ public class CampaignMapUI : MonoBehaviour, IUIPanel
 
         if (levelGridContainer == null || levelNodePrefab == null) return;
 
-        if (levelNodePrefab.gameObject.scene.IsValid())
-            levelNodePrefab.gameObject.SetActive(false);
-
-        for (int i = levelGridContainer.childCount - 1; i >= 0; i--)
+        for (int i = spawnedLevelWidgets.Count - 1; i >= 0; i--)
         {
-            var child = levelGridContainer.GetChild(i).gameObject;
-            if (child != levelNodePrefab.gameObject)
-                Destroy(child);
+            if (spawnedLevelWidgets[i] != null)
+                DestroyObjectSafely(spawnedLevelWidgets[i].gameObject);
         }
         spawnedLevelWidgets.Clear();
 
@@ -339,96 +302,44 @@ public class CampaignMapUI : MonoBehaviour, IUIPanel
         {
             if (lvl == null) continue;
 
-            LevelNodeWidget widget = Instantiate(levelNodePrefab, levelGridContainer);
-            widget.gameObject.SetActive(true);
+            GameObject nodeObj = Instantiate(levelNodePrefab, levelGridContainer, false);
+            if (!nodeObj.TryGetComponent(out LevelNodeWidget widget))
+            {
+                Debug.LogError("[CampaignMapUI] Assigned levelNodePrefab is missing LevelNodeWidget component.", this);
+                DestroyObjectSafely(nodeObj);
+                return;
+            }
+
+            nodeObj.transform.localScale = Vector3.one;
+            nodeObj.SetActive(true);
             widget.Setup(lvl, OnLevelNodeSelected);
             spawnedLevelWidgets.Add(widget);
         }
     }
 
+    private static void ClearSpawnedObjects(List<GameObject> spawned)
+    {
+        for (int i = spawned.Count - 1; i >= 0; i--)
+        {
+            if (spawned[i] != null)
+                DestroyObjectSafely(spawned[i]);
+        }
+        spawned.Clear();
+    }
+
+    private static void DestroyObjectSafely(GameObject obj)
+    {
+        if (obj == null) return;
+        if (Application.isPlaying)
+            Destroy(obj);
+        else
+            DestroyImmediate(obj);
+    }
+
     private void OnLevelNodeSelected(LevelData level)
     {
         if (level == null) return;
-
-        if (ProgressionManager.Instance != null)
-            _ = ProgressionManager.Instance.GetLoadoutSlots();
-
-        if (preLevelLoadoutPopup != null)
-        {
-            pendingSelectedLevel = level;
-            RefreshPreLevelSummary();
-            preLevelLoadoutPopup.SetActive(true);
-            UIAudio.Play(UISoundType.PanelOpen);
-            return;
-        }
-
         StartSelectedLevel(level);
-    }
-
-    private void RefreshPreLevelSummary()
-    {
-        if (preLevelLoadoutSummaryText == null)
-            return;
-
-        ProgressionManager pm = ProgressionManager.Instance;
-        IReadOnlyList<string> slots = pm != null ? pm.GetLoadoutSlots() : Array.Empty<string>();
-        var slotTexts = new List<string>(ProgressionManager.MaxLoadoutSlotCount);
-        for (int i = 0; i < ProgressionManager.MaxLoadoutSlotCount; i++)
-        {
-            string skillId = i < slots.Count ? slots[i] : string.Empty;
-            if (string.IsNullOrEmpty(skillId))
-            {
-                slotTexts.Add($"[{i + 1}: Empty]");
-            }
-            else
-            {
-                int count = pm != null ? pm.GetPowerUpCount(skillId) : 0;
-                string displayName = PowerUpController.Instance != null &&
-                                     PowerUpController.TryGetPowerUpType(skillId, out PowerUpType skillType)
-                    ? PowerUpController.Instance.ResolveDisplayName(skillType)
-                    : PowerUpController.GetFallbackDisplayName(skillId);
-                slotTexts.Add($"[{i + 1}: {displayName} ({count})]");
-            }
-        }
-
-        string levelTitle = pendingSelectedLevel != null ? pendingSelectedLevel.LevelId : string.Empty;
-        preLevelLoadoutSummaryText.text = string.IsNullOrEmpty(levelTitle)
-            ? string.Join("  ", slotTexts)
-            : $"{levelTitle}\n{string.Join("  ", slotTexts)}";
-    }
-
-    private void OnConfirmPreLevelStart()
-    {
-        GameHaptics.Play(HapticEvent.UISelect);
-        UIAudio.Play(UISoundType.ButtonClick);
-
-        LevelData toStart = pendingSelectedLevel;
-        ClosePreLevelPopup();
-        if (toStart != null)
-            StartSelectedLevel(toStart);
-    }
-
-    private void OnEditLoadoutFromPreLevel()
-    {
-        GameHaptics.Play(HapticEvent.UISelect);
-        UIAudio.Play(UISoundType.ButtonClick);
-
-        ClosePreLevelPopup();
-        UIManager.Instance?.OpenPanel(UIPanelType.Powerups);
-    }
-
-    private void OnCancelPreLevelClicked()
-    {
-        GameHaptics.Play(HapticEvent.UISelect);
-        UIAudio.Play(UISoundType.ButtonClick);
-        ClosePreLevelPopup();
-    }
-
-    private void ClosePreLevelPopup()
-    {
-        pendingSelectedLevel = null;
-        if (preLevelLoadoutPopup != null)
-            preLevelLoadoutPopup.SetActive(false);
     }
 
     private void StartSelectedLevel(LevelData level)

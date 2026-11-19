@@ -19,8 +19,8 @@ MonoBehaviour:
   requiredUnlockedSector: 1
   type: 1
   target: 30
-  rewardAmount: 20
-  rewardType: 1
-  rewardPowerUpId: breaker
+  rewardAmount: 1
+  rewardType: 4
+  rewardPowerUpId: magnet
   rewardCosmeticId: 
   rewardIcon: {fileID: 9129518976865312520, guid: 6bb91eb172f65c54db725588800d7c94, type: 3}

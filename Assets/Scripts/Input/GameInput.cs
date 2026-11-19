@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -35,6 +36,14 @@ public partial class GameInput : MonoBehaviour
 
     private InputActions inputActions;
     private InputConfig.ControlScheme lastScheme;
+
+    private static readonly Dictionary<KeyCode, Key> KeyLookupCache = new Dictionary<KeyCode, Key>(16);
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetKeyCache()
+    {
+        KeyLookupCache.Clear();
+    }
 
     public KeyCode InteractKey => inputConfig != null ? inputConfig.InteractKey : KeyCode.F;
     public KeyCode ConfirmKey => inputConfig != null ? inputConfig.ConfirmKey : KeyCode.Space;
@@ -164,20 +173,30 @@ public partial class GameInput : MonoBehaviour
 
     /// <summary>
     /// Input-System equivalent of legacy <c>Input.GetKeyDown</c>: maps a
-    /// <see cref="KeyCode"/> to <see cref="Key"/> and checks
-    /// <c>wasPressedThisFrame</c>. Standard names (letters, digits via
-    /// Alpha0-9, Space, Escape, F-keys, arrows) are covered.
+    /// <see cref="KeyCode"/> to <see cref="Key"/> via a static lookup cache
+    /// so zero string/enum allocations occur per frame.
     /// </summary>
     public static bool WasKeyPressed(KeyCode keyCode)
     {
         var keyboard = Keyboard.current;
         if (keyboard == null) return false;
 
-        // KeyCode names that differ from Key names.
+        Key key = ResolveInputSystemKey(keyCode);
+        return key != Key.None && keyboard[key].wasPressedThisFrame;
+    }
+
+    public static Key ResolveInputSystemKey(KeyCode keyCode)
+    {
+        if (KeyLookupCache.TryGetValue(keyCode, out Key cached))
+            return cached;
+
+        // KeyCode names that differ from InputSystem Key enum names.
         string name = keyCode.ToString();
-        if (name.StartsWith("Alpha")) name = "Digit" + name.Substring(5);
+        if (name.StartsWith("Alpha", StringComparison.Ordinal)) name = "Digit" + name.Substring(5);
         else if (name == "Return") name = "Enter";
 
-        return System.Enum.TryParse(name, out Key key) && keyboard[key].wasPressedThisFrame;
+        Key resolved = Enum.TryParse(name, out Key parsed) ? parsed : Key.None;
+        KeyLookupCache[keyCode] = resolved;
+        return resolved;
     }
 }

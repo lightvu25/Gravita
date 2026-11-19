@@ -171,7 +171,7 @@ public class ShopItemDefinition : ScriptableObject
     public IReadOnlyList<RewardItem> Rewards => rewards;
 
     /// <summary>
-    /// Formats the cost text for UI display (e.g. "FREE", "100", "[MOCK] $1.99", or localized store price).
+    /// Formats the cost text for UI display (e.g. "FREE", "100", "$1.99", or localized store price).
     /// </summary>
     public string GetFormattedCostText(IAPManager iapManager = null)
     {

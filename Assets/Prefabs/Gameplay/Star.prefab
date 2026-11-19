@@ -14,7 +14,6 @@ GameObject:
   - component: {fileID: 875122119284525189}
   - component: {fileID: 4334798803899110256}
   - component: {fileID: 5526681562828486506}
-  - component: {fileID: 541080958445350375}
   m_Layer: 0
   m_Name: Star
   m_TagString: Untagged
@@ -212,24 +211,3 @@ MonoBehaviour:
   defaultAnimationStateName: 
   defaultCameraShake: 0.06
   rules: []
---- !u!114 &541080958445350375
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1417832908994950428}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9dd75471d9ae4f2fac6b157092ccbb42, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::StarCollectible
-  collectibleType: 1
-  pickupId: 
-  value: 1
-  visualRenderer: {fileID: 0}
-  collectSfx: {fileID: 0}
-  collectSfxVolume: 1
-  collectParticlePrefab: {fileID: 0}
-  collectAnimationPrefab: {fileID: 0}
-  collectAnimationStateName: 

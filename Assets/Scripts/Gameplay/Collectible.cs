@@ -53,6 +53,8 @@ public class Collectible : MonoBehaviour, IPlayerInteractable
     public bool IsCollected { get; private set; }
     public Vector3 LastCollectWorldPosition { get; private set; }
     public SpriteRenderer VisualRenderer => visualRenderer;
+    public AudioClip CollectSfx => collectSfx;
+    public float CollectSfxVolume => collectSfxVolume;
     public bool HasCustomCollectSfx => collectSfx != null;
     public bool HasInteractionEffectPlayer => interactionEffectPlayer != null && interactionEffectPlayer.HasConfiguredEffects;
     public bool HasCustomParticleEffect => collectParticlePrefab != null || HasInteractionEffectPlayer;
@@ -185,7 +187,8 @@ public class Collectible : MonoBehaviour, IPlayerInteractable
 
     private void PlayCollectFeedback(Vector3 position)
     {
-        if (collectSfx != null && SoundManager.Instance != null)
+        bool handledByEntityAudio = IsCoin && EntityAudio.HasActiveInstance;
+        if (collectSfx != null && SoundManager.Instance != null && !handledByEntityAudio)
         {
             SoundManager.Instance.PlaySFX(collectSfx, collectSfxVolume);
         }
@@ -212,6 +215,23 @@ public class Collectible : MonoBehaviour, IPlayerInteractable
 
     /// <summary>Hook invoked after this pickup is collected — override for special pickups.</summary>
     protected virtual void OnCollected() { }
+
+    /// <summary>Updates spawn baseline when pulled from an ObjectPool for runtime room population.</summary>
+    public void PrepareForRuntimeSpawn(Vector3 worldPosition)
+    {
+        transform.position = worldPosition;
+        initialLocalPosition = transform.localPosition;
+        hasInitialPosition = true;
+        IsCollected = false;
+        if (triggerCollider == null)
+            triggerCollider = GetComponent<Collider2D>();
+        if (triggerCollider != null)
+        {
+            triggerCollider.isTrigger = true;
+            triggerCollider.enabled = true;
+        }
+        gameObject.SetActive(true);
+    }
 
     /// <summary>Restores the pickup for a level reset.</summary>
     public void ResetCollectible()

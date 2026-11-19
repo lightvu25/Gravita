@@ -1,0 +1,134 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bf853ce6d14ee234a8d2d83e0ead6626, type: 3}
+  m_Name: RunnerPopulationProfile_Default
+  m_EditorClassIdentifier: Assembly-CSharp::RunnerPopulationProfile
+  enableBlocks: 1
+  roomBlockTriggerChance: 0.85
+  roomBlocksRange: {x: 2, y: 5}
+  enableEnemies: 1
+  roomEnemyTriggerChance: 0.8
+  enemyChanceBonusPerRoom: 0.03
+  roomEnemiesRange: {x: 1, y: 3}
+  extraEnemyEveryNRooms: 4
+  maxExtraEnemies: 3
+  enableEvents: 1
+  roomEventTriggerChance: 0.55
+  roomEventsRange: {x: 1, y: 3}
+  enablePickups: 1
+  roomPickupsRange: {x: 5, y: 10}
+  safeRadiusAroundPortals: 2
+  enforceSlideSolvability: 1
+  maxDronePatrolSpan: 4
+  blockEntries:
+  - entryId: block_cracked
+    category: 0
+    prefab: {fileID: 1417832908994950428, guid: ae532af4960a9284b85814302ae07531, type: 3}
+    spawnChance: 0.9
+    weight: 3
+    countRange: {x: 1, y: 3}
+    minRoomIndex: 1
+    maxRoomIndex: 0
+    blocksSlideTraversal: 1
+  - entryId: block_brittle
+    category: 0
+    prefab: {fileID: 1417832908994950428, guid: d95f3d246c56f0f4b90a8370f99ad09c, type: 3}
+    spawnChance: 0.7
+    weight: 2
+    countRange: {x: 1, y: 2}
+    minRoomIndex: 1
+    maxRoomIndex: 0
+    blocksSlideTraversal: 0
+  - entryId: block_brake
+    category: 0
+    prefab: {fileID: 1417832908994950428, guid: 0bbca558e6e40c241baac65c49beb3f4, type: 3}
+    spawnChance: 0.55
+    weight: 1.5
+    countRange: {x: 1, y: 2}
+    minRoomIndex: 2
+    maxRoomIndex: 0
+    blocksSlideTraversal: 0
+  - entryId: block_solid
+    category: 0
+    prefab: {fileID: 8477715150575759828, guid: 8285cc1f95ea99642a3db4f1e8b698b5, type: 3}
+    spawnChance: 0.45
+    weight: 1.2
+    countRange: {x: 0, y: 2}
+    minRoomIndex: 2
+    maxRoomIndex: 0
+    blocksSlideTraversal: 1
+  enemyEntries:
+  - entryId: enemy_drone
+    category: 1
+    prefab: {fileID: 2004868660783803794, guid: 244251f38fb3a2f4f914e185c4794203, type: 3}
+    spawnChance: 0.85
+    weight: 3
+    countRange: {x: 1, y: 2}
+    minRoomIndex: 1
+    maxRoomIndex: 0
+    blocksSlideTraversal: 0
+  - entryId: enemy_hazard
+    category: 1
+    prefab: {fileID: 5909852432008664779, guid: d856a3f5ed35dad4b98801ce02ec8fcd, type: 3}
+    spawnChance: 0.7
+    weight: 2
+    countRange: {x: 0, y: 2}
+    minRoomIndex: 1
+    maxRoomIndex: 0
+    blocksSlideTraversal: 0
+  eventEntries:
+  - entryId: event_vector_pad
+    category: 2
+    prefab: {fileID: 7176296512647490985, guid: 5ede7c9565c1585418f09558bda0b9b2, type: 3}
+    spawnChance: 0.75
+    weight: 2.5
+    countRange: {x: 1, y: 2}
+    minRoomIndex: 1
+    maxRoomIndex: 0
+    blocksSlideTraversal: 0
+  - entryId: event_wedge
+    category: 2
+    prefab: {fileID: 1417832908994950428, guid: dc364ced2325ee14ea1cf171ecbf82b8, type: 3}
+    spawnChance: 0.65
+    weight: 2
+    countRange: {x: 1, y: 2}
+    minRoomIndex: 1
+    maxRoomIndex: 0
+    blocksSlideTraversal: 0
+  - entryId: event_pulse_laser
+    category: 2
+    prefab: {fileID: 3191782687198101979, guid: 92c6145b4439dc2459d83ccfe700b54d, type: 3}
+    spawnChance: 0.55
+    weight: 1.5
+    countRange: {x: 0, y: 2}
+    minRoomIndex: 2
+    maxRoomIndex: 0
+    blocksSlideTraversal: 0
+  - entryId: event_failing_tile
+    category: 2
+    prefab: {fileID: 2681362149212475665, guid: dca1f75992fdab644a9a58ea540ebcf2, type: 3}
+    spawnChance: 0.5
+    weight: 1.5
+    countRange: {x: 0, y: 2}
+    minRoomIndex: 3
+    maxRoomIndex: 0
+    blocksSlideTraversal: 0
+  pickupEntries:
+  - entryId: pickup_coin
+    category: 3
+    prefab: {fileID: 1417832908994950428, guid: 4feb68a8b6ff13b4d8469fdf6b9297c0, type: 3}
+    spawnChance: 1
+    weight: 1
+    countRange: {x: 4, y: 10}
+    minRoomIndex: 1
+    maxRoomIndex: 0
+    blocksSlideTraversal: 0

@@ -94,13 +94,7 @@ public class MissionDayTabWidget : MonoBehaviour
         if (lockIconImage != null)
         {
             if (defaultLockedSprite != null && lockIconImage.sprite == null)
-            {
-                lockIconImage.SetSpriteNative(defaultLockedSprite);
-            }
-            else if (lockIconImage.sprite != null)
-            {
-                lockIconImage.SetNativeSize();
-            }
+                lockIconImage.sprite = defaultLockedSprite;
             lockIconImage.gameObject.SetActive(!isUnlocked);
         }
 

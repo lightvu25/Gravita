@@ -16,38 +16,38 @@ MonoBehaviour:
   displayName: Supply BlindBox
   entries:
   - entryId: bb_coins_small
-    displayName: 40 Coins
+    displayName: 40-60 Coins
     icon: {fileID: 0}
     rewardType: 0
     itemId: 
     minAmount: 40
-    maxAmount: 40
-    baseDropRate: 45
+    maxAmount: 60
+    baseDropRate: 32
     enablePity: 0
     softPityStartPull: 3
     softPityBonusPerPull: 5
     hardPityGuaranteedPull: 10
     pityPriority: 0
   - entryId: bb_coins_medium
-    displayName: 90 Coins
+    displayName: 90-130 Coins
     icon: {fileID: 0}
     rewardType: 0
     itemId: 
     minAmount: 90
-    maxAmount: 90
-    baseDropRate: 25
+    maxAmount: 130
+    baseDropRate: 20
     enablePity: 0
     softPityStartPull: 3
     softPityBonusPerPull: 5
     hardPityGuaranteedPull: 10
     pityPriority: 0
   - entryId: bb_gems_5
-    displayName: 5 Gems
+    displayName: 4-6 Gems
     icon: {fileID: 0}
     rewardType: 1
     itemId: 
-    minAmount: 5
-    maxAmount: 5
+    minAmount: 4
+    maxAmount: 6
     baseDropRate: 15
     enablePity: 1
     softPityStartPull: 4
@@ -55,41 +55,83 @@ MonoBehaviour:
     hardPityGuaranteedPull: 8
     pityPriority: 10
   - entryId: bb_breaker_1
-    displayName: 1x Breaker
+    displayName: 1x Kinetic Surge Shard
     icon: {fileID: 0}
     rewardType: 2
     itemId: breaker
     minAmount: 1
     maxAmount: 1
-    baseDropRate: 8
+    baseDropRate: 10
     enablePity: 1
     softPityStartPull: 5
     softPityBonusPerPull: 6
     hardPityGuaranteedPull: 10
     pityPriority: 20
   - entryId: bb_freeze_1
-    displayName: 1x Freeze
+    displayName: 1x Time Dilation Shard
     icon: {fileID: 0}
     rewardType: 2
     itemId: freeze
     minAmount: 1
     maxAmount: 1
-    baseDropRate: 5
+    baseDropRate: 8
     enablePity: 1
     softPityStartPull: 6
     softPityBonusPerPull: 6
     hardPityGuaranteedPull: 12
     pityPriority: 25
   - entryId: bb_teleport_1
-    displayName: 1x Teleport
+    displayName: 1x Phase Shift Shard
     icon: {fileID: 0}
     rewardType: 2
     itemId: teleport
+    minAmount: 1
+    maxAmount: 1
+    baseDropRate: 6
+    enablePity: 1
+    softPityStartPull: 6
+    softPityBonusPerPull: 7
+    hardPityGuaranteedPull: 14
+    pityPriority: 28
+  - entryId: bb_shield_1
+    displayName: 1x Inertia Core Shard
+    icon: {fileID: 0}
+    rewardType: 2
+    itemId: shield
+    minAmount: 1
+    maxAmount: 1
+    baseDropRate: 4
+    enablePity: 1
+    softPityStartPull: 7
+    softPityBonusPerPull: 7
+    hardPityGuaranteedPull: 15
+    pityPriority: 30
+  - entryId: bb_magnet_1
+    displayName: 1x Gravity Lens Shard
+    icon: {fileID: 0}
+    rewardType: 2
+    itemId: magnet
+    minAmount: 1
+    maxAmount: 1
+    baseDropRate: 3
+    enablePity: 1
+    softPityStartPull: 7
+    softPityBonusPerPull: 8
+    hardPityGuaranteedPull: 15
+    pityPriority: 32
+  - entryId: bb_echo_1
+    displayName: 1x Temporal Anchor Shard
+    icon: {fileID: 0}
+    rewardType: 2
+    itemId: echo
     minAmount: 1
     maxAmount: 1
     baseDropRate: 2
     enablePity: 1
     softPityStartPull: 8
     softPityBonusPerPull: 8
-    hardPityGuaranteedPull: 15
-    pityPriority: 30
+    hardPityGuaranteedPull: 16
+    pityPriority: 35
+  minRollsPerOpen: 3
+  maxRollsPerOpen: 4
+  preferDistinctEntriesPerOpen: 1

@@ -99,7 +99,17 @@ public class LevelRoot : MonoBehaviour
     public void EnsureInitialized()
     {
         if (collectibles != null) return;
+        RebuildCachedElements();
 
+        if (spawnPoint == null)
+            Debug.LogWarning($"[LevelRoot] '{name}': No PlayerSpawnPoint found — the player will not be repositioned.", this);
+        if (exits == null || exits.Length == 0)
+            Debug.LogWarning($"[LevelRoot] '{name}': No LevelExit found — ReachExit objectives can never complete.", this);
+    }
+
+    /// <summary>Re-scans child collectibles, hazards, tiles, and clock listeners (used after runtime population).</summary>
+    public void RebuildCachedElements()
+    {
         collectibles = GetComponentsInChildren<Collectible>(includeInactive: true);
         totalStarCount = 0;
         totalCoinCount = 0;
@@ -123,12 +133,9 @@ public class LevelRoot : MonoBehaviour
         clockListeners = GetComponentsInChildren<ILevelClockListener>(includeInactive: true);
         spawnPoint = GetComponentInChildren<PlayerSpawnPoint>(includeInactive: true);
         layoutGrid = GetComponentInChildren<Grid>(includeInactive: true);
-
-        if (spawnPoint == null)
-            Debug.LogWarning($"[LevelRoot] '{name}': No PlayerSpawnPoint found — the player will not be repositioned.", this);
-        if (exits == null || exits.Length == 0)
-            Debug.LogWarning($"[LevelRoot] '{name}': No LevelExit found — ReachExit objectives can never complete.", this);
     }
+
+    public float ClockTimeScale { get; set; } = 1f;
 
     /// <summary>
     /// Advances the deterministic <see cref="LevelClock"/> and notifies all active
@@ -140,7 +147,8 @@ public class LevelRoot : MonoBehaviour
         if (deltaTime <= 0f) return;
         EnsureInitialized();
 
-        clock.Tick(deltaTime);
+        float scaledDelta = deltaTime * Mathf.Max(0.01f, ClockTimeScale);
+        clock.Tick(scaledDelta);
 
         if (clockListeners == null) return;
         float t = clock.Time;
@@ -149,7 +157,62 @@ public class LevelRoot : MonoBehaviour
             ILevelClockListener listener = clockListeners[i];
             if (listener == null) continue;
             if (listener is Behaviour b && !b.isActiveAndEnabled) continue;
-            listener.OnLevelClockTick(t, deltaTime);
+            listener.OnLevelClockTick(t, scaledDelta);
+        }
+    }
+
+    /// <summary>
+    /// Halts all active hazards and timed obstacles while keeping their Idle animations alive
+    /// when the player dies.
+    /// </summary>
+    public void HaltHazardsOnPlayerDeath()
+    {
+        EnsureInitialized();
+        ClockTimeScale = 1f;
+
+        if (hazards != null)
+        {
+            for (int i = 0; i < hazards.Length; i++)
+            {
+                if (hazards[i] != null)
+                    hazards[i].EnterPlayerDeathIdleState();
+            }
+        }
+
+        if (mazeTiles != null)
+        {
+            for (int i = 0; i < mazeTiles.Length; i++)
+            {
+                if (mazeTiles[i] is FailingTile failingTile)
+                    failingTile.HaltForPlayerDeath();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Restores halted hazards and timed obstacles when the player revives.
+    /// </summary>
+    public void RestoreHazardsAfterRevive()
+    {
+        EnsureInitialized();
+        ClockTimeScale = 1f;
+
+        if (hazards != null)
+        {
+            for (int i = 0; i < hazards.Length; i++)
+            {
+                if (hazards[i] != null)
+                    hazards[i].RestoreFromPlayerDeathIdleState();
+            }
+        }
+
+        if (mazeTiles != null)
+        {
+            for (int i = 0; i < mazeTiles.Length; i++)
+            {
+                if (mazeTiles[i] is FailingTile failingTile)
+                    failingTile.RestoreAfterRevive();
+            }
         }
     }
 
@@ -191,6 +254,7 @@ public class LevelRoot : MonoBehaviour
     public void ResetAll()
     {
         EnsureInitialized();
+        ClockTimeScale = 1f;
         clock.Reset();
 
         collectedCount = 0;

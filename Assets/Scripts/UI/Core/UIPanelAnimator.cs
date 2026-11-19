@@ -78,7 +78,22 @@ public class UIPanelAnimator : MonoBehaviour
         if (playOnEnable) PlayIn();
     }
 
-    private void OnDisable() => KillActive();
+    private void OnDisable()
+    {
+        KillActive();
+        if (canvasGroup != null)
+        {
+            canvasGroup.alpha = 1f;
+            canvasGroup.interactable = true;
+            canvasGroup.blocksRaycasts = true;
+        }
+        if (rectTransform != null && baseScale != Vector3.zero)
+        {
+            rectTransform.localScale = baseScale;
+            if (UsesSlide) rectTransform.anchoredPosition = baseAnchoredPos;
+        }
+    }
+
     private void OnDestroy() => KillActive();
 
     /// <summary>Animate the panel in (fade/zoom/glitch to its designed state).</summary>

@@ -13,6 +13,7 @@ public class PowerupRowWidget : MonoBehaviour, IBeginDragHandler, IDragHandler, 
 
     public string SkillId { get; private set; }
     public Sprite Icon { get; private set; }
+    public TMP_Text CountText => countText;
 
     private Action onTap;
     private Func<bool> isLocked;
@@ -20,6 +21,19 @@ public class PowerupRowWidget : MonoBehaviour, IBeginDragHandler, IDragHandler, 
     private Action<PointerEventData> onDrag;
     private Action<PowerupRowWidget, PointerEventData> onEndDrag;
     private Button bound;
+    private ScrollRect parentScrollRect;
+    private bool routingDragToScroll;
+
+    private ScrollRect ResolveParentScrollRect()
+    {
+        if (parentScrollRect == null)
+        {
+            Transform p = transform.parent;
+            if (p != null)
+                parentScrollRect = p.GetComponentInParent<ScrollRect>();
+        }
+        return parentScrollRect;
+    }
 
     public void Setup(string skillId, Sprite icon, int count, int cap, bool equipped, bool locked,
         Action tap, Func<bool> lockedProbe,
@@ -36,12 +50,16 @@ public class PowerupRowWidget : MonoBehaviour, IBeginDragHandler, IDragHandler, 
 
         if (iconImage != null)
         {
-            iconImage.SetSpriteNative(icon);
+            iconImage.sprite = icon;
             iconImage.enabled = icon != null;
         }
 
         if (countText != null)
-            countText.text = cap > 0 ? $"{count}/{cap}" : $"x{count}";
+        {
+            countText.textWrappingMode = TextWrappingModes.NoWrap;
+            countText.overflowMode = TextOverflowModes.Overflow;
+            countText.text = Mathf.Max(0, count).ToString();
+        }
 
         if (equippedMarker != null)
             equippedMarker.SetActive(equipped);
@@ -70,6 +88,15 @@ public class PowerupRowWidget : MonoBehaviour, IBeginDragHandler, IDragHandler, 
 
     public void OnBeginDrag(PointerEventData e)
     {
+        ScrollRect scroll = ResolveParentScrollRect();
+        if (scroll != null && scroll.horizontal && Mathf.Abs(e.delta.x) > Mathf.Abs(e.delta.y))
+        {
+            routingDragToScroll = true;
+            scroll.OnBeginDrag(e);
+            return;
+        }
+
+        routingDragToScroll = false;
         if (isLocked != null && isLocked())
         {
             e.pointerDrag = null;
@@ -78,6 +105,24 @@ public class PowerupRowWidget : MonoBehaviour, IBeginDragHandler, IDragHandler, 
         onBeginDrag?.Invoke(this, e);
     }
 
-    public void OnDrag(PointerEventData e) => onDrag?.Invoke(e);
-    public void OnEndDrag(PointerEventData e) => onEndDrag?.Invoke(this, e);
+    public void OnDrag(PointerEventData e)
+    {
+        if (routingDragToScroll)
+        {
+            ResolveParentScrollRect()?.OnDrag(e);
+            return;
+        }
+        onDrag?.Invoke(e);
+    }
+
+    public void OnEndDrag(PointerEventData e)
+    {
+        if (routingDragToScroll)
+        {
+            routingDragToScroll = false;
+            ResolveParentScrollRect()?.OnEndDrag(e);
+            return;
+        }
+        onEndDrag?.Invoke(this, e);
+    }
 }

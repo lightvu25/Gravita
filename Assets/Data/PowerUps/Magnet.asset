@@ -13,21 +13,44 @@ MonoBehaviour:
   m_Name: Magnet
   m_EditorClassIdentifier: Assembly-CSharp::PowerUpData
   id: magnet
-  displayName: Data Siphon
-  description: Projects a localized gravity well that pulls nearby data-coins toward
-    Subject G-0 for 6 seconds.
+  upgradeStat: 1
+  statUnitLabel: sec
+  statValueFormat: 0.0
+  levelSteps:
+  - upgradeCostCoins: 0
+    statValue: 4.5
+    cooldownSeconds: 14
+  - upgradeCostCoins: 125
+    statValue: 5.1
+    cooldownSeconds: 12.5
+  - upgradeCostCoins: 250
+    statValue: 5.7
+    cooldownSeconds: 11
+  - upgradeCostCoins: 400
+    statValue: 6.3
+    cooldownSeconds: 9.5
+  - upgradeCostCoins: 600
+    statValue: 7
+    cooldownSeconds: 8
+  displayName: Gravity Lens
+  description: Auto-activates to pull nearby Coins and Stars.
   icon: {fileID: -1079561632242877933, guid: a0790b2b92d5c9149bc05926a06ee4dc, type: 3}
   powerUpType: 1
-  isCampaignActiveSkill: 0
-  inventoryCap: 12
+  isCampaignActiveSkill: 1
+  inventoryCap: 10
   initialTutorialCharges: 0
-  duration: 6
-  effectValue: 3
-  pullSpeed: 12
+  duration: 4.5
+  effectValue: 3.5
+  pullSpeed: 14
   maxWallCells: 2
   maxTrapsDestroyed: 1
   minWallTraversal: 1
   maxWallTraversal: 3
-  usageLimit: 1
+  usageLimit: 0
   cooldown: 0
-  isConsumable: 1
+  isConsumable: 0
+  activationMode: 1
+  unlockedByDefault: 0
+  coinDiscountPerShard: 25
+  timeDilationScale: 0.3
+  baseCooldownSeconds: 14

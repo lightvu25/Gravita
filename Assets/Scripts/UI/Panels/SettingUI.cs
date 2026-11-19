@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -28,6 +29,10 @@ public class SettingUI : MonoBehaviour, IUIPanel
     [SerializeField] private Sprite notifyOnSprite;
     [SerializeField] private Sprite notifyOffSprite;
 
+    [Header("Sliders")]
+    [SerializeField] private Slider soundSlider;
+    [SerializeField] private Slider musicSlider;
+
     [Header("Volume")]
     [SerializeField] private int soundVolume = 5;
     [SerializeField] private int musicVolume = 5;
@@ -35,12 +40,47 @@ public class SettingUI : MonoBehaviour, IUIPanel
     [Header("Optional Animation")]
     [SerializeField] private UIPanelAnimator panelAnimator;
 
+    private const int VOLUME_MAX = 10;
     private const string NotifyPrefKey = "NotificationsEnabled";
 
     private bool buttonsBound;
     private bool authSubscribed;
+    private bool audioEventsSubscribed;
+
+    private AudioChannelControl soundControl;
+    private AudioChannelControl musicControl;
 
     private UIPanelAnimator PanelAnimator => panelAnimator;
+
+    private void EnsureAudioControls()
+    {
+        soundControl ??= new AudioChannelControl(
+            VOLUME_MAX,
+            () => SoundManager.Instance != null,
+            () => SoundManager.Instance.GetSoundVolume(),
+            v => SoundManager.Instance.SetSoundVolume(v),
+            () => SoundManager.Instance.GetPreviousSoundVolume(),
+            v => SoundManager.Instance.SetPreviousSoundVolume(v),
+            () => SoundManager.Instance.SaveVolume(),
+            () => soundVolume,
+            v => soundVolume = v,
+            () => UIAudio.Play(UISoundType.ButtonClick));
+
+        musicControl ??= new AudioChannelControl(
+            VOLUME_MAX,
+            () => MusicManager.Instance != null,
+            () => MusicManager.Instance.GetMusicVolume(),
+            v => MusicManager.Instance.SetMusicVolume(v),
+            () => MusicManager.Instance.GetPreviousMusicVolume(),
+            v => MusicManager.Instance.SetPreviousMusicVolume(v),
+            () => MusicManager.Instance.SaveVolume(),
+            () => musicVolume,
+            v => musicVolume = v,
+            () => UIAudio.Play(UISoundType.ButtonClick));
+
+        soundControl.ConfigureWidgets(soundButton, soundSlider, soundIcon, soundOnSprite, soundOffSprite);
+        musicControl.ConfigureWidgets(musicButton, musicSlider, musicIcon, musicOnSprite, musicOffSprite);
+    }
 
     private void Awake()
     {
@@ -51,31 +91,41 @@ public class SettingUI : MonoBehaviour, IUIPanel
     {
         BindButtons();
         GameHaptics.OnEnabledChanged += HandleHapticsEnabledChanged;
+        SubscribeAudioEvents();
         SubscribeAuth();
         RefreshIcons();
         RefreshAccountButtons();
     }
 
+    private void Update()
+    {
+        soundControl?.TickPointerRelease();
+        musicControl?.TickPointerRelease();
+    }
+
     private void OnDisable()
     {
         GameHaptics.OnEnabledChanged -= HandleHapticsEnabledChanged;
+        UnsubscribeAudioEvents();
         UnsubscribeAuth();
     }
 
     private void OnDestroy()
     {
         GameHaptics.OnEnabledChanged -= HandleHapticsEnabledChanged;
+        UnsubscribeAudioEvents();
         UnsubscribeAuth();
         UnbindButtons();
     }
 
     internal void BindButtons()
     {
+        EnsureAudioControls();
         if (buttonsBound) return;
         buttonsBound = true;
 
-        if (soundButton != null) soundButton.onClick.AddListener(ToggleSound);
-        if (musicButton != null) musicButton.onClick.AddListener(ToggleMusic);
+        soundControl.Bind(ToggleSound);
+        musicControl.Bind(ToggleMusic);
         if (hapticsButton != null) hapticsButton.onClick.AddListener(ToggleHaptics);
         if (notifyButton != null) notifyButton.onClick.AddListener(ToggleNotify);
         if (closeButton != null) closeButton.onClick.AddListener(CloseSettings);
@@ -88,13 +138,42 @@ public class SettingUI : MonoBehaviour, IUIPanel
         if (!buttonsBound) return;
         buttonsBound = false;
 
-        if (soundButton != null) soundButton.onClick.RemoveListener(ToggleSound);
-        if (musicButton != null) musicButton.onClick.RemoveListener(ToggleMusic);
+        soundControl?.Unbind(ToggleSound);
+        musicControl?.Unbind(ToggleMusic);
         if (hapticsButton != null) hapticsButton.onClick.RemoveListener(ToggleHaptics);
         if (notifyButton != null) notifyButton.onClick.RemoveListener(ToggleNotify);
         if (closeButton != null) closeButton.onClick.RemoveListener(CloseSettings);
         if (loginButton != null) loginButton.onClick.RemoveListener(OpenLogin);
         if (logoutButton != null) logoutButton.onClick.RemoveListener(OnLogoutClicked);
+    }
+
+    private void SubscribeAudioEvents()
+    {
+        if (audioEventsSubscribed) return;
+
+        if (SoundManager.Instance != null)
+            SoundManager.Instance.OnSoundVolumeChanged += HandleExternalAudioChanged;
+        if (MusicManager.Instance != null)
+            MusicManager.Instance.OnMusicVolumeChanged += HandleExternalAudioChanged;
+
+        audioEventsSubscribed = SoundManager.Instance != null || MusicManager.Instance != null;
+    }
+
+    private void UnsubscribeAudioEvents()
+    {
+        if (!audioEventsSubscribed) return;
+
+        if (SoundManager.Instance != null)
+            SoundManager.Instance.OnSoundVolumeChanged -= HandleExternalAudioChanged;
+        if (MusicManager.Instance != null)
+            MusicManager.Instance.OnMusicVolumeChanged -= HandleExternalAudioChanged;
+
+        audioEventsSubscribed = false;
+    }
+
+    private void HandleExternalAudioChanged(object sender, EventArgs e)
+    {
+        RefreshIcons();
     }
 
     private void SubscribeAuth()
@@ -133,46 +212,14 @@ public class SettingUI : MonoBehaviour, IUIPanel
 
     private void ToggleSound()
     {
-        GameHaptics.Play(HapticEvent.UISelect);
-
-        var sm = SoundManager.Instance;
-        if (sm == null) return;
-
-        if (sm.GetSoundVolume() > 0)
-        {
-            soundVolume = sm.GetSoundVolume();
-            sm.SetSoundVolume(0);
-        }
-        else
-        {
-            sm.SetSoundVolume(soundVolume);
-            UIAudio.Play(UISoundType.ButtonClick);
-        }
-
-        sm.SaveVolume();
-        RefreshIcons();
+        EnsureAudioControls();
+        soundControl.ToggleMute();
     }
 
     private void ToggleMusic()
     {
-        GameHaptics.Play(HapticEvent.UISelect);
-        UIAudio.Play(UISoundType.ButtonClick);
-
-        var mm = MusicManager.Instance;
-        if (mm == null) return;
-
-        if (mm.GetMusicVolume() > 0)
-        {
-            musicVolume = mm.GetMusicVolume();
-            mm.SetMusicVolume(0);
-        }
-        else
-        {
-            mm.SetMusicVolume(musicVolume);
-        }
-
-        mm.SaveVolume();
-        RefreshIcons();
+        EnsureAudioControls();
+        musicControl.ToggleMute();
     }
 
     private void ToggleHaptics()
@@ -222,24 +269,19 @@ public class SettingUI : MonoBehaviour, IUIPanel
 
     private void RefreshIcons()
     {
-        var sm = SoundManager.Instance;
-        var mm = MusicManager.Instance;
-
-        if (soundIcon != null)
-            soundIcon.SetSpriteNative((sm != null && sm.GetSoundVolume() > 0) ? soundOnSprite : soundOffSprite);
-
-        if (musicIcon != null)
-            musicIcon.SetSpriteNative((mm != null && mm.GetMusicVolume() > 0) ? musicOnSprite : musicOffSprite);
+        EnsureAudioControls();
+        soundControl.SyncUI();
+        musicControl.SyncUI();
 
         if (hapticsIcon != null)
         {
             Sprite targetSprite = GameHaptics.Enabled ? hapticsOnSprite : hapticsOffSprite;
             if (targetSprite != null)
-                hapticsIcon.SetSpriteNative(targetSprite);
+                hapticsIcon.sprite = targetSprite;
         }
 
         if (notifyIcon != null)
-            notifyIcon.SetSpriteNative(IsNotifyOn() ? notifyOnSprite : notifyOffSprite);
+            notifyIcon.sprite = IsNotifyOn() ? notifyOnSprite : notifyOffSprite;
     }
 
     private void OnLogoutClicked()

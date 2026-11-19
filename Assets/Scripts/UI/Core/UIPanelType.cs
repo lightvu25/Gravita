@@ -23,5 +23,7 @@ public enum UIPanelType
     Revive,
     Achievement,
     Multiplayer,
-    BlindBox
+    BlindBox,
+    Event,
+    EventDetail
 }

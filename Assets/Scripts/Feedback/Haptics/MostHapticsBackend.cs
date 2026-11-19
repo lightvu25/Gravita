@@ -43,14 +43,21 @@ public sealed class MostHapticsBackend : IHapticsBackend
     {
         return hapticEvent switch
         {
-            HapticEvent.UISelect      => MOST_HapticFeedback.HapticTypes.Selection,
-            HapticEvent.WallImpact    => MOST_HapticFeedback.HapticTypes.LightImpact,
-            HapticEvent.GravityAnchor => MOST_HapticFeedback.HapticTypes.RigidImpact,
-            HapticEvent.PadRedirect   => MOST_HapticFeedback.HapticTypes.SoftImpact,
-            HapticEvent.LaunchStart   => MOST_HapticFeedback.HapticTypes.MediumImpact,
-            HapticEvent.SwitchToggle  => MOST_HapticFeedback.HapticTypes.Selection,
-            HapticEvent.Death         => MOST_HapticFeedback.HapticTypes.Failure,
-            _                         => MOST_HapticFeedback.HapticTypes.LightImpact,
+            HapticEvent.UISelect         => MOST_HapticFeedback.HapticTypes.Selection,
+            HapticEvent.WallImpact       => MOST_HapticFeedback.HapticTypes.LightImpact,
+            HapticEvent.GravityAnchor    => MOST_HapticFeedback.HapticTypes.RigidImpact,
+            HapticEvent.PadRedirect      => MOST_HapticFeedback.HapticTypes.SoftImpact,
+            HapticEvent.LaunchStart      => MOST_HapticFeedback.HapticTypes.MediumImpact,
+            HapticEvent.SwitchToggle     => MOST_HapticFeedback.HapticTypes.Selection,
+            HapticEvent.Death            => MOST_HapticFeedback.HapticTypes.Failure,
+            HapticEvent.CruiseImpact     => MOST_HapticFeedback.HapticTypes.MediumImpact,
+            HapticEvent.KineticRamImpact => MOST_HapticFeedback.HapticTypes.RigidImpact,
+            HapticEvent.BlockSmash       => MOST_HapticFeedback.HapticTypes.RigidImpact,
+            HapticEvent.TierUp           => MOST_HapticFeedback.HapticTypes.SoftImpact,
+            HapticEvent.CloseCall        => MOST_HapticFeedback.HapticTypes.Selection,
+            HapticEvent.StarCollect      => MOST_HapticFeedback.HapticTypes.MediumImpact,
+            HapticEvent.FloorCrack       => MOST_HapticFeedback.HapticTypes.Selection,
+            _                            => MOST_HapticFeedback.HapticTypes.LightImpact,
         };
     }
 

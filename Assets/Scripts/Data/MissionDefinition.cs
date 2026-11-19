@@ -11,7 +11,8 @@ public enum MissionRewardType
     Coins = 0,
     Gems = 1,
     PowerUp = 2,
-    Cosmetic = 3
+    Cosmetic = 3,
+    UnlockSkill = 4
 }
 
 /// <summary>
@@ -86,7 +87,9 @@ public class MissionDefinition : ScriptableObject
     public MissionService.MissionType Type => type;
     public int Target => Mathf.Max(1, target);
 
-    public int RewardAmount => rewardType == MissionRewardType.Cosmetic ? Mathf.Max(1, rewardAmount) : Mathf.Max(0, rewardAmount);
+    public int RewardAmount => (rewardType == MissionRewardType.Cosmetic || rewardType == MissionRewardType.UnlockSkill)
+        ? Mathf.Max(1, rewardAmount)
+        : Mathf.Max(0, rewardAmount);
     public MissionRewardType RewardType => rewardType;
     public string RewardPowerUpId => !string.IsNullOrWhiteSpace(rewardPowerUpId) ? rewardPowerUpId : PowerUpIds.Breaker;
     public string RewardCosmeticId => rewardCosmeticId ?? string.Empty;
@@ -160,6 +163,9 @@ public class MissionDefinition : ScriptableObject
                 break;
             case MissionRewardType.Cosmetic:
                 rewardPart = "1 Skin";
+                break;
+            case MissionRewardType.UnlockSkill:
+                rewardPart = $"Unlock {PowerUpIds.FormatDisplayName(RewardPowerUpId)}";
                 break;
             default:
                 rewardPart = RewardAmount == 1 ? "1 Coin" : $"{RewardAmount} Coins";

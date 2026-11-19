@@ -489,7 +489,7 @@ public static class MissionService
         profile.weeklyStarsCollected += amount;
         profile.dailyStarsCollected += amount;
 
-        SaveProfileState(profile);
+        SaveProfileStateInGameplay(profile);
         NotifyProgressChanged();
     }
 
@@ -509,7 +509,7 @@ public static class MissionService
             profile.usedPowerUpTypeIds.Add(typeKey);
         }
 
-        SaveProfileState(profile);
+        SaveProfileStateInGameplay(profile);
         NotifyProgressChanged();
     }
 
@@ -578,7 +578,7 @@ public static class MissionService
     {
         if (isRunActive) return;
 
-        LevelFlowController flow = UnityEngine.Object.FindAnyObjectByType<LevelFlowController>();
+        LevelFlowController flow = LevelFlowController.ResolveInstance();
         if (flow != null && flow.CurrentState == LevelState.Playing)
         {
             isRunActive = true;
@@ -642,7 +642,7 @@ public static class MissionService
         profile.weeklyStarsCollected += amount;
         profile.dailyStarsCollected += amount;
 
-        SaveProfileState(profile);
+        SaveProfileStateInGameplay(profile);
         NotifyProgressChanged();
     }
 
@@ -1228,6 +1228,11 @@ public static class MissionService
                 if (!string.IsNullOrWhiteSpace(cosmeticId))
                     bundle.Add(RewardType.Cosmetic, 1, cosmeticId);
                 break;
+
+            case MissionRewardType.UnlockSkill:
+                string unlockSkill = !string.IsNullOrWhiteSpace(powerUpId) ? powerUpId : PowerUpIds.Shield;
+                bundle.Add(RewardType.SkillUnlock, 1, unlockSkill);
+                break;
         }
         return bundle;
     }
@@ -1308,6 +1313,12 @@ public static class MissionService
     {
         if (profile == null) return false;
         return SaveManager.TrySaveProfile(profile);
+    }
+
+    private static bool SaveProfileStateInGameplay(ProfileData profile)
+    {
+        if (profile == null) return false;
+        return SaveManager.SaveOrDeferDuringSlide(profile);
     }
 
     private static ProfileData GetActiveProfile()

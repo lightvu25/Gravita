@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using NUnit.Framework;
@@ -117,9 +118,9 @@ public class AllUIPanelsFunctionalTests : EconomyTestHarnessBase
         var containerRt = containerGo.AddComponent<RectTransform>();
         containerRt.SetParent(shopGo.transform, false);
 
-        // Template card
-        var templateGo = CreateTestGameObject("ShopItemCardTemplate");
-        templateGo.transform.SetParent(shopGo.transform, false);
+        // Prefab card (standalone inactive GameObject prefab, not parented under itemsContainer)
+        var templateGo = CreateTestGameObject("ShopItemCardPrefab");
+        templateGo.SetActive(false);
         var cardWidget = templateGo.AddComponent<ShopItemCardWidget>();
         var buyBtn = CreateTestButton("BuyBtn", templateGo.transform);
         var nameTxt = CreateTestText("NameText", templateGo.transform);
@@ -146,7 +147,7 @@ public class AllUIPanelsFunctionalTests : EconomyTestHarnessBase
 
         SetPrivateField(shopUI, "shopDatabase", shopDb);
         SetPrivateField(shopUI, "itemsContainer", containerRt);
-        SetPrivateField(shopUI, "itemCardPrefab", cardWidget);
+        SetPrivateField(shopUI, "itemCardPrefab", templateGo);
         SetPrivateField(shopUI, "categoryTabs", tabs);
         SetPrivateField(shopUI, "coinsText", CreateTestText("CoinsText", shopGo.transform));
         SetPrivateField(shopUI, "gemsText", CreateTestText("GemsText", shopGo.transform));
@@ -249,12 +250,21 @@ public class AllUIPanelsFunctionalTests : EconomyTestHarnessBase
         blindBoxGo.AddComponent<RectTransform>();
         var blindBoxUI = blindBoxGo.AddComponent<BlindBoxUI>();
 
+        var eventGo = CreateTestGameObject("EventOverlay");
+        eventGo.AddComponent<RectTransform>();
+        eventGo.AddComponent<EventPanelUI>();
+
+        var eventDetailGo = CreateTestGameObject("EventDetailPopup");
+        eventDetailGo.AddComponent<RectTransform>();
+        eventDetailGo.AddComponent<EventDetailPopupUI>();
+
         var mappings = new List<UIManager.UIPanelMapping>
         {
             new UIManager.UIPanelMapping { panelType = UIPanelType.Map, panelObject = mapGo, layer = UILayer.Screen },
             new UIManager.UIPanelMapping { panelType = UIPanelType.Runner, panelObject = runnerGo, layer = UILayer.Screen },
             new UIManager.UIPanelMapping { panelType = UIPanelType.Powerups, panelObject = powerupGo, layer = UILayer.Screen },
             new UIManager.UIPanelMapping { panelType = UIPanelType.Achievement, panelObject = achGo, layer = UILayer.Screen },
+            new UIManager.UIPanelMapping { panelType = UIPanelType.Event, panelObject = eventGo, layer = UILayer.Screen },
             new UIManager.UIPanelMapping { panelType = UIPanelType.Mission, panelObject = missionGo, layer = UILayer.Popup },
             new UIManager.UIPanelMapping { panelType = UIPanelType.CoinBonus, panelObject = coinBonusGo, layer = UILayer.Popup },
             new UIManager.UIPanelMapping { panelType = UIPanelType.DailyReward, panelObject = dailyGo, layer = UILayer.Popup },
@@ -262,13 +272,14 @@ public class AllUIPanelsFunctionalTests : EconomyTestHarnessBase
             new UIManager.UIPanelMapping { panelType = UIPanelType.Pause, panelObject = pauseGo, layer = UILayer.Popup, freezeTime = true },
             new UIManager.UIPanelMapping { panelType = UIPanelType.Result, panelObject = resultGo, layer = UILayer.Popup },
             new UIManager.UIPanelMapping { panelType = UIPanelType.Revive, panelObject = reviveGo, layer = UILayer.Popup },
-            new UIManager.UIPanelMapping { panelType = UIPanelType.BlindBox, panelObject = blindBoxGo, layer = UILayer.Popup }
+            new UIManager.UIPanelMapping { panelType = UIPanelType.BlindBox, panelObject = blindBoxGo, layer = UILayer.Popup },
+            new UIManager.UIPanelMapping { panelType = UIPanelType.EventDetail, panelObject = eventDetailGo, layer = UILayer.Popup }
         };
 
         SetPrivateField(uiMgr, "panelMappings", mappings);
         InvokeLifecycleIfPresent(uiMgr, "Awake");
 
-        // 1. Test Screen switching (Map -> Runner -> Powerups -> Achievement) never activates GlitchBackdrop
+        // 1. Test Screen switching (Map -> Runner -> Powerups -> Achievement -> Event) never activates GlitchBackdrop
         uiMgr.ShowScreen(UIPanelType.Map);
         Assert.AreEqual(UIPanelType.Map, uiMgr.CurrentScreen);
         Assert.IsFalse(backdropGo.activeSelf);
@@ -285,7 +296,11 @@ public class AllUIPanelsFunctionalTests : EconomyTestHarnessBase
         Assert.AreEqual(UIPanelType.Achievement, uiMgr.CurrentScreen);
         Assert.IsFalse(backdropGo.activeSelf);
 
-        // 2. Test Popup opening (Mission, CoinBonus, DailyReward, Login, Pause, Result, BlindBox) activates GlitchBackdrop
+        uiMgr.ShowScreen(UIPanelType.Event);
+        Assert.AreEqual(UIPanelType.Event, uiMgr.CurrentScreen);
+        Assert.IsFalse(backdropGo.activeSelf);
+
+        // 2. Test Popup opening (Mission, CoinBonus, DailyReward, Login, Pause, Result, BlindBox, EventDetail) activates GlitchBackdrop
         UIPanelType[] popupsToVerify =
         {
             UIPanelType.Mission,
@@ -294,7 +309,8 @@ public class AllUIPanelsFunctionalTests : EconomyTestHarnessBase
             UIPanelType.Login,
             UIPanelType.Pause,
             UIPanelType.Result,
-            UIPanelType.BlindBox
+            UIPanelType.BlindBox,
+            UIPanelType.EventDetail
         };
 
         foreach (UIPanelType popup in popupsToVerify)
@@ -324,7 +340,7 @@ public class AllUIPanelsFunctionalTests : EconomyTestHarnessBase
         SetPrivateField(mainMenuUI, "runnerTabButton", runnerTabBtn);
         SetPrivateField(mainMenuUI, "powerupsTabButton", powerTabBtn);
         SetPrivateField(mainMenuUI, "achievementTabButton", achTabBtn);
-        SetPrivateField(mainMenuUI, "multiplayerTabButton", multiTabBtn);
+        SetPrivateField(mainMenuUI, "eventsTabButton", multiTabBtn);
         SetPrivateField(mainMenuUI, "dailyRewardButton", missionIconBtn);
         SetPrivateField(mainMenuUI, "blindBoxButton", chestIconBtn);
         SetPrivateField(mainMenuUI, "shopButton", shopIconBtn);
@@ -510,5 +526,268 @@ public class AllUIPanelsFunctionalTests : EconomyTestHarnessBase
                 Assert.AreEqual((Color32)covered, cLastAtFull, "All characters should use covered color at 100% fill.");
             }
         }
+    }
+
+    private sealed class StubResultRewardedAdService : IRewardedAdService
+    {
+        public bool Available = true;
+        public RewardedAdResult NextResult = RewardedAdResult.Success(RewardedAdPlacement.ResultScreenBonus);
+
+        public bool IsAdAvailable(RewardedAdPlacement placement) => Available;
+
+        public void ShowRewardedAd(RewardedAdPlacement placement, Action<RewardedAdResult> onComplete)
+        {
+            onComplete?.Invoke(NextResult);
+        }
+    }
+
+    [Test]
+    public void ResultPanelUI_Watch2XCoinAdDoublesCoinsAndHidesButton_AndMapButtonsReturnToWorldMap()
+    {
+        var economy = SpawnSingleton<EconomyManager>("Economy");
+        var rewardSvc = SpawnSingleton<RewardService>("RewardService");
+        var adReward = SpawnSingleton<AdRewardService>("AdReward");
+        var stubAds = new StubResultRewardedAdService();
+        adReward.SetAdService(stubAds);
+
+        var flowGo = CreateTestGameObject("LevelFlow");
+        var flow = flowGo.AddComponent<LevelFlowController>();
+        SetPrivateField(flow, "levelLoader", flowGo.AddComponent<LevelLoader>());
+        SetPrivateField(flow, "objectiveSystem", flowGo.AddComponent<ObjectiveSystem>());
+        InvokeLifecycleIfPresent(flow, "Awake");
+
+        // Setup UIManager, MainMenuUI, CampaignMapUI, GameplayHUD, and ResultPanelUI
+        var uiMgrGo = CreateTestGameObject("UIManager");
+        var uiMgr = uiMgrGo.AddComponent<UIManager>();
+
+        var mainMenuGo = CreateTestGameObject("MainMenuScreen");
+        mainMenuGo.AddComponent<RectTransform>();
+        var mainMenuUI = mainMenuGo.AddComponent<MainMenuUI>();
+        SetPrivateField(mainMenuUI, "flowController", flow);
+        var mainMapTabBtn = CreateTestButton("MapTabBtn", mainMenuGo.transform);
+        SetPrivateField(mainMenuUI, "mapTabButton", mainMapTabBtn);
+        InvokeLifecycleIfPresent(mainMenuUI, "Awake");
+
+        var hudGo = CreateTestGameObject("GameplayScreen");
+        hudGo.AddComponent<RectTransform>();
+        var hudUI = hudGo.AddComponent<InGameHUD>();
+
+        var mapGo = CreateTestGameObject("CampaignMapOverlay");
+        mapGo.AddComponent<RectTransform>();
+        var mapUI = mapGo.AddComponent<CampaignMapUI>();
+        var worldMapPanel = CreateTestGameObject("WorldMapPanel");
+        worldMapPanel.transform.SetParent(mapGo.transform, false);
+        var levelSelectPanel = CreateTestGameObject("LevelSelectPanel");
+        levelSelectPanel.transform.SetParent(mapGo.transform, false);
+        SetPrivateField(mapUI, "worldMapPanel", worldMapPanel);
+        SetPrivateField(mapUI, "levelSelectPanel", levelSelectPanel);
+        SetPrivateField(mapUI, "flowController", flow);
+        InvokeLifecycleIfPresent(mapUI, "Awake");
+
+        // ResultOverlay with UIPanelAnimator + child LevelCompletedPanel carrying RewardOverlayUI
+        var resultGo = CreateTestGameObject("ResultOverlay");
+        resultGo.AddComponent<RectTransform>();
+        var resultAnimator = resultGo.AddComponent<UIPanelAnimator>();
+        var resultUI = resultGo.AddComponent<ResultPanelUI>();
+
+        var compPanel = CreateTestGameObject("LevelCompletedPanel");
+        compPanel.AddComponent<RectTransform>().SetParent(resultGo.transform, false);
+        var rewardOverlay = compPanel.AddComponent<RewardOverlayUI>();
+
+        var failPanel = CreateTestGameObject("LevelFailedPanel");
+        failPanel.AddComponent<RectTransform>().SetParent(resultGo.transform, false);
+
+        var coinsTxt = CreateTestText("Coins", compPanel.transform);
+        var currencyUI = coinsTxt.gameObject.AddComponent<CurrencyUI>();
+        SetPrivateField(currencyUI, "prefix", "+");
+
+        var watchAdBtn = CreateTestButton("AdsBtn", compPanel.transform);
+        var compMapBtn = CreateTestButton("MapBtn", compPanel.transform);
+        var failMapBtn = CreateTestButton("FailMapBtn", failPanel.transform);
+
+        SetPrivateField(resultUI, "flowController", flow);
+        SetPrivateField(resultUI, "completionPanel", compPanel);
+        SetPrivateField(resultUI, "coinsEarnedText", coinsTxt);
+        SetPrivateField(resultUI, "watchBonusAdButton", watchAdBtn);
+        SetPrivateField(resultUI, "completionMapButton", compMapBtn);
+        SetPrivateField(resultUI, "failurePanel", failPanel);
+        SetPrivateField(resultUI, "failureMapButton", failMapBtn);
+
+        SetPrivateField(rewardOverlay, "flowController", flow);
+        SetPrivateField(rewardOverlay, "coinsText", coinsTxt);
+
+        var mappings = new List<UIManager.UIPanelMapping>
+        {
+            new UIManager.UIPanelMapping { panelType = UIPanelType.MainMenu, panelObject = mainMenuGo, layer = UILayer.Screen },
+            new UIManager.UIPanelMapping { panelType = UIPanelType.GameplayHUD, panelObject = hudGo, layer = UILayer.Screen },
+            new UIManager.UIPanelMapping { panelType = UIPanelType.Map, panelObject = mapGo, layer = UILayer.Screen },
+            new UIManager.UIPanelMapping { panelType = UIPanelType.Result, panelObject = resultGo, layer = UILayer.Popup, freezeTime = true }
+        };
+        SetPrivateField(uiMgr, "panelMappings", mappings);
+        InvokeLifecycleIfPresent(uiMgr, "Awake");
+        InvokeLifecycleIfPresent(resultUI, "Awake");
+        InvokeLifecycleIfPresent(rewardOverlay, "Awake");
+
+        // 1. Verify UIPanelAnimator restores CanvasGroup raycasts/interactability if disabled mid-PlayIn
+        uiMgr.ShowScreen(UIPanelType.Map);
+        Assert.AreEqual(UIPanelType.Map, uiMgr.CurrentScreen);
+
+        resultGo.SetActive(true);
+        InvokeLifecycleIfPresent(resultAnimator, "Awake");
+        resultAnimator.PlayIn();
+        resultGo.SetActive(false);
+        InvokeLifecycleIfPresent(resultAnimator, "OnDisable");
+        var cg = resultGo.GetComponent<CanvasGroup>();
+        Assert.IsNotNull(cg);
+        Assert.IsTrue(cg.interactable, "OnDisable must restore interactable=true so subsequent Show calls never lock input.");
+        Assert.IsTrue(cg.blocksRaycasts, "OnDisable must restore blocksRaycasts=true after interrupted PlayIn.");
+
+        // 2. Simulate level completion granting 50 coins
+        var testLevel = TrackAsset(ScriptableObject.CreateInstance<LevelData>());
+        SetPrivateField(testLevel, "levelId", "Level_TestResult");
+        SetPrivateField(testLevel, "world", 1);
+
+        var baseBundle = new RewardBundle();
+        baseBundle.Add(RewardType.Coins, 50);
+        Assert.IsTrue(rewardSvc.GrantRewardBundle(baseBundle, "TestClearReward"));
+        Assert.AreEqual(50, economy.Coins);
+
+        var settlement = new LevelEconomySettlement(
+            "Level_TestResult", 1, true, 0, 3, 3, 0, 10, 10, true, false,
+            50, 0, false, 0, 0, false, baseBundle);
+        typeof(LevelFlowController).GetProperty("LastEconomySettlement")?.SetValue(flow, settlement);
+        typeof(LevelFlowController).GetProperty("LastClearReward")?.SetValue(flow, baseBundle);
+        typeof(LevelFlowController).GetProperty("LastCompletedStars")?.SetValue(flow, 3);
+        SetPrivateField(flow, "currentState", LevelState.Completed);
+
+        mainMenuGo.SetActive(false);
+        worldMapPanel.SetActive(false);
+        levelSelectPanel.SetActive(false);
+
+        uiMgr.OpenPanel(UIPanelType.Result);
+        Assert.IsTrue(resultGo.activeSelf);
+        Assert.IsTrue(compPanel.activeSelf);
+        Assert.AreEqual("+50", coinsTxt.text);
+        Assert.IsTrue(watchAdBtn.gameObject.activeSelf);
+
+        // 3. Click 2X Coin Ads button -> doubles displayed coins (+50 -> +100), grants +50 wallet coins, hides 2X button
+        watchAdBtn.onClick.Invoke();
+        Assert.AreEqual(100, economy.Coins, "2X coin ad must grant an additional +50 coins (total 100).");
+        Assert.AreEqual("+100", coinsTxt.text, "coinsEarnedText must display doubled coins (+100) without being overwritten by RewardOverlayUI.");
+        Assert.IsFalse(watchAdBtn.gameObject.activeSelf, "2X coin ad button must hide after claiming the doubled reward.");
+        Assert.IsTrue(resultGo.activeSelf && compPanel.activeSelf, "Result UI must stay open after returning from the rewarded ad.");
+
+        // 4. Click MAP button -> closes Result UI, transitions to Idle, activates MainMenuUI & WorldMapPanel
+        compMapBtn.onClick.Invoke();
+        Assert.IsFalse(resultGo.activeSelf, "ResultOverlay must close when MAP button is clicked.");
+        Assert.AreEqual(LevelState.Idle, flow.CurrentState);
+        Assert.IsTrue(mainMenuGo.activeSelf, "MainMenuScreen must be active after clicking MAP.");
+        Assert.IsTrue(mapGo.activeSelf && worldMapPanel.activeSelf, "CampaignMapOverlay and WorldMapPanel must be active after clicking MAP.");
+        Assert.AreEqual(1f, Time.timeScale, 0.001f);
+
+        // 5. Verify failurePanel MAP button also returns to WorldMap cleanly
+        SetPrivateField(flow, "currentState", LevelState.Failed);
+        mainMenuGo.SetActive(false);
+        worldMapPanel.SetActive(false);
+        uiMgr.OpenPanel(UIPanelType.Result);
+        Assert.IsTrue(resultGo.activeSelf && failPanel.activeSelf);
+
+        failMapBtn.onClick.Invoke();
+        Assert.IsFalse(resultGo.activeSelf);
+        Assert.AreEqual(LevelState.Idle, flow.CurrentState);
+        Assert.IsTrue(mainMenuGo.activeSelf);
+        Assert.IsTrue(mapGo.activeSelf && worldMapPanel.activeSelf);
+        Assert.AreEqual(1f, Time.timeScale, 0.001f);
+    }
+
+    [Test]
+    public void LevelNodeAndMissionRowWidgets_PreserveAuthoredSizesColorsAndClaimLabel()
+    {
+        // 1. LevelNodeWidget keeps star sizeDelta authored on prefab when swapping star sprites
+        var texA = TrackAsset(new Texture2D(32, 32));
+        var texB = TrackAsset(new Texture2D(16, 16));
+        var starEmptySpr = TrackAsset(Sprite.Create(texA, new Rect(0, 0, 32, 32), new Vector2(0.5f, 0.5f), 32f));
+        var starFilledSpr = TrackAsset(Sprite.Create(texB, new Rect(0, 0, 16, 16), new Vector2(0.5f, 0.5f), 16f));
+
+        var nodeGo = CreateTestGameObject("LevelNodeWidget");
+        nodeGo.AddComponent<RectTransform>().sizeDelta = new Vector2(350f, 250f);
+        var nodeWidget = nodeGo.AddComponent<LevelNodeWidget>();
+        var starImages = new Image[3];
+        for (int i = 0; i < 3; i++)
+        {
+            var starGo = CreateTestGameObject($"StarImage_{i}");
+            var rt = starGo.AddComponent<RectTransform>();
+            rt.SetParent(nodeGo.transform, false);
+            rt.sizeDelta = new Vector2(90.625f, 90.625f);
+            starImages[i] = starGo.AddComponent<Image>();
+        }
+        SetPrivateField(nodeWidget, "stars", starImages);
+        SetPrivateField(nodeWidget, "starEmpty", starEmptySpr);
+        SetPrivateField(nodeWidget, "starFilled", starFilledSpr);
+
+        nodeWidget.SetStars(2);
+        Assert.AreEqual(new Vector2(90.625f, 90.625f), starImages[0].rectTransform.sizeDelta);
+        Assert.AreEqual(new Vector2(90.625f, 90.625f), starImages[2].rectTransform.sizeDelta);
+
+        // 2. MissionRowWidget keeps icon sizeDelta, yellow coin tint, yellow ClaimBtn tint, and "CLAIM" text when incomplete
+        SpawnSingleton<EconomyManager>("Economy");
+        MissionService.EnsureProfileMigratedAndUpdated();
+
+        var rowGo = CreateTestGameObject("MissionRow");
+        var rowRect = rowGo.AddComponent<RectTransform>();
+        rowRect.sizeDelta = new Vector2(1000f, 230f);
+        var rowWidget = rowGo.AddComponent<MissionRowWidget>();
+
+        var iconGo = CreateTestGameObject("Icon");
+        var iconRt = iconGo.AddComponent<RectTransform>();
+        iconRt.SetParent(rowGo.transform, false);
+        iconRt.sizeDelta = new Vector2(100f, 100f);
+        var iconImg = iconGo.AddComponent<Image>();
+
+        var authoredCoinColor = new Color(0.996f, 0.996f, 0.376f, 1f);
+        var rewardIconGo = CreateTestGameObject("RewardIcon");
+        var rewardIconRt = rewardIconGo.AddComponent<RectTransform>();
+        rewardIconRt.SetParent(rowGo.transform, false);
+        rewardIconRt.sizeDelta = new Vector2(43.75f, 43.75f);
+        var rewardIconImg = rewardIconGo.AddComponent<Image>();
+        rewardIconImg.color = authoredCoinColor;
+
+        var authoredBtnColor = new Color(0.996f, 0.996f, 0.412f, 1f);
+        var claimBtn = CreateTestButton("ClaimBtn", rowGo.transform);
+        ((Image)claimBtn.targetGraphic).color = authoredBtnColor;
+        var claimLabel = CreateTestText("ClaimText", claimBtn.transform);
+        claimLabel.text = "CLAIM";
+
+        SetPrivateField(rowWidget, "iconImage", iconImg);
+        SetPrivateField(rowWidget, "rewardIconImage", rewardIconImg);
+        SetPrivateField(rowWidget, "claimButton", claimBtn);
+        SetPrivateField(rowWidget, "claimButtonLabel", claimLabel);
+
+        var missionDef = TrackAsset(ScriptableObject.CreateInstance<MissionDefinition>());
+        missionDef.Configure(
+            "m_preserve_layout",
+            MissionCategory.Weekly,
+            "Preserve Test",
+            "Desc",
+            MissionService.MissionType.CompleteLevels,
+            3,
+            MissionRewardType.Coins,
+            150);
+        SetPrivateField(missionDef, "icon", starEmptySpr);
+        SetPrivateField(missionDef, "rewardIcon", starFilledSpr);
+
+        rowWidget.Setup(missionDef, null);
+        Assert.AreEqual(new Vector2(100f, 100f), iconRt.sizeDelta);
+        Assert.AreEqual(new Vector2(43.75f, 43.75f), rewardIconRt.sizeDelta);
+        Assert.AreEqual(authoredCoinColor, rewardIconImg.color);
+        Assert.AreEqual(authoredBtnColor, ((Image)claimBtn.targetGraphic).color);
+        Assert.AreEqual("CLAIM", claimLabel.text);
+        Assert.AreEqual(230f, rowRect.sizeDelta.y, 0.01f);
+        Assert.IsFalse(claimBtn.interactable);
+
+        // 3. CampaignMapUI removed Pre-Level fields and uses GameObject prefabs cleanly
+        Assert.IsNull(typeof(CampaignMapUI).GetField("preLevelLoadoutPopup", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public));
+        Assert.AreEqual(typeof(GameObject), typeof(CampaignMapUI).GetField("worldButtonPrefab", BindingFlags.Instance | BindingFlags.NonPublic)?.FieldType);
+        Assert.AreEqual(typeof(GameObject), typeof(CampaignMapUI).GetField("levelNodePrefab", BindingFlags.Instance | BindingFlags.NonPublic)?.FieldType);
     }
 }

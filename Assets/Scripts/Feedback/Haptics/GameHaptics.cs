@@ -22,7 +22,7 @@ public static class GameHaptics
     /// <summary>Minimum unscaled seconds between any two non-Death haptic pulses.</summary>
     public const float GlobalMinGapSeconds = 0.03f;
 
-    private const int EventCount = 7;
+    private const int EventCount = 14;
 
     private static readonly float[] EventCooldownSeconds = new float[EventCount]
     {
@@ -33,9 +33,17 @@ public static class GameHaptics
         0.10f, // LaunchStart
         0.08f, // SwitchToggle
         0.00f, // Death (bypasses cooldowns)
+        0.05f, // CruiseImpact
+        0.06f, // KineticRamImpact
+        0.03f, // BlockSmash
+        0.12f, // TierUp
+        0.12f, // CloseCall
+        0.08f, // StarCollect
+        0.06f, // FloorCrack
     };
 
     private static readonly float[] lastEventPlayTimes = new float[EventCount];
+    private static int lastPlayedPriority = -1;
 
     private static IHapticsBackend backend = CreateDefaultBackend();
     private static IHapticsSettingsStore settingsStore = PlayerPrefsSettingsStore.Instance;
@@ -140,9 +148,10 @@ public static class GameHaptics
             ResetCooldownTimestamps();
         }
 
+        int priority = GetPriority(hapticEvent);
         if (hapticEvent != HapticEvent.Death)
         {
-            if (now - lastAnyPlayTime < GlobalMinGapSeconds)
+            if (now - lastAnyPlayTime < GlobalMinGapSeconds && priority <= lastPlayedPriority)
                 return;
 
             float eventCooldown = EventCooldownSeconds[index];
@@ -152,6 +161,7 @@ public static class GameHaptics
 
         lastEventPlayTimes[index] = now;
         lastAnyPlayTime = now;
+        lastPlayedPriority = priority;
 
         try
         {
@@ -161,6 +171,24 @@ public static class GameHaptics
         {
             LogFailureOnce($"Backend playback threw for {hapticEvent}", ex);
         }
+    }
+
+    /// <summary>Returns the priority tier (0 = subtle .. 4 = critical) for preemption inside GlobalMinGapSeconds.</summary>
+    public static int GetPriority(HapticEvent hapticEvent)
+    {
+        return hapticEvent switch
+        {
+            HapticEvent.Death            => 4,
+            HapticEvent.CruiseImpact     => 3,
+            HapticEvent.KineticRamImpact => 3,
+            HapticEvent.WallImpact       => 2,
+            HapticEvent.GravityAnchor    => 2,
+            HapticEvent.BlockSmash       => 2,
+            HapticEvent.PadRedirect      => 1,
+            HapticEvent.LaunchStart      => 1,
+            HapticEvent.StarCollect      => 1,
+            _                            => 0,
+        };
     }
 
     /// <summary>Returns the configured unscaled cooldown in seconds for <paramref name="hapticEvent"/>.</summary>
@@ -220,6 +248,7 @@ public static class GameHaptics
         }
 
         lastAnyPlayTime = float.NegativeInfinity;
+        lastPlayedPriority = -1;
     }
 
     private static IHapticsBackend CreateDefaultBackend()

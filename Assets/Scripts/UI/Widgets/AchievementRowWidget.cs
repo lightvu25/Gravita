@@ -54,11 +54,6 @@ public class AchievementRowWidget : MonoBehaviour
     [SerializeField] private float claimedSliderWidthOffset = 0f;
     [SerializeField] private bool hideRowCompletelyAfterPushToBottom = false;
 
-    [Header("Button State Colors (100% Opacity)")]
-    [SerializeField] private Color claimableButtonColor = new Color(0.18f, 0.78f, 0.38f, 1f);
-    [SerializeField] private Color incompleteButtonColor = new Color(0.24f, 0.29f, 0.40f, 1f);
-    [SerializeField] private Color claimedButtonColor = new Color(0.18f, 0.42f, 0.30f, 1f);
-
     private AchievementDefinition achievementDefinition;
     private Action<AchievementDefinition> onClaimDefinition;
     private Sequence claimSequence;
@@ -223,9 +218,8 @@ public class AchievementRowWidget : MonoBehaviour
             Sprite resolvedIcon = achievementDefinition.Icon != null
                 ? achievementDefinition.Icon
                 : ResolveFallbackSprite(achievementDefinition.RewardType);
-            iconImage.SetSpriteNative(resolvedIcon);
+            iconImage.sprite = resolvedIcon;
             iconImage.enabled = resolvedIcon != null;
-            iconImage.color = Color.white;
         }
 
         if (rewardIconImage != null)
@@ -233,9 +227,8 @@ public class AchievementRowWidget : MonoBehaviour
             Sprite resolvedRewardIcon = achievementDefinition.RewardIcon != null
                 ? achievementDefinition.RewardIcon
                 : ResolveFallbackSprite(achievementDefinition.RewardType);
-            rewardIconImage.SetSpriteNative(resolvedRewardIcon);
+            rewardIconImage.sprite = resolvedRewardIcon;
             rewardIconImage.enabled = resolvedRewardIcon != null;
-            rewardIconImage.color = Color.white;
         }
 
         if (titleText != null)
@@ -279,11 +272,12 @@ public class AchievementRowWidget : MonoBehaviour
     {
         return rewardType switch
         {
-            MissionRewardType.Coins    => defaultCoinSprite,
-            MissionRewardType.Gems     => defaultGemSprite,
-            MissionRewardType.PowerUp  => defaultPowerUpSprite,
-            MissionRewardType.Cosmetic => defaultCosmeticSprite,
-            _                          => defaultCoinSprite
+            MissionRewardType.Coins       => defaultCoinSprite,
+            MissionRewardType.Gems        => defaultGemSprite,
+            MissionRewardType.PowerUp     => defaultPowerUpSprite,
+            MissionRewardType.Cosmetic    => defaultCosmeticSprite,
+            MissionRewardType.UnlockSkill => defaultPowerUpSprite,
+            _                             => defaultCoinSprite
         };
     }
 
@@ -306,25 +300,20 @@ public class AchievementRowWidget : MonoBehaviour
             claimedTickImage.enabled = claimed;
             if (claimed)
             {
-                if (claimedTickImage.sprite != null)
-                    claimedTickImage.SetNativeSize();
-                claimedTickImage.color = Color.white;
+                Color c = claimedTickImage.color;
+                claimedTickImage.color = new Color(c.r, c.g, c.b, 1f);
             }
         }
 
         if (claimButton == null)
             return;
 
+        TMP_Text label = (claimButtonLabel != null && claimButtonLabel != rewardText) ? claimButtonLabel : null;
+
         if (claimed)
         {
-            if (claimButtonLabel == null)
-                claimButtonLabel = claimButton.GetComponentInChildren<TMP_Text>(true);
-
-            if (claimButtonLabel != null && claimButtonLabel != rewardText)
-            {
-                claimButtonLabel.text = string.Empty;
-                claimButtonLabel.gameObject.SetActive(false);
-            }
+            if (label != null)
+                label.gameObject.SetActive(false);
 
             claimButton.interactable = false;
             claimButton.gameObject.SetActive(false);
@@ -337,19 +326,11 @@ public class AchievementRowWidget : MonoBehaviour
         MissionMilestoneWidget.EnsureOpaqueButtonColors(claimButton);
         claimButton.interactable = canClaim;
 
-        if (claimButtonLabel == null)
-            claimButtonLabel = claimButton.GetComponentInChildren<TMP_Text>(true);
-
-        if (claimButtonLabel != null && claimButtonLabel != rewardText)
+        if (label != null)
         {
-            claimButtonLabel.gameObject.SetActive(true);
-            claimButtonLabel.text = canClaim ? "CLAIM" : $"{clampedProgress}/{safeTarget}";
-        }
-
-        Image buttonImg = claimButton.targetGraphic as Image ?? claimButton.image;
-        if (buttonImg != null)
-        {
-            buttonImg.color = complete ? claimableButtonColor : incompleteButtonColor;
+            label.gameObject.SetActive(true);
+            if (string.IsNullOrEmpty(label.text))
+                label.text = "CLAIM";
         }
     }
 
@@ -378,7 +359,10 @@ public class AchievementRowWidget : MonoBehaviour
         {
             float baseHeight = initialRowSizeDelta.y > 1f ? initialRowSizeDelta.y : rowRect.sizeDelta.y;
             float targetHeight = baseHeight > 1f ? Mathf.Max(40f, baseHeight - heightReduction) : rowRect.sizeDelta.y;
-            rowRect.sizeDelta = new Vector2(initialRowSizeDelta.x + widthDelta, targetHeight);
+            float targetWidth = Mathf.Abs(claimedRowWidthOffset) > 0.01f
+                ? initialRowSizeDelta.x + widthDelta
+                : rowRect.sizeDelta.x;
+            rowRect.sizeDelta = new Vector2(targetWidth, targetHeight);
         }
 
         if (TryGetComponent(out LayoutElement layoutElement))

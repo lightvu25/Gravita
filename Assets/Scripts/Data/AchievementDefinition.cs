@@ -38,7 +38,9 @@ public class AchievementDefinition : ScriptableObject
     public MissionService.MissionType Type => type;
     public int Target => Mathf.Max(1, target);
 
-    public int RewardAmount => rewardType == MissionRewardType.Cosmetic ? Mathf.Max(1, rewardAmount) : Mathf.Max(0, rewardAmount);
+    public int RewardAmount => (rewardType == MissionRewardType.Cosmetic || rewardType == MissionRewardType.UnlockSkill)
+        ? Mathf.Max(1, rewardAmount)
+        : Mathf.Max(0, rewardAmount);
     public MissionRewardType RewardType => rewardType;
     public string RewardPowerUpId => !string.IsNullOrWhiteSpace(rewardPowerUpId) ? rewardPowerUpId : PowerUpIds.Breaker;
     public string RewardCosmeticId => rewardCosmeticId ?? string.Empty;
@@ -82,9 +84,12 @@ public class AchievementDefinition : ScriptableObject
             case MissionRewardType.Gems:
                 return RewardAmount == 1 ? "1 Gem" : $"{RewardAmount} Gems";
             case MissionRewardType.PowerUp:
-                return RewardAmount == 1 ? $"1 {RewardPowerUpId}" : $"{RewardAmount}x {RewardPowerUpId}";
+                string skillLabel = PowerUpIds.FormatDisplayName(RewardPowerUpId);
+                return RewardAmount == 1 ? $"1 {skillLabel} Shard" : $"{RewardAmount}x {skillLabel} Shards";
             case MissionRewardType.Cosmetic:
                 return "1 Skin";
+            case MissionRewardType.UnlockSkill:
+                return $"Unlock {PowerUpIds.FormatDisplayName(RewardPowerUpId)}";
             default:
                 return RewardAmount == 1 ? "1 Coin" : $"{RewardAmount} Coins";
         }

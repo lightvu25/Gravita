@@ -455,12 +455,12 @@ public class GravitaMechanicsTests
                 $"Prefab {path} has missing scripts!");
         }
 
-        Assert.AreEqual("Phase Skin", AssetDatabase.LoadAssetAtPath<PowerUpData>("Assets/Data/PowerUps/Shield.asset").DisplayName);
-        Assert.AreEqual("Data Siphon", AssetDatabase.LoadAssetAtPath<PowerUpData>("Assets/Data/PowerUps/Magnet.asset").DisplayName);
-        Assert.AreEqual("EMP Pulse", AssetDatabase.LoadAssetAtPath<PowerUpData>("Assets/Data/PowerUps/Freeze.asset").DisplayName);
-        Assert.AreEqual("Quantum Echo", AssetDatabase.LoadAssetAtPath<PowerUpData>("Assets/Data/PowerUps/Echo.asset").DisplayName);
+        Assert.AreEqual("Inertia Core", AssetDatabase.LoadAssetAtPath<PowerUpData>("Assets/Data/PowerUps/Shield.asset").DisplayName);
+        Assert.AreEqual("Gravity Lens", AssetDatabase.LoadAssetAtPath<PowerUpData>("Assets/Data/PowerUps/Magnet.asset").DisplayName);
+        Assert.AreEqual("Time Dilation", AssetDatabase.LoadAssetAtPath<PowerUpData>("Assets/Data/PowerUps/Freeze.asset").DisplayName);
+        Assert.AreEqual("Temporal Anchor", AssetDatabase.LoadAssetAtPath<PowerUpData>("Assets/Data/PowerUps/Echo.asset").DisplayName);
         Assert.AreEqual("Phase Shift", AssetDatabase.LoadAssetAtPath<PowerUpData>("Assets/Data/PowerUps/Teleport.asset").DisplayName);
-        Assert.AreEqual("Kinetic Burst", AssetDatabase.LoadAssetAtPath<PowerUpData>("Assets/Data/PowerUps/Breaker.asset").DisplayName);
+        Assert.AreEqual("Kinetic Surge", AssetDatabase.LoadAssetAtPath<PowerUpData>("Assets/Data/PowerUps/Breaker.asset").DisplayName);
     }
 
     [Test]

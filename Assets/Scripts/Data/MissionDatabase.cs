@@ -33,10 +33,12 @@ public class WeeklyGoalReward
             case MissionRewardType.Gems:
                 return rewardAmount == 1 ? "1 Gem" : $"{rewardAmount} Gems";
             case MissionRewardType.PowerUp:
-                string label = !string.IsNullOrWhiteSpace(powerUpId) ? powerUpId : "Charge";
+                string label = PowerUpIds.FormatDisplayName(powerUpId);
                 return rewardAmount == 1 ? $"1 {label}" : $"{rewardAmount}x {label}";
             case MissionRewardType.Cosmetic:
                 return "1 Skin";
+            case MissionRewardType.UnlockSkill:
+                return $"Unlock {PowerUpIds.FormatDisplayName(powerUpId)}";
             default:
                 return rewardAmount == 1 ? "1 Coin" : $"{rewardAmount} Coins";
         }

@@ -23,6 +23,7 @@ public class CrackedBlock : MonoBehaviour, ICrushable, IPlayerInteractable
 
     public bool IsBroken { get; private set; }
     public Vector3 LastBreakWorldPosition { get; private set; }
+    public Vector2 LastBreakDirection { get; private set; }
     public bool HasCustomBreakEffect => interactionEffectPlayer != null && interactionEffectPlayer.HasConfiguredEffects;
 
     /// <summary>Fired when the block is smashed by a Kinetic Ram dash.</summary>
@@ -78,10 +79,14 @@ public class CrackedBlock : MonoBehaviour, ICrushable, IPlayerInteractable
     }
 
     /// <summary>Smashes the block: colliders disabled, visual removed.</summary>
-    public void Break()
+    public void Break(Vector2 breakDirection = default)
     {
         if (IsBroken) return;
         IsBroken = true;
+
+        if (breakDirection != Vector2.zero)
+            lastImpactDirection = breakDirection.normalized;
+        LastBreakDirection = lastImpactDirection;
 
         Vector3 breakCenter = ResolveVisualWorldCenter();
         LastBreakWorldPosition = breakCenter;
@@ -103,6 +108,7 @@ public class CrackedBlock : MonoBehaviour, ICrushable, IPlayerInteractable
     {
         IsBroken = false;
         lastImpactDirection = Vector2.zero;
+        LastBreakDirection = Vector2.zero;
         foreach (Collider2D col in GetComponentsInChildren<Collider2D>())
             col.enabled = true;
         if (intactVisual != null) intactVisual.SetActive(true);

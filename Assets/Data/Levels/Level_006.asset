@@ -23,7 +23,7 @@ MonoBehaviour:
     description: 'Intro: Cracked Wall & Breaker Routing'
   optionalObjectives:
   - objectiveType: 1
-    requiredCount: 2
+    requiredCount: 3
     description: Collect bonus stars along the route
   baseCoinReward: 18
   optionalCoinBonus: 5

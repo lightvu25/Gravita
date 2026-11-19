@@ -33,7 +33,8 @@ Transform:
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 7516664075242057708}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!212 &6787468349214917308
@@ -181,7 +182,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CrackedBlock
   requiredTier: 3
-  intactVisual: {fileID: 0}
+  intactVisual: {fileID: 4535075190730959672}
 --- !u!114 &8854137610757382811
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -197,9 +198,40 @@ MonoBehaviour:
   effectPrefabs:
   - {fileID: 7559537190609695430, guid: 8733a155d3e99b841b248a62bdc75f8f, type: 3}
   defaultAnchor: 0
-  customDefaultAnchor: {fileID: 0}
+  customDefaultAnchor: {fileID: 7516664075242057708}
   defaultOffset: {x: 0, y: 0, z: 0}
-  alignToInteractionDirection: 0
+  alignToInteractionDirection: 1
   defaultAnimationStateName: 
   defaultCameraShake: 0
   rules: []
+--- !u!1 &4535075190730959672
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7516664075242057708}
+  m_Layer: 6
+  m_Name: Visual
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7516664075242057708
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4535075190730959672}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2784345719520552133}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}

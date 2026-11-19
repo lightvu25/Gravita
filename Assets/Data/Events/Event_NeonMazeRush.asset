@@ -1,0 +1,62 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 75843622abe6a4e4e83942ec1c339387, type: 3}
+  m_Name: Event_NeonMazeRush
+  m_EditorClassIdentifier: Assembly-CSharp::GameEventDefinition
+  eventId: event_neon_maze_rush
+  title: NEON MAZE RUSH
+  bannerDescription: Conquer stitched Maze Runner rooms for bonus coins & power charges.
+  detailRulesText: Dive into Maze Runner mode and clear stitched rooms continuously
+    without hitting traps. Reach each room milestone before the timer runs out to
+    claim event rewards!
+  bannerSprite: {fileID: 0}
+  detailBannerSprite: {fileID: 0}
+  useFixedDateSchedule: 0
+  startDateIso: 
+  durationDays: 7
+  hideWhenExpired: 0
+  bannerAction: 0
+  ctaButtonLabel: PLAY MAZE RUNNER
+  ctaActionType: 2
+  ctaTargetPanel: 13
+  ctaRunnerMode: 0
+  tasks:
+  - taskId: rush_rooms_03
+    title: Clear 3 Total Runner Rooms
+    objectiveKind: 2
+    missionType: 0
+    target: 3
+    rewardType: 0
+    rewardAmount: 100
+    rewardPowerUpId: breaker
+    rewardCosmeticId: 
+    rewardIcon: {fileID: 0}
+  - taskId: rush_best_05
+    title: Reach Room 5 in a Runner Run
+    objectiveKind: 1
+    missionType: 0
+    target: 5
+    rewardType: 1
+    rewardAmount: 10
+    rewardPowerUpId: breaker
+    rewardCosmeticId: 
+    rewardIcon: {fileID: 0}
+  - taskId: rush_rooms_12
+    title: Clear 12 Total Runner Rooms
+    objectiveKind: 2
+    missionType: 0
+    target: 12
+    rewardType: 2
+    rewardAmount: 2
+    rewardPowerUpId: breaker
+    rewardCosmeticId: 
+    rewardIcon: {fileID: 0}

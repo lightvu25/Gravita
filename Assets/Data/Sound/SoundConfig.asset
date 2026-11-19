@@ -13,140 +13,213 @@ MonoBehaviour:
   m_Name: SoundConfig
   m_EditorClassIdentifier: Assembly-CSharp::SoundConfig
   moveStart:
-    clips: []
+    clips:
+    - {fileID: 8300000, guid: 71988cbd111e9c74ebff69c31c9d44f5, type: 3}
+    - {fileID: 8300000, guid: 3d2e01d8bb0d7354ab02a89cd78781ad, type: 3}
     volume: 0.65
     randomizePitch: 1
     pitchVariance: 0.08
     minInterval: 0.04
   wallImpactDrift:
-    clips: []
+    clips:
+    - {fileID: 8300000, guid: a1466f2e4d4c5b349bfb93b6cb5064f6, type: 3}
+    - {fileID: 8300000, guid: ccdaee34d322b9242a329fbaf497d0d7, type: 3}
     volume: 0.6
     randomizePitch: 1
     pitchVariance: 0.08
     minInterval: 0.04
   wallImpactCruise:
-    clips: []
+    clips:
+    - {fileID: 8300000, guid: 857e1555cae49c04c9b9a685ff270690, type: 3}
+    - {fileID: 8300000, guid: 4f6bfdf69132feb409c49e2f881beb07, type: 3}
     volume: 0.75
     randomizePitch: 1
     pitchVariance: 0.08
     minInterval: 0.04
   wallImpactKinetic:
-    clips: []
+    clips:
+    - {fileID: 8300000, guid: c1e8766a774b3f941bd81dde18a32b66, type: 3}
+    - {fileID: 8300000, guid: 3b8dfd418774fbb4896f3f194f8cd4b2, type: 3}
     volume: 0.9
     randomizePitch: 1
     pitchVariance: 0.06
     minInterval: 0.04
   wedgeRedirect:
-    clips: []
+    clips:
+    - {fileID: 8300000, guid: 3893578bdadb568478169c85a0f6dff4, type: 3}
+    - {fileID: 8300000, guid: 8cef3241fd235b146ac20649e1ce0bee, type: 3}
     volume: 0.75
     randomizePitch: 1
     pitchVariance: 0.08
     minInterval: 0.03
+  tileTick:
+    clips:
+    - {fileID: 8300000, guid: 93a171d3736d92044a46b7856d0dd602, type: 3}
+    volume: 0.35
+    randomizePitch: 0
+    pitchVariance: 0
+    minInterval: 0.01
+  tierUpCruise:
+    clips:
+    - {fileID: 8300000, guid: 09cdbdff97f1b6148b109c2f6d8e12ee, type: 3}
+    volume: 0.55
+    randomizePitch: 0
+    pitchVariance: 0
+    minInterval: 0.08
+  tierUpKinetic:
+    clips:
+    - {fileID: 8300000, guid: adc0758c24d1aaa4ba7645cfd3f67bb3, type: 3}
+    volume: 0.7
+    randomizePitch: 0
+    pitchVariance: 0
+    minInterval: 0.08
+  brakeAnchor:
+    clips:
+    - {fileID: 8300000, guid: 3d0f6fc7858fa224bbce4d1b9b307967, type: 3}
+    volume: 0.55
+    randomizePitch: 1
+    pitchVariance: 0.05
+    minInterval: 0.04
+  closeCallChime:
+    clips:
+    - {fileID: 8300000, guid: 9353113a3fafded499db764a1da081ec, type: 3}
+    volume: 0.75
+    randomizePitch: 0
+    pitchVariance: 0
+    minInterval: 0.08
   crackedWallBreak:
-    clips: []
+    clips:
+    - {fileID: 8300000, guid: 268a63d5ec66952429a348ad329ef74a, type: 3}
+    - {fileID: 8300000, guid: 9bc35752fffd4b145945886b8d84ee5f, type: 3}
     volume: 0.9
     randomizePitch: 1
     pitchVariance: 0.08
     minInterval: 0.03
   levelStart:
-    clips: []
+    clips:
+    - {fileID: 8300000, guid: e9065a3c4af1a8443b023d5f9c802c10, type: 3}
     volume: 0.75
     randomizePitch: 0
     pitchVariance: 0
     minInterval: 0.1
   goalReached:
-    clips: []
+    clips:
+    - {fileID: 8300000, guid: 3981d305305a7fb45be86183da0f7849, type: 3}
     volume: 0.9
     randomizePitch: 0
     pitchVariance: 0
     minInterval: 0.1
   hazardHit:
-    clips: []
+    clips:
+    - {fileID: 8300000, guid: a3cc7c1e692ea3a4f8306fe791fa05b0, type: 3}
+    - {fileID: 8300000, guid: c0f9afb9b11ef3146988f7ba1e06204e, type: 3}
     volume: 0.85
     randomizePitch: 1
     pitchVariance: 0.06
     minInterval: 0.05
   levelFailed:
-    clips: []
+    clips:
+    - {fileID: 8300000, guid: 3140c4f55e881854fbd02f94cc0f4534, type: 3}
     volume: 0.8
     randomizePitch: 0
     pitchVariance: 0
     minInterval: 0.1
   powerUpActivated:
-    clips: []
+    clips:
+    - {fileID: 8300000, guid: 5736003acecdae04caef46849fc04242, type: 3}
     volume: 0.85
     randomizePitch: 1
     pitchVariance: 0.06
     minInterval: 0.04
   coinCollect:
-    clips: []
+    clips:
+    - {fileID: 8300000, guid: de69f4e261f45bf4cbae410cf65aa351, type: 3}
     volume: 0.85
     randomizePitch: 1
     pitchVariance: 0.08
     minInterval: 0.02
   starCollect:
-    clips: []
+    clips:
+    - {fileID: 8300000, guid: 949ca484d5c9ee943a9dcd63fc7d07f2, type: 3}
     volume: 0.85
     randomizePitch: 1
     pitchVariance: 0.08
     minInterval: 0.02
   buttonClick:
-    clips: []
+    clips:
+    - {fileID: 8300000, guid: f44ad4aff284681418424c58d55bb00d, type: 3}
+    - {fileID: 8300000, guid: 9e23a41b5b668e04b8174f3fde38617e, type: 3}
     volume: 0.75
     randomizePitch: 1
     pitchVariance: 0.05
     minInterval: 0.03
   tabSwitch:
-    clips: []
+    clips:
+    - {fileID: 8300000, guid: cde6ca0ffbbed1149b325166dae3e50e, type: 3}
     volume: 0.75
     randomizePitch: 1
     pitchVariance: 0.05
     minInterval: 0.03
   panelOpen:
-    clips: []
+    clips:
+    - {fileID: 8300000, guid: d90552cfe94c8d04fa968a1d023114a1, type: 3}
     volume: 0.7
     randomizePitch: 0
     pitchVariance: 0
     minInterval: 0.05
   panelClose:
-    clips: []
+    clips:
+    - {fileID: 8300000, guid: d15cee605cbf61f4584fee5f1ceb4928, type: 3}
     volume: 0.65
     randomizePitch: 0
     pitchVariance: 0
     minInterval: 0.05
   rewardClaim:
-    clips: []
+    clips:
+    - {fileID: 8300000, guid: b93c214de68474c4ea8f515bf2d6ce77, type: 3}
     volume: 0.85
     randomizePitch: 0
     pitchVariance: 0
     minInterval: 0.05
   purchaseSuccess:
-    clips: []
+    clips:
+    - {fileID: 8300000, guid: dbdaae7a52abcf342b3409a1f397cedb, type: 3}
     volume: 0.85
     randomizePitch: 0
     pitchVariance: 0
     minInterval: 0.05
   errorOrLocked:
-    clips: []
+    clips:
+    - {fileID: 8300000, guid: 2711441cfaf51054d8bcbfb3ae5588ac, type: 3}
     volume: 0.8
     randomizePitch: 0
     pitchVariance: 0
     minInterval: 0.05
   blindBoxOpen:
-    clips: []
+    clips:
+    - {fileID: 8300000, guid: 39f21feeceb674544afcd9cf2a5368d2, type: 3}
     volume: 0.85
     randomizePitch: 0
     pitchVariance: 0
     minInterval: 0.05
   victoryPopup:
-    clips: []
+    clips:
+    - {fileID: 8300000, guid: e5adf619752a0654198f0b4c1df81c8f, type: 3}
     volume: 0.85
     randomizePitch: 0
     pitchVariance: 0
     minInterval: 0.1
   defeatPopup:
-    clips: []
+    clips:
+    - {fileID: 8300000, guid: bcd49b2bfde776c4bb60d78214cf6d01, type: 3}
     volume: 0.85
     randomizePitch: 0
     pitchVariance: 0
     minInterval: 0.1
+  currencyCountTick:
+    clips:
+    - {fileID: 8300000, guid: 3d46490f656b40a49889495ddb3389fb, type: 3}
+    volume: 0.65
+    randomizePitch: 1
+    pitchVariance: 0.06
+    minInterval: 0.045

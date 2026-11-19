@@ -13,21 +13,44 @@ MonoBehaviour:
   m_Name: Echo
   m_EditorClassIdentifier: Assembly-CSharp::PowerUpData
   id: echo
-  displayName: Quantum Echo
-  description: Anchors a stationary quantum imprint of Subject G-0 for 5 seconds;
-    trigger again or take a hit to snap back.
+  upgradeStat: 1
+  statUnitLabel: sec
+  statValueFormat: 0.0
+  levelSteps:
+  - upgradeCostCoins: 0
+    statValue: 5.5
+    cooldownSeconds: 20
+  - upgradeCostCoins: 125
+    statValue: 6.3
+    cooldownSeconds: 18
+  - upgradeCostCoins: 250
+    statValue: 7.2
+    cooldownSeconds: 16
+  - upgradeCostCoins: 400
+    statValue: 8.1
+    cooldownSeconds: 14
+  - upgradeCostCoins: 600
+    statValue: 9
+    cooldownSeconds: 12
+  displayName: Temporal Anchor
+  description: Sets an anchor and rewinds you to safety on hit.
   icon: {fileID: -5454864623531465198, guid: bde1dbdb8e75ad24e9ca927c33b52cc8, type: 3}
   powerUpType: 3
-  isCampaignActiveSkill: 0
-  inventoryCap: 12
+  isCampaignActiveSkill: 1
+  inventoryCap: 8
   initialTutorialCharges: 0
-  duration: 5
+  duration: 5.5
   effectValue: 0
   pullSpeed: 12
   maxWallCells: 2
   maxTrapsDestroyed: 1
   minWallTraversal: 1
   maxWallTraversal: 3
-  usageLimit: 1
+  usageLimit: 0
   cooldown: 0
-  isConsumable: 1
+  isConsumable: 0
+  activationMode: 0
+  unlockedByDefault: 0
+  coinDiscountPerShard: 25
+  timeDilationScale: 0.3
+  baseCooldownSeconds: 20

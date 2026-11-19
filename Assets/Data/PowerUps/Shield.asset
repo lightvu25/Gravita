@@ -13,13 +13,31 @@ MonoBehaviour:
   m_Name: Shield
   m_EditorClassIdentifier: Assembly-CSharp::PowerUpData
   id: shield
-  displayName: Phase Skin
-  description: Deploys an ablative phase barrier around Subject G-0 that absorbs
-    one lethal hazard or drone impact.
+  upgradeStat: 4
+  statUnitLabel: cd sec
+  statValueFormat: 0.0
+  levelSteps:
+  - upgradeCostCoins: 0
+    statValue: 18
+    cooldownSeconds: 18
+  - upgradeCostCoins: 125
+    statValue: 16
+    cooldownSeconds: 16
+  - upgradeCostCoins: 250
+    statValue: 14
+    cooldownSeconds: 14
+  - upgradeCostCoins: 400
+    statValue: 12
+    cooldownSeconds: 12
+  - upgradeCostCoins: 600
+    statValue: 10
+    cooldownSeconds: 10
+  displayName: Inertia Core
+  description: Auto-blocks one lethal hit and breaks traps.
   icon: {fileID: -7709080041201895459, guid: d5d61d96eda6621458a739ca4d2453c6, type: 3}
   powerUpType: 0
-  isCampaignActiveSkill: 0
-  inventoryCap: 12
+  isCampaignActiveSkill: 1
+  inventoryCap: 10
   initialTutorialCharges: 0
   duration: 0
   effectValue: 1
@@ -28,6 +46,11 @@ MonoBehaviour:
   maxTrapsDestroyed: 1
   minWallTraversal: 1
   maxWallTraversal: 3
-  usageLimit: 1
+  usageLimit: 0
   cooldown: 0
-  isConsumable: 1
+  isConsumable: 0
+  activationMode: 1
+  unlockedByDefault: 0
+  coinDiscountPerShard: 25
+  timeDilationScale: 0.3
+  baseCooldownSeconds: 18

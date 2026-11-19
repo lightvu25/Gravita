@@ -15,4 +15,10 @@ public interface IFreezable
 
     /// <summary>Restores the object's previous pre-freeze state.</summary>
     void UnfreezeTarget();
+
+    /// <summary>Slows animator/simulation visuals and optionally suppresses lethality during Time Dilation.</summary>
+    void ApplyTimeDilation(float timeScale, bool suppressLethality);
+
+    /// <summary>Restores normal speed and visuals after Time Dilation expires.</summary>
+    void ClearTimeDilation();
 }

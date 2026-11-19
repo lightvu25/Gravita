@@ -576,7 +576,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HouseFlow.UI.LevelNodeWidget
   levelTitleText: {fileID: 1173698241889338028}
-  selectButton: {fileID: 0}
+  selectButton: {fileID: 3022867988896932697}
   lockOverlay: {fileID: 8593225286045813561}
   stars:
   - {fileID: 7038706948875090008}

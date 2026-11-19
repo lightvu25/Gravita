@@ -24,9 +24,10 @@ public class RevivePopupUI : MonoBehaviour, IUIPanel
     [Header("Dismiss / Give Up Button")]
     [SerializeField] private Button dismissButton;
 
-    private UIPanelAnimator panelAnimator;
-    private UIPanelAnimator PanelAnimator =>
-        panelAnimator != null ? panelAnimator : (panelAnimator = GetComponent<UIPanelAnimator>());
+    [Header("Optional Animation (Leave Empty for No Panel Animation)")]
+    [SerializeField] private UIPanelAnimator panelAnimator;
+
+    private UIPanelAnimator PanelAnimator => panelAnimator;
 
     private bool buttonsBound;
     private bool economySubscribed;
@@ -96,7 +97,7 @@ public class RevivePopupUI : MonoBehaviour, IUIPanel
     private void ResolveReferences()
     {
         if (flowController == null)
-            flowController = FindAnyObjectByType<LevelFlowController>();
+            flowController = LevelFlowController.ResolveInstance();
     }
 
     private void BindButtons()

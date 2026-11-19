@@ -23,13 +23,14 @@ public class AchievementPanelUI : MonoBehaviour, IUIPanel
 
     [Header("Achievement List")]
     [SerializeField] private Transform rowContainer;
-    [SerializeField] private AchievementRowWidget rowPrefab;
+    [SerializeField] private GameObject rowPrefab;
     [SerializeField] private GameObject emptyStateRoot;
 
     [Header("Optional Animation (Leave Empty for No Panel Animation)")]
     [SerializeField] private UIPanelAnimator panelAnimator;
 
     private readonly List<AchievementRowWidget> spawnedRows = new List<AchievementRowWidget>();
+    private readonly List<AchievementRowWidget> rowPool = new List<AchievementRowWidget>();
     private bool buttonsBound;
     private bool subscribed;
     private bool isAnimatingRowClaim;
@@ -39,9 +40,6 @@ public class AchievementPanelUI : MonoBehaviour, IUIPanel
 
     private void Awake()
     {
-        if (rowPrefab != null && rowPrefab.gameObject.scene.IsValid())
-            rowPrefab.gameObject.SetActive(false);
-
         ConfigureNonBlockingSummarySlider();
         BindButtons();
     }
@@ -130,11 +128,6 @@ public class AchievementPanelUI : MonoBehaviour, IUIPanel
         MissionService.OnMissionProgressChanged += RefreshAll;
         if (ProgressionManager.Instance != null)
             ProgressionManager.Instance.OnProgressionChanged += RefreshAll;
-        if (EconomyManager.Instance != null)
-        {
-            EconomyManager.Instance.OnCoinsChanged += HandleCurrencyChanged;
-            EconomyManager.Instance.OnGemsChanged += HandleCurrencyChanged;
-        }
     }
 
     private void Unsubscribe()
@@ -146,24 +139,26 @@ public class AchievementPanelUI : MonoBehaviour, IUIPanel
         MissionService.OnMissionProgressChanged -= RefreshAll;
         if (ProgressionManager.Instance != null)
             ProgressionManager.Instance.OnProgressionChanged -= RefreshAll;
-        if (EconomyManager.Instance != null)
-        {
-            EconomyManager.Instance.OnCoinsChanged -= HandleCurrencyChanged;
-            EconomyManager.Instance.OnGemsChanged -= HandleCurrencyChanged;
-        }
     }
-
-    private void HandleCurrencyChanged(int newBalance, int delta) => RefreshAll();
 
     private void OnCloseClicked()
     {
         GameHaptics.Play(HapticEvent.UISelect);
         UIAudio.Play(UISoundType.ButtonClick);
 
-        if (UIManager.Instance != null && UIManager.Instance.IsPanelOpen(UIPanelType.Achievement))
-            UIManager.Instance.ClosePanelIfOpen(UIPanelType.Achievement);
+        if (UIManager.Instance != null)
+        {
+            if (UIManager.Instance.CurrentScreen == UIPanelType.Achievement)
+                UIManager.Instance.ShowScreen(UIPanelType.Map);
+            else if (UIManager.Instance.IsPanelOpen(UIPanelType.Achievement))
+                UIManager.Instance.ClosePanelIfOpen(UIPanelType.Achievement);
+            else
+                Hide();
+        }
         else
+        {
             Hide();
+        }
     }
 
     public void RefreshAll()
@@ -172,19 +167,8 @@ public class AchievementPanelUI : MonoBehaviour, IUIPanel
             return;
 
         MissionService.EnsureProfileMigratedAndUpdated();
-        SanitizeEllipsisOverflowModes();
         RefreshSummaryHeader();
         RefreshList();
-    }
-
-    private void SanitizeEllipsisOverflowModes()
-    {
-        TMP_Text[] texts = GetComponentsInChildren<TMP_Text>(true);
-        for (int i = 0; i < texts.Length; i++)
-        {
-            if (texts[i] != null && texts[i].overflowMode == TextOverflowModes.Ellipsis)
-                texts[i].overflowMode = TextOverflowModes.Truncate;
-        }
     }
 
     public void RefreshSummaryHeader()
@@ -236,24 +220,14 @@ public class AchievementPanelUI : MonoBehaviour, IUIPanel
     {
         if (rowContainer == null || rowPrefab == null) return;
 
-        RectTransform prefabRect = rowPrefab.transform as RectTransform;
-        float templateHeight = prefabRect != null
-            ? (prefabRect.rect.height > 0.01f ? prefabRect.rect.height : Mathf.Abs(prefabRect.sizeDelta.y))
-            : 0f;
-
-        if (rowPrefab.gameObject.scene.IsValid() && rowPrefab.gameObject.activeSelf)
-            rowPrefab.gameObject.SetActive(false);
-
-        for (int i = 0; i < spawnedRows.Count; i++)
-        {
-            if (spawnedRows[i] != null)
-                Destroy(spawnedRows[i].gameObject);
-        }
         spawnedRows.Clear();
-
-        RectTransform containerRect = rowContainer as RectTransform;
-        VerticalLayoutGroup layoutGroup = rowContainer.GetComponent<VerticalLayoutGroup>();
-        float containerWidth = ResolveContainerWidth(containerRect);
+        for (int i = rowPool.Count - 1; i >= 0; i--)
+        {
+            if (rowPool[i] == null)
+                rowPool.RemoveAt(i);
+            else
+                rowPool[i].gameObject.SetActive(false);
+        }
 
         if (achievementDatabase != null && achievementDatabase.Achievements != null)
         {
@@ -276,12 +250,12 @@ public class AchievementPanelUI : MonoBehaviour, IUIPanel
                     incomplete.Add(def);
             }
 
-            SpawnRows(claimable, prefabRect, layoutGroup, containerWidth, templateHeight);
-            SpawnRows(incomplete, prefabRect, layoutGroup, containerWidth, templateHeight);
-            SpawnRows(claimed, prefabRect, layoutGroup, containerWidth, templateHeight);
+            SpawnRows(claimable);
+            SpawnRows(incomplete);
+            SpawnRows(claimed);
         }
 
-        if (containerRect != null)
+        if (rowContainer is RectTransform containerRect)
         {
             LayoutRebuilder.ForceRebuildLayoutImmediate(containerRect);
             ScrollRect parentScroll = containerRect.GetComponentInParent<ScrollRect>();
@@ -289,97 +263,49 @@ public class AchievementPanelUI : MonoBehaviour, IUIPanel
                 parentScroll.verticalNormalizedPosition = 1f;
         }
 
-        if (emptyStateRoot != null && (rowPrefab == null || emptyStateRoot != rowPrefab.gameObject))
+        if (emptyStateRoot != null && emptyStateRoot != rowPrefab)
             emptyStateRoot.SetActive(spawnedRows.Count == 0);
     }
 
-    private void SpawnRows(
-        List<AchievementDefinition> list,
-        RectTransform prefabRect,
-        VerticalLayoutGroup layoutGroup,
-        float containerWidth,
-        float templateHeight)
+    private void SpawnRows(List<AchievementDefinition> list)
     {
         for (int i = 0; i < list.Count; i++)
         {
-            AchievementDefinition def = list[i];
-            AchievementRowWidget row = Instantiate(rowPrefab, rowContainer, false);
-            ConfigureSpawnedRowLayout(row, prefabRect, layoutGroup, containerWidth, templateHeight);
+            int poolIndex = spawnedRows.Count;
+            AchievementRowWidget row = GetOrCreatePooledRow(poolIndex);
+            if (row == null)
+                return;
+
+            row.transform.SetSiblingIndex(poolIndex);
+            row.transform.localScale = Vector3.one;
             row.gameObject.SetActive(true);
-            row.Setup(def, OnClaimAchievementPressed);
+            row.Setup(list[i], OnClaimAchievementPressed);
             spawnedRows.Add(row);
         }
     }
 
-    private static float ResolveContainerWidth(RectTransform containerRect)
+    private AchievementRowWidget GetOrCreatePooledRow(int poolIndex)
     {
-        if (containerRect == null)
-            return 0f;
+        if (poolIndex < rowPool.Count && rowPool[poolIndex] != null)
+            return rowPool[poolIndex];
 
-        if (containerRect.rect.width > 0.01f)
-            return containerRect.rect.width;
-
-        Canvas.ForceUpdateCanvases();
-        if (containerRect.rect.width > 0.01f)
-            return containerRect.rect.width;
-
-        Transform current = containerRect.parent;
-        while (current != null)
+        GameObject rowObj = Instantiate(rowPrefab, rowContainer, false);
+        if (!rowObj.TryGetComponent(out AchievementRowWidget row))
         {
-            if (current is RectTransform parentRect && parentRect.rect.width > 0.01f)
-                return parentRect.rect.width;
-            current = current.parent;
+            Debug.LogError("[AchievementPanelUI] Assigned rowPrefab is missing AchievementRowWidget component.", this);
+            if (Application.isPlaying)
+                Destroy(rowObj);
+            else
+                DestroyImmediate(rowObj);
+            return null;
         }
 
-        return 0f;
-    }
+        if (poolIndex < rowPool.Count)
+            rowPool[poolIndex] = row;
+        else
+            rowPool.Add(row);
 
-    private static void ConfigureSpawnedRowLayout(
-        AchievementRowWidget row,
-        RectTransform prefabRect,
-        VerticalLayoutGroup layoutGroup,
-        float containerWidth,
-        float templateHeight)
-    {
-        if (row == null)
-            return;
-
-        RectTransform rowRect = row.transform as RectTransform;
-        if (rowRect == null)
-            return;
-
-        rowRect.localScale = Vector3.one;
-
-        if (layoutGroup == null)
-            return;
-
-        bool prefabStretchedHorizontally = prefabRect != null
-            && (prefabRect.anchorMax.x - prefabRect.anchorMin.x) > 0.5f;
-
-        float horizontalMargin = prefabStretchedHorizontally ? prefabRect.sizeDelta.x : 0f;
-        float targetWidth = containerWidth > 0.01f
-            ? Mathf.Max(0f, containerWidth - layoutGroup.padding.left - layoutGroup.padding.right + horizontalMargin)
-            : rowRect.sizeDelta.x;
-        float targetHeight = templateHeight > 0.01f ? templateHeight : rowRect.sizeDelta.y;
-
-        Vector2 updatedSize = rowRect.sizeDelta;
-        if (!layoutGroup.childControlWidth && prefabStretchedHorizontally && targetWidth > 0.01f)
-            updatedSize.x = targetWidth;
-        if (!layoutGroup.childControlHeight && targetHeight > 0.01f)
-            updatedSize.y = targetHeight;
-        rowRect.sizeDelta = updatedSize;
-
-        LayoutElement layoutElement = row.GetComponent<LayoutElement>();
-        if (layoutElement == null && (layoutGroup.childControlWidth || layoutGroup.childControlHeight))
-            layoutElement = row.gameObject.AddComponent<LayoutElement>();
-
-        if (layoutElement != null)
-        {
-            if (targetHeight > 0.01f && layoutElement.preferredHeight <= 0f)
-                layoutElement.preferredHeight = targetHeight;
-            if (prefabStretchedHorizontally && layoutElement.flexibleWidth <= 0f)
-                layoutElement.flexibleWidth = 1f;
-        }
+        return row;
     }
 
     private AchievementRowWidget FindSpawnedRow(AchievementDefinition achievement)

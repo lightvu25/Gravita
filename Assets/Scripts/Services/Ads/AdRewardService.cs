@@ -184,8 +184,14 @@ public class AdRewardService : MonoBehaviour
         if (AdPolicyCoordinator.IsResultScreenPlacement(placement) || placement == RewardedAdPlacement.ShopBonus)
         {
             RewardItem fixedItem = AdPolicyCoordinator.GetFixedRewardForPlacement(placement);
+            RewardItem payoutItem = (AdPolicyCoordinator.IsResultScreenPlacement(placement)
+                                     && fixedItem.Type == RewardType.Coins
+                                     && contextValue > 0)
+                ? new RewardItem(RewardType.Coins, contextValue)
+                : fixedItem;
+
             var bundle = new RewardBundle();
-            bundle.Add(fixedItem);
+            bundle.Add(payoutItem);
 
             if (!TryExecuteAdPayoutTransaction(placement, bundle, requestId, out _))
                 return false;
@@ -196,8 +202,8 @@ public class AdRewardService : MonoBehaviour
                 AdPolicyCoordinator.SuppressNextResultTransitionInterstitial = true;
             }
 
-            AdPolicyCoordinator.NotifyAdCompleted(placement, fixedItem);
-            OnAdRewardGranted?.Invoke(placement, fixedItem.Amount);
+            AdPolicyCoordinator.NotifyAdCompleted(placement, payoutItem);
+            OnAdRewardGranted?.Invoke(placement, payoutItem.Amount);
             return true;
         }
 

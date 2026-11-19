@@ -12,6 +12,9 @@ public class BlindBoxService : MonoBehaviour
 {
     public static BlindBoxService Instance { get; private set; }
 
+    /// <summary>Fired after the daily mystery box claim state commits to ProfileData.</summary>
+    public static event Action OnDailyBoxStateChanged;
+
     [Header("Loot Pack ScriptableObject (Shared with Shop Pack Logic)")]
     [Tooltip("ScriptableObject defining drop rates (sum = 100%) and per-item Soft/Hard Pity rules.")]
     [SerializeField] private LootPackDefinition lootPack;
@@ -19,11 +22,15 @@ public class BlindBoxService : MonoBehaviour
     [Header("Fallback Loot Table (Used when lootPack is unassigned)")]
     [SerializeField] private List<BlindBoxRewardEntry> rewardTable = new List<BlindBoxRewardEntry>
     {
-        new BlindBoxRewardEntry { type = RewardType.Coins,   minAmount = 15, maxAmount = 30, weight = 40, displayName = "Coins" },
-        new BlindBoxRewardEntry { type = RewardType.Coins,   minAmount = 50, maxAmount = 80, weight = 15, displayName = "Coins" },
-        new BlindBoxRewardEntry { type = RewardType.Gems,    minAmount = 1,  maxAmount = 2,  weight = 20, displayName = "Gems" },
-        new BlindBoxRewardEntry { type = RewardType.Gems,    minAmount = 3,  maxAmount = 5,  weight = 5,  displayName = "Gems" },
-        new BlindBoxRewardEntry { type = RewardType.PowerUp, itemId = PowerUpIds.Breaker, minAmount = 1, maxAmount = 1, weight = 20, displayName = "Breaker" },
+        new BlindBoxRewardEntry { type = RewardType.Coins,   minAmount = 40, maxAmount = 60,  weight = 32, displayName = "40-60 Coins" },
+        new BlindBoxRewardEntry { type = RewardType.Coins,   minAmount = 90, maxAmount = 130, weight = 20, displayName = "90-130 Coins" },
+        new BlindBoxRewardEntry { type = RewardType.Gems,    minAmount = 4,  maxAmount = 6,   weight = 15, displayName = "4-6 Gems" },
+        new BlindBoxRewardEntry { type = RewardType.PowerUp, itemId = PowerUpIds.Breaker,  minAmount = 1, maxAmount = 1, weight = 10, displayName = "1x Kinetic Surge" },
+        new BlindBoxRewardEntry { type = RewardType.PowerUp, itemId = PowerUpIds.Freeze,   minAmount = 1, maxAmount = 1, weight = 8,  displayName = "1x Time Dilation" },
+        new BlindBoxRewardEntry { type = RewardType.PowerUp, itemId = PowerUpIds.Teleport, minAmount = 1, maxAmount = 1, weight = 6,  displayName = "1x Phase Shift" },
+        new BlindBoxRewardEntry { type = RewardType.PowerUp, itemId = PowerUpIds.Shield,   minAmount = 1, maxAmount = 1, weight = 4,  displayName = "1x Inertia Core" },
+        new BlindBoxRewardEntry { type = RewardType.PowerUp, itemId = PowerUpIds.Magnet,   minAmount = 1, maxAmount = 1, weight = 3,  displayName = "1x Gravity Lens" },
+        new BlindBoxRewardEntry { type = RewardType.PowerUp, itemId = PowerUpIds.Echo,     minAmount = 1, maxAmount = 1, weight = 2,  displayName = "1x Temporal Anchor" },
     };
 
     /// <summary>True once the current box has been opened.</summary>
@@ -32,11 +39,14 @@ public class BlindBoxService : MonoBehaviour
     /// <summary>True once the rolled reward has already been doubled via ad.</summary>
     public bool IsDoubled { get; private set; }
 
-    /// <summary>Human-readable label of the last rolled reward.</summary>
+    /// <summary>Human-readable label of the last rolled reward(s).</summary>
     public string LastRewardLabel { get; private set; } = "";
 
-    /// <summary>Details of the most recent roll (entry, amount, effective rate, hard pity trigger).</summary>
+    /// <summary>Primary details of the most recent roll (first item when multi-drop).</summary>
     public LootRollResult LastRollResult { get; private set; }
+
+    /// <summary>All items rolled in the most recent box open.</summary>
+    public IReadOnlyList<LootRollResult> LastRollResults => lastRollResults;
 
     public LootPackDefinition LootPack
     {
@@ -44,8 +54,10 @@ public class BlindBoxService : MonoBehaviour
         set => lootPack = value;
     }
 
+    private readonly List<LootRollResult> lastRollResults = new List<LootRollResult>(5);
     private RewardBundle lastBundle;
     private LootPackDefinition runtimeFallbackPack;
+    private bool openedFromMenu;
 
     private void Awake()
     {
@@ -65,7 +77,10 @@ public class BlindBoxService : MonoBehaviour
 
         if (runtimeFallbackPack != null)
         {
-            Destroy(runtimeFallbackPack);
+            if (Application.isPlaying)
+                Destroy(runtimeFallbackPack);
+            else
+                DestroyImmediate(runtimeFallbackPack);
             runtimeFallbackPack = null;
         }
     }
@@ -75,9 +90,28 @@ public class BlindBoxService : MonoBehaviour
     {
         IsOpened = false;
         IsDoubled = false;
+        openedFromMenu = false;
         lastBundle = null;
         LastRewardLabel = "";
         LastRollResult = default;
+        lastRollResults.Clear();
+    }
+
+    /// <summary>
+    /// Returns true when the player has not yet claimed today's local-calendar daily Mystery Box
+    /// (enforcing the monotonic anti-clock-rollback guard via <see cref="LocalClock"/>).
+    /// </summary>
+    public static bool CanClaimDailyBox(ProfileData profile = null)
+    {
+        ProfileData target = profile ?? SaveManager.loadProfile() ?? new ProfileData();
+        target.Sanitize();
+
+        LocalClock.EvaluateClockAndUpdateHighWater(target, LocalClock.Now, out DateTime effectiveNow, out bool isRolledBack);
+        if (isRolledBack && !string.IsNullOrEmpty(target.lastBlindBoxClaimDateKey))
+            return false;
+
+        string todayKey = LocalClock.FormatDateKey(effectiveNow);
+        return !string.Equals(target.lastBlindBoxClaimDateKey, todayKey, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -86,11 +120,17 @@ public class BlindBoxService : MonoBehaviour
     /// </summary>
     public RewardBundle Open(bool allowDirectMenuOpen = false)
     {
-        bool allowGems = EconomyBalanceConfig.Active.EnablePostLevelBlindBox;
-        if (!allowGems && !allowDirectMenuOpen)
+        bool configEnabled = EconomyBalanceConfig.Active.EnablePostLevelBlindBox;
+        if (!configEnabled && !allowDirectMenuOpen)
             return null;
 
         if (IsOpened)
+            return null;
+
+        ProfileData workingProfile = SaveManager.loadProfile() ?? new ProfileData();
+        workingProfile.Sanitize();
+
+        if (allowDirectMenuOpen && !CanClaimDailyBox(workingProfile))
             return null;
 
         LootPackDefinition activePack = ResolveActiveLootPack();
@@ -100,17 +140,13 @@ public class BlindBoxService : MonoBehaviour
             return null;
         }
 
-        ProfileData workingProfile = SaveManager.loadProfile() ?? new ProfileData();
-        workingProfile.Sanitize();
-
-        if (!activePack.TryRollSingle(workingProfile, out LootRollResult rollResult, allowGems: allowGems, customRng: null, mutateProfilePity: true))
+        bool allowGems = configEnabled || allowDirectMenuOpen;
+        RewardBundle bundle = activePack.RollConfiguredBundle(workingProfile, out List<LootRollResult> rollResults, allowGems: allowGems, customRng: null, mutateProfilePity: true);
+        if (bundle == null || bundle.IsEmpty || rollResults == null || rollResults.Count == 0)
         {
             Debug.LogWarning("[BlindBoxService] Loot table roll produced no eligible entry.");
             return null;
         }
-
-        var bundle = new RewardBundle();
-        bundle.Add(rollResult.Reward);
 
         var tx = new RewardTransaction
         {
@@ -125,6 +161,12 @@ public class BlindBoxService : MonoBehaviour
                 p.lootPackPityCounts.Clear();
                 p.lootPackPityKeys.AddRange(workingProfile.lootPackPityKeys);
                 p.lootPackPityCounts.AddRange(workingProfile.lootPackPityCounts);
+
+                if (allowDirectMenuOpen)
+                {
+                    LocalClock.EvaluateClockAndUpdateHighWater(p, LocalClock.Now, out DateTime claimNow, out _);
+                    p.lastBlindBoxClaimDateKey = LocalClock.FormatDateKey(claimNow);
+                }
             }
         };
 
@@ -136,11 +178,24 @@ public class BlindBoxService : MonoBehaviour
         }
 
         lastBundle = bundle;
-        LastRollResult = rollResult;
+        lastRollResults.Clear();
+        lastRollResults.AddRange(rollResults);
+        LastRollResult = rollResults[0];
         IsOpened = true;
-        LastRewardLabel = rollResult.FormattedLabel;
+        openedFromMenu = allowDirectMenuOpen;
 
-        Debug.Log($"[BlindBoxService] Box opened — rolled '{LastRewardLabel}' (EffectiveRate={rollResult.EffectiveDropRate:0.##}%, HardPity={rollResult.TriggeredHardPity}).");
+        var labels = new List<string>(rollResults.Count);
+        for (int i = 0; i < rollResults.Count; i++)
+        {
+            if (!string.IsNullOrEmpty(rollResults[i].FormattedLabel))
+                labels.Add(rollResults[i].FormattedLabel);
+        }
+        LastRewardLabel = string.Join(", ", labels);
+
+        if (allowDirectMenuOpen)
+            OnDailyBoxStateChanged?.Invoke();
+
+        Debug.Log($"[BlindBoxService] Box opened ({rollResults.Count} drops) — rolled '{LastRewardLabel}'.");
         return bundle;
     }
 
@@ -149,7 +204,7 @@ public class BlindBoxService : MonoBehaviour
     /// </summary>
     public void DoubleWithAd(Action<bool> onComplete = null)
     {
-        if (!EconomyBalanceConfig.Active.EnablePostLevelBlindBox || !IsOpened || IsDoubled || lastBundle == null)
+        if ((!EconomyBalanceConfig.Active.EnablePostLevelBlindBox && !openedFromMenu) || !IsOpened || IsDoubled || lastBundle == null)
         {
             onComplete?.Invoke(false);
             return;
@@ -214,6 +269,7 @@ public class BlindBoxService : MonoBehaviour
         }
 
         runtimeFallbackPack.Configure("blindbox_default", "Blind Box", convertedEntries, normalizeTo100: true);
+        runtimeFallbackPack.ConfigureMultiDrop(3, 4, preferDistinct: true);
         return runtimeFallbackPack;
     }
 

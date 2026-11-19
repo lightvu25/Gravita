@@ -72,6 +72,8 @@ public class ObjectiveSystem : MonoBehaviour
             return;
         }
 
+        UnsubscribeSubscriptions();
+
         currentLayout = layout;
         if (currentLayout != null)
             currentLayout.OnCollectibleCollected += HandleCollectibleCollected;
@@ -145,6 +147,26 @@ public class ObjectiveSystem : MonoBehaviour
         }
     }
 
+    private void OnDestroy()
+    {
+        UnsubscribeSubscriptions();
+    }
+
+    private void UnsubscribeSubscriptions()
+    {
+        if (currentLayout != null)
+        {
+            currentLayout.OnCollectibleCollected -= HandleCollectibleCollected;
+            currentLayout = null;
+        }
+
+        if (primaryObjective != null)
+        {
+            primaryObjective.OnCompleted -= HandlePrimaryObjectiveCompleted;
+            primaryObjective = null;
+        }
+    }
+
     // ─────────────────────────────────────────────────────────────
     //  Event Handlers
     // ─────────────────────────────────────────────────────────────
@@ -152,12 +174,12 @@ public class ObjectiveSystem : MonoBehaviour
     private void HandleCollectibleCollected(Collectible collectible)
     {
         if (primaryObjective is CollectPickupsObjective primary)
-            primary.NotifyPickupCollected();
+            primary.NotifyPickupCollected(collectible);
 
         for (int i = 0; i < optionalObjectives.Count; i++)
         {
             if (optionalObjectives[i] is CollectPickupsObjective opt)
-                opt.NotifyPickupCollected();
+                opt.NotifyPickupCollected(collectible);
         }
     }
 
@@ -165,18 +187,5 @@ public class ObjectiveSystem : MonoBehaviour
     {
         Debug.Log("[ObjectiveSystem] Primary objective completed!");
         OnPrimaryObjectiveCompleted?.Invoke();
-    }
-
-    // ─────────────────────────────────────────────────────────────
-    //  Unity Lifecycle
-    // ─────────────────────────────────────────────────────────────
-
-    private void OnDestroy()
-    {
-        if (primaryObjective != null)
-            primaryObjective.OnCompleted -= HandlePrimaryObjectiveCompleted;
-
-        if (currentLayout != null)
-            currentLayout.OnCollectibleCollected -= HandleCollectibleCollected;
     }
 }

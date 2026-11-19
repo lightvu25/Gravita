@@ -317,6 +317,8 @@ public class LoginUI : MonoBehaviour, IUIPanel
 
     private void ShowStatus(string message)
     {
-        if (statusText != null) statusText.text = message ?? string.Empty;
+        if (statusText == null) return;
+        statusText.textWrappingMode = TextWrappingModes.Normal;
+        statusText.text = message ?? string.Empty;
     }
 }

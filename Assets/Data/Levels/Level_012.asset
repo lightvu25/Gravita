@@ -23,7 +23,7 @@ MonoBehaviour:
     description: 'Intro: Freeze Timing Corridors'
   optionalObjectives:
   - objectiveType: 1
-    requiredCount: 2
+    requiredCount: 3
     description: Collect bonus stars along the route
   baseCoinReward: 20
   optionalCoinBonus: 5

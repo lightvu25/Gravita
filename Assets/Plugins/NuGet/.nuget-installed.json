@@ -1,25 +1,25 @@
 {
   "packages": {
     "com.IvanMurzak.McpPlugin": {
-      "version": "8.22.1",
+      "version": "8.24.0",
       "dlls": [
         "McpPlugin.dll"
       ]
     },
     "com.IvanMurzak.McpPlugin.Common": {
-      "version": "8.22.1",
+      "version": "8.24.0",
       "dlls": [
         "McpPlugin.Common.dll"
       ]
     },
     "com.IvanMurzak.ReflectorNet": {
-      "version": "5.5.2",
+      "version": "5.5.3",
       "dlls": [
         "ReflectorNet.dll"
       ]
     },
     "com.IvanMurzak.Rql": {
-      "version": "0.3.0",
+      "version": "0.4.1",
       "dlls": [
         "Rql.Contracts.dll",
         "Rql.Execution.dll",
@@ -175,7 +175,7 @@
       ]
     },
     "R3": {
-      "version": "1.3.0",
+      "version": "1.3.1",
       "dlls": [
         "R3.dll"
       ]

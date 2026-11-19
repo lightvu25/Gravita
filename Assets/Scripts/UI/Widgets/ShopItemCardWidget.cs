@@ -92,7 +92,7 @@ public class ShopItemCardWidget : MonoBehaviour
 
         if (iconImage != null && boundItem.Icon != null)
         {
-            iconImage.SetSpriteNative(boundItem.Icon);
+            iconImage.sprite = boundItem.Icon;
             iconImage.enabled = true;
         }
 
@@ -100,7 +100,7 @@ public class ShopItemCardWidget : MonoBehaviour
         {
             if (boundItem.CostIcon != null)
             {
-                costCurrencyIcon.SetSpriteNative(boundItem.CostIcon);
+                costCurrencyIcon.sprite = boundItem.CostIcon;
                 costCurrencyIcon.gameObject.SetActive(true);
             }
             else

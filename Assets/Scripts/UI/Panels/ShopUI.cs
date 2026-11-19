@@ -46,7 +46,7 @@ public class ShopUI : MonoBehaviour, IUIPanel
     [FormerlySerializedAs("acclaimText")]
     [SerializeField] private Transform itemsContainer;
     [FormerlySerializedAs("itemCardWidgetTemplate")]
-    [SerializeField] private ShopItemCardWidget itemCardPrefab;
+    [SerializeField] private GameObject itemCardPrefab;
     [SerializeField] private TMP_Text feedbackText;
 
     [Header("Optional Shop Actions")]
@@ -107,9 +107,6 @@ public class ShopUI : MonoBehaviour, IUIPanel
         }
 
         BindButtons();
-
-        if (itemCardPrefab != null && itemCardPrefab.gameObject.scene.IsValid())
-            itemCardPrefab.gameObject.SetActive(false);
     }
 
     private void OnEnable()
@@ -419,19 +416,18 @@ public class ShopUI : MonoBehaviour, IUIPanel
         return true;
     }
 
-    private void ClearSpawnedCards(GameObject templateObj)
+    private void ClearSpawnedCards()
     {
-        if (itemsContainer != null)
+        for (int i = spawnedWidgets.Count - 1; i >= 0; i--)
         {
-            for (int i = itemsContainer.childCount - 1; i >= 0; i--)
-            {
-                Transform child = itemsContainer.GetChild(i);
-                if (child.gameObject == templateObj) continue;
-                if (Application.isPlaying)
-                    Destroy(child.gameObject);
-                else
-                    DestroyImmediate(child.gameObject);
-            }
+            ShopItemCardWidget widget = spawnedWidgets[i];
+            if (widget == null)
+                continue;
+
+            if (Application.isPlaying)
+                Destroy(widget.gameObject);
+            else
+                DestroyImmediate(widget.gameObject);
         }
 
         spawnedWidgets.Clear();
@@ -442,11 +438,7 @@ public class ShopUI : MonoBehaviour, IUIPanel
         if (itemCardPrefab == null || itemsContainer == null)
             return;
 
-        GameObject templateObj = itemCardPrefab.gameObject;
-        if (templateObj.scene.IsValid() && templateObj.activeSelf)
-            templateObj.SetActive(false);
-
-        ClearSpawnedCards(templateObj);
+        ClearSpawnedCards();
 
         ShopDatabase db = ResolveDatabase();
         if (db == null || db.Items == null)
@@ -458,9 +450,20 @@ public class ShopUI : MonoBehaviour, IUIPanel
             if (activeCategory != ShopTabCategory.All && item.ShopTab != activeCategory)
                 continue;
 
-            ShopItemCardWidget widget = Instantiate(itemCardPrefab, itemsContainer);
-            widget.name = $"ShopCard_{item.ItemId}";
-            widget.gameObject.SetActive(true);
+            GameObject cardObj = Instantiate(itemCardPrefab, itemsContainer, false);
+            if (!cardObj.TryGetComponent(out ShopItemCardWidget widget))
+            {
+                Debug.LogError("[ShopUI] Assigned itemCardPrefab is missing ShopItemCardWidget component.", this);
+                if (Application.isPlaying)
+                    Destroy(cardObj);
+                else
+                    DestroyImmediate(cardObj);
+                break;
+            }
+
+            cardObj.name = $"ShopCard_{item.ItemId}";
+            cardObj.transform.localScale = Vector3.one;
+            cardObj.SetActive(true);
             widget.Setup(item, OnBuyClicked, iapManager, shopManager);
             spawnedWidgets.Add(widget);
         }

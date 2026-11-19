@@ -22,6 +22,27 @@ public static class VfxSpawner
     private static readonly Dictionary<EntityId, EffectPrefabCategory> CategoryCache =
         new Dictionary<EntityId, EffectPrefabCategory>(32);
 
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetCache()
+    {
+        CategoryCache.Clear();
+    }
+
+    /// <summary>
+    /// Prewarms inactive pooled instances for the given VFX prefab so first-time playback stays stutter-free.
+    /// </summary>
+    public static void Prewarm(GameObject prefab, int initialSize = 2)
+    {
+        if (prefab == null || initialSize <= 0)
+            return;
+
+        EffectPrefabCategory category = ResolveCategory(prefab);
+        ObjectPoolManager.PoolType poolType = category == EffectPrefabCategory.Particle
+            ? ObjectPoolManager.PoolType.ParticleSystem
+            : ObjectPoolManager.PoolType.GameObject;
+        ObjectPoolManager.PrewarmPool(prefab, initialSize, poolType);
+    }
+
     /// <summary>
     /// Spawns an effect prefab (ParticleSystem, Animator/Animation, or generic GameObject) at the given
     /// world position and rotation using the project's pooled spawners.

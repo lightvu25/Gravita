@@ -15,21 +15,25 @@ MonoBehaviour:
   id: freeze
   upgradeStat: 1
   statUnitLabel: sec
-  statValueFormat: 0.00
+  statValueFormat: 0.0
   levelSteps:
   - upgradeCostCoins: 0
     statValue: 4
+    cooldownSeconds: 16
   - upgradeCostCoins: 100
-    statValue: 5
+    statValue: 4.6
+    cooldownSeconds: 14.5
   - upgradeCostCoins: 200
-    statValue: 6
+    statValue: 5.2
+    cooldownSeconds: 13
   - upgradeCostCoins: 350
-    statValue: 7
+    statValue: 5.8
+    cooldownSeconds: 11.5
   - upgradeCostCoins: 500
-    statValue: 8
-  displayName: EMP Pulse
-  description: Broadcasts an electromagnetic surge that freezes Sentinel Drones and
-    active security hazards for 4 seconds.
+    statValue: 6.5
+    cooldownSeconds: 10
+  displayName: Time Dilation
+  description: Slows down hazards, drones, and collapsing tiles.
   icon: {fileID: 8991669763242023314, guid: 83ca2ff00fc231743961308a05867c43, type: 3}
   powerUpType: 5
   isCampaignActiveSkill: 1
@@ -42,6 +46,11 @@ MonoBehaviour:
   maxTrapsDestroyed: 1
   minWallTraversal: 1
   maxWallTraversal: 3
-  usageLimit: 1
+  usageLimit: 0
   cooldown: 0
-  isConsumable: 1
+  isConsumable: 0
+  activationMode: 2
+  unlockedByDefault: 1
+  coinDiscountPerShard: 25
+  timeDilationScale: 0.3
+  baseCooldownSeconds: 16

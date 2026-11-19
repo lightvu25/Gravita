@@ -67,6 +67,8 @@ crashlytics-build.properties
 .claude/
 .vs/
 AgentScripts/
+graphify-out/
+**/graphify-out/
 
 docs/
 Assets/Editor Default Resources

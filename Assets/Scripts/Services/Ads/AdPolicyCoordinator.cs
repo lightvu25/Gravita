@@ -122,7 +122,7 @@ public static class AdPolicyCoordinator
         }
 
         // GDD §7.1: Rewarded Ads must NEVER appear during active puzzle gameplay
-        LevelFlowController flow = UnityEngine.Object.FindAnyObjectByType<LevelFlowController>();
+        LevelFlowController flow = LevelFlowController.ResolveInstance();
         if (flow != null && flow.CurrentState == LevelState.Playing)
         {
             blockReason = "MidGameplayForbidden";
@@ -213,12 +213,16 @@ public static class AdPolicyCoordinator
     }
 
     /// <summary>
-    /// Increments the completed-level counter toward the next Interstitial (GDD §8.1).
-    /// Must ONLY be called upon valid level completion — never on death, failure, or restart (§8.3).
+    /// Increments the play-session counter toward the next Interstitial (2-3 plays).
+    /// Counts completed levels and (when enabled by <see cref="EconomyBalanceConfig.CountFailedRunsTowardInterstitial"/>)
+    /// failed runs too.
     /// </summary>
-    public static void RecordCompletedLevelForInterstitialCadence()
+    public static void RecordPlayForInterstitialCadence(bool isCompletedRun = true)
     {
         if (IsRemoveAdsActive())
+            return;
+
+        if (!isCompletedRun && !EconomyBalanceConfig.Active.CountFailedRunsTowardInterstitial)
             return;
 
         ProfileData profile = SaveManager.loadProfile();
@@ -234,6 +238,12 @@ public static class AdPolicyCoordinator
         SaveManager.TrySaveProfile(profile);
     }
 
+    public static void RecordCompletedLevelForInterstitialCadence()
+        => RecordPlayForInterstitialCadence(isCompletedRun: true);
+
+    public static void RecordFailedRunForInterstitialCadence()
+        => RecordPlayForInterstitialCadence(isCompletedRun: false);
+
     public static bool CanShowInterstitialAtResultExit(out string suppressReason)
     {
         if (IsRemoveAdsActive())
@@ -243,7 +253,7 @@ public static class AdPolicyCoordinator
             return false;
         }
 
-        LevelFlowController flow = UnityEngine.Object.FindAnyObjectByType<LevelFlowController>();
+        LevelFlowController flow = LevelFlowController.ResolveInstance();
         if (flow != null && flow.CurrentState == LevelState.Playing)
         {
             suppressReason = "MidGameplayForbidden";

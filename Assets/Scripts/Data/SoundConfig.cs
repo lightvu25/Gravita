@@ -134,6 +134,22 @@ public class SoundConfig : ScriptableObject
     [Tooltip("Played when the player is deflected by an angled wedge.")]
     public SoundEntry wedgeRedirect = SoundEntry.CreateDefault(0.75f, true, 0.08f, 0.03f);
 
+    [Header("Gameplay — Kinetic Runway & Overclock")]
+    [Tooltip("Short harmonic tick played on each crossed grid tile while sliding (minInterval = 0.01s for 30 u/s).")]
+    public SoundEntry tileTick = SoundEntry.CreateDefault(0.35f, false, 0f, 0.01f);
+
+    [Tooltip("Played when player speed crosses into Cruise tier.")]
+    public SoundEntry tierUpCruise = SoundEntry.CreateDefault(0.55f, false, 0f, 0.08f);
+
+    [Tooltip("Played when player speed crosses into KineticRam tier.")]
+    public SoundEntry tierUpKinetic = SoundEntry.CreateDefault(0.70f, false, 0f, 0.08f);
+
+    [Tooltip("Played when a BrakeTile or GravityBlock magnetically anchors the player.")]
+    public SoundEntry brakeAnchor = SoundEntry.CreateDefault(0.55f, true, 0.05f, 0.04f);
+
+    [Tooltip("Played when CloseCallDetector triggers a razor-thin hazard escape.")]
+    public SoundEntry closeCallChime = SoundEntry.CreateDefault(0.75f, false, 0f, 0.08f);
+
     [Header("Gameplay — World & Level Flow")]
     [Tooltip("Played when a CrackedBlock is smashed.")]
     public SoundEntry crackedWallBreak = SoundEntry.CreateDefault(0.90f, true, 0.08f, 0.03f);

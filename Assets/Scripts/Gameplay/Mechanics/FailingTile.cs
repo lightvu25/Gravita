@@ -129,6 +129,9 @@ public class FailingTile : MazeTile, ICellInteraction, ILevelClockListener, ISwi
 
     public void OnLevelClockTick(float levelTime, float deltaTime)
     {
+        if (IsHaltedForDeath)
+            return;
+
         latestClockTime = levelTime;
         if (!isArmed || State == FailingTileState.Collapsed)
             return;
@@ -138,6 +141,18 @@ public class FailingTile : MazeTile, ICellInteraction, ILevelClockListener, ISwi
         ApplyState(next, force: false);
     }
 
+    public bool IsHaltedForDeath { get; private set; }
+
+    public void HaltForPlayerDeath()
+    {
+        IsHaltedForDeath = true;
+    }
+
+    public void RestoreAfterRevive()
+    {
+        IsHaltedForDeath = false;
+    }
+
     public void OnLevelClockReset()
     {
         ResetTile();
@@ -145,6 +160,7 @@ public class FailingTile : MazeTile, ICellInteraction, ILevelClockListener, ISwi
 
     public override void ResetTile()
     {
+        IsHaltedForDeath = false;
         isArmed = false;
         armedAtClockTime = 0f;
         latestClockTime = 0f;

@@ -86,7 +86,7 @@ public class IAPManager : MonoBehaviour
         if (!string.IsNullOrEmpty(price))
             return price;
 
-        return Application.isEditor ? "[MOCK] $0.99" : "--";
+        return Application.isEditor ? "$0.99" : "--";
     }
 
     /// <summary>

@@ -49,10 +49,12 @@ public class CutsceneManager : MonoBehaviour
     [Tooltip("Seconds to wait when no opening director is assigned.")]
     [SerializeField, Min(0f)] private float openingFallbackDuration = 0.6f;
     [Tooltip("Seconds to wait when no death director is assigned.")]
-    [SerializeField, Min(0f)] private float deathFallbackDuration = 0.8f;
+    [SerializeField, Min(0f)] private float deathFallbackDuration = 0.28f;
     [Tooltip("Seconds to wait when no goal director is assigned.")]
     [SerializeField, Min(0f)] private float goalFallbackDuration = 1.5f;
-    [Tooltip("Cover/reveal fade around the end-of-level transitions.")]
+    [Tooltip("Cover/reveal fade around the Death transition.")]
+    [SerializeField, Min(0f)] private float deathFadeDuration = 0.16f;
+    [Tooltip("Cover/reveal fade around the Goal transition.")]
     [SerializeField, Min(0f)] private float endFadeDuration = 0.4f;
 
     public PlayableDirector GoalDirector => goalDirector;
@@ -76,6 +78,7 @@ public class CutsceneManager : MonoBehaviour
 
     private PlayerMovement player;
     private Rigidbody2D playerBody;
+    private PlayerVisual playerVisual;
 
     private struct CanvasSortingState
     {
@@ -180,6 +183,23 @@ public class CutsceneManager : MonoBehaviour
             onComplete?.Invoke();
     }
 
+    /// <summary>
+    /// Stops any running cutscene sequence and reveals the screen transition overlay.
+    /// </summary>
+    public void StopActiveSequence()
+    {
+        if (activeSequence != null)
+        {
+            StopCoroutine(activeSequence);
+            activeSequence = null;
+        }
+
+        deathSequenceControlsRenderOrder = false;
+        RestoreDeathRenderOrder();
+        UnlockPlayer(unfreezePlayer: false);
+        ScreenTransition.Instance?.InstantReveal();
+    }
+
     private bool TryStartSequence(IEnumerator routine)
     {
         if (activeSequence != null)
@@ -264,13 +284,13 @@ public class CutsceneManager : MonoBehaviour
         // Timed waits (not tween callbacks) — a superseded fade can never
         // leave this sequence hanging.
         ScreenTransition transition = ScreenTransition.GetOrCreate();
-        transition.FadeOut(endFadeDuration);
-        yield return new WaitForSecondsRealtime(endFadeDuration);
+        transition.FadeOut(deathFadeDuration);
+        yield return new WaitForSecondsRealtime(deathFadeDuration);
 
         onComplete?.Invoke();
 
-        transition.FadeIn(endFadeDuration);
-        yield return new WaitForSecondsRealtime(endFadeDuration);
+        transition.FadeIn(deathFadeDuration);
+        yield return new WaitForSecondsRealtime(deathFadeDuration);
         FinishSequence(unfreezePlayer: false);
     }
 
@@ -291,11 +311,11 @@ public class CutsceneManager : MonoBehaviour
             {
                 time += Time.unscaledDeltaTime;
                 float t = Mathf.Clamp01(time / duration);
-                playerBody.position = new Vector2(Mathf.Lerp(startPos.x, goalPosition.x, t), startPos.y);
+                playerBody.position = Vector2.Lerp(startPos, goalPosition, t);
                 yield return null;
             }
 
-            playerBody.position = new Vector2(goalPosition.x, startPos.y);
+            playerBody.position = goalPosition;
         }
 
         TryFireTrigger(exitTrigger, "goal");
@@ -331,7 +351,23 @@ public class CutsceneManager : MonoBehaviour
 
     private void TryFireTrigger(string triggerName, string sequence)
     {
-        if (playerAnimator == null) return;
+        if (playerVisual != null)
+        {
+            switch (sequence)
+            {
+                case "opening":
+                    playerVisual.PlayStartAnimation();
+                    return;
+                case "death":
+                    playerVisual.PlayDeathAnimation();
+                    return;
+                case "goal":
+                    playerVisual.PlayEndAnimation();
+                    return;
+            }
+        }
+
+        if (playerAnimator == null || playerAnimator.runtimeAnimatorController == null) return;
         if (string.IsNullOrEmpty(triggerName)) return;
 
         if (!playerAnimator.isActiveAndEnabled)
@@ -340,7 +376,42 @@ public class CutsceneManager : MonoBehaviour
             return;
         }
 
-        playerAnimator.SetTrigger(triggerName);
+        string resolvedTrigger = ResolveAnimatorTriggerName(triggerName);
+        if (!string.IsNullOrEmpty(resolvedTrigger))
+            playerAnimator.SetTrigger(resolvedTrigger);
+    }
+
+    private string ResolveAnimatorTriggerName(string requestedTrigger)
+    {
+        if (HasTriggerParameter(requestedTrigger))
+            return requestedTrigger;
+
+        if (string.Equals(requestedTrigger, "Enter", StringComparison.Ordinal) && HasTriggerParameter("Start"))
+            return "Start";
+
+        if (string.Equals(requestedTrigger, "Exit", StringComparison.Ordinal) && HasTriggerParameter("End"))
+            return "End";
+
+        return null;
+    }
+
+    private bool HasTriggerParameter(string paramName)
+    {
+        if (playerAnimator == null || playerAnimator.runtimeAnimatorController == null || string.IsNullOrEmpty(paramName))
+            return false;
+
+        AnimatorControllerParameter[] parameters = playerAnimator.parameters;
+        if (parameters == null)
+            return false;
+
+        for (int i = 0; i < parameters.Length; i++)
+        {
+            AnimatorControllerParameter p = parameters[i];
+            if (p.type == AnimatorControllerParameterType.Trigger && string.Equals(p.name, paramName, StringComparison.Ordinal))
+                return true;
+        }
+
+        return false;
     }
 
     private void ResolvePlayer()
@@ -355,6 +426,9 @@ public class CutsceneManager : MonoBehaviour
 
         if (player != null && playerAnimator == null)
             playerAnimator = player.GetComponentInChildren<Animator>();
+
+        if (player != null && playerVisual == null)
+            playerVisual = player.GetComponent<PlayerVisual>();
     }
 
     private void LockPlayer()

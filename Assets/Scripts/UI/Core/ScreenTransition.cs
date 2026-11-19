@@ -115,8 +115,9 @@ public class ScreenTransition : MonoBehaviour
         activeFade?.Kill();
         onFadeComplete = onComplete;
 
-        canvasGroup.blocksRaycasts = true;
-        canvasGroup.interactable = true;
+        bool blocking = target >= 0.999f;
+        canvasGroup.blocksRaycasts = blocking;
+        canvasGroup.interactable = blocking;
 
         if (duration <= 0f)
         {

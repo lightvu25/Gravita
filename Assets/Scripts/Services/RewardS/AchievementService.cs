@@ -182,7 +182,7 @@ public static class AchievementService
         return 1;
     }
 
-    private static RewardBundle BuildRewardBundle(
+    public static RewardBundle BuildRewardBundle(
         MissionRewardType rewardType,
         int rewardAmount,
         string powerUpId,
@@ -210,6 +210,11 @@ public static class AchievementService
             case MissionRewardType.Cosmetic:
                 if (!string.IsNullOrWhiteSpace(cosmeticId))
                     bundle.Add(RewardType.Cosmetic, 1, cosmeticId);
+                break;
+
+            case MissionRewardType.UnlockSkill:
+                string unlockSkill = !string.IsNullOrWhiteSpace(powerUpId) ? powerUpId : PowerUpIds.Shield;
+                bundle.Add(RewardType.SkillUnlock, 1, unlockSkill);
                 break;
         }
         return bundle;

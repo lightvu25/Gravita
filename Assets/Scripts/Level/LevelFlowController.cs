@@ -66,6 +66,9 @@ public class LevelFlowController : MonoBehaviour
     /// <summary>Fires when the active level is restarted/reset via a restart control.</summary>
     public event Action OnLevelRestarted;
 
+    /// <summary>Fires whenever the player is respawned at the start cell.</summary>
+    public event Action OnPlayerRespawned;
+
     // ─────────────────────────────────────────────────────────────
     //  Static Run Lifecycle Events (Used by MissionService)
     // ─────────────────────────────────────────────────────────────
@@ -90,6 +93,25 @@ public class LevelFlowController : MonoBehaviour
     // ─────────────────────────────────────────────────────────────
 
     private static long nextRunIdCounter;
+    public static LevelFlowController Instance { get; private set; }
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStaticState()
+    {
+        Instance = null;
+        nextRunIdCounter = 0;
+    }
+
+    /// <summary>Returns the active <see cref="LevelFlowController"/> without an eager scene scan when already registered.</summary>
+    public static LevelFlowController ResolveInstance()
+    {
+        if (Instance != null)
+            return Instance;
+
+        Instance = FindAnyObjectByType<LevelFlowController>();
+        return Instance;
+    }
+
     private long currentRunId;
     private bool hasTouchedHazardThisRun;
     private int movesUsedThisRun;
@@ -102,10 +124,13 @@ public class LevelFlowController : MonoBehaviour
 
     private LevelState currentState = LevelState.Idle;
     private LevelRoot  currentRoot;
+    private MazeRunnerService activeRunnerService;
 
     public LevelState  CurrentState   => currentState;
     public LevelData   CurrentLevelData => levelData;
     public LevelRoot   CurrentRoot    => currentRoot;
+    public MazeRunnerService ActiveRunnerService => activeRunnerService;
+    public bool        IsRunnerModeActive => activeRunnerService != null && activeRunnerService.IsRunActive;
     public long        CurrentRunId   => currentRunId;
     public bool        HasTouchedHazardThisRun => hasTouchedHazardThisRun;
     public int         MovesUsedThisRun => movesUsedThisRun;
@@ -141,6 +166,9 @@ public class LevelFlowController : MonoBehaviour
 
     private void Awake()
     {
+        if (Instance == null)
+            Instance = this;
+
         // Prefer inspector wiring; fall back to same-object then scene lookup.
         if (levelLoader == null)
             levelLoader = GetComponent<LevelLoader>();
@@ -184,13 +212,20 @@ public class LevelFlowController : MonoBehaviour
 
     private void FixedUpdate()
     {
-        if (currentState != LevelState.Playing || currentRoot == null)
+        if (currentState != LevelState.Playing)
             return;
 
         if (cutsceneManager != null && cutsceneManager.IsSequenceRunning)
             return;
 
-        currentRoot.TickClock(Time.fixedDeltaTime);
+        if (IsRunnerModeActive)
+        {
+            activeRunnerService.TickActiveRooms(Time.fixedDeltaTime);
+            return;
+        }
+
+        if (currentRoot != null)
+            currentRoot.TickClock(Time.fixedDeltaTime);
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -207,6 +242,19 @@ public class LevelFlowController : MonoBehaviour
         {
             Debug.LogError("[LevelFlowController] Cannot start level — LevelData is null.", this);
             return;
+        }
+
+        cutsceneManager?.StopActiveSequence();
+
+        if (activeRunnerService != null)
+        {
+            MazeRunnerService prevRunner = activeRunnerService;
+            ClearRunnerMode();
+            prevRunner.CleanupRunWorld();
+        }
+        else
+        {
+            MazeRunnerService.Instance?.ClearRunnerResultFlag();
         }
 
         levelData = data;
@@ -231,6 +279,83 @@ public class LevelFlowController : MonoBehaviour
         objectiveSystem.OnPrimaryObjectiveCompleted -= HandleObjectiveCompleted;
         objectiveSystem.OnPrimaryObjectiveCompleted += HandleObjectiveCompleted;
 
+        BeginPlayableRunState();
+
+        Debug.Log($"[LevelFlowController] Level '{levelData.LevelId}' started.");
+    }
+
+    /// <summary>
+    /// Starts an active Maze Runner session owned by <paramref name="runnerService"/> using
+    /// the current active room's <see cref="LevelRoot"/>.
+    /// </summary>
+    public void StartRunnerMode(MazeRunnerService runnerService, RunnerRoomController initialRoom)
+    {
+        if (runnerService == null || initialRoom == null || initialRoom.LevelRoot == null)
+        {
+            Debug.LogError("[LevelFlowController] Cannot start Runner mode — invalid runnerService or room.", this);
+            return;
+        }
+
+        SetState(LevelState.Loading);
+        UnhookCurrentRoot();
+        levelLoader?.UnloadCurrentLevel();
+        levelData = null;
+
+        activeRunnerService = runnerService;
+        currentRoot = initialRoom.LevelRoot;
+        HookupLevelRoot(currentRoot);
+
+        if (objectiveSystem != null)
+            objectiveSystem.OnPrimaryObjectiveCompleted -= HandleObjectiveCompleted;
+
+        RespawnPlayer();
+        BeginPlayableRunState();
+    }
+
+    public void UpdateActiveRunnerRoom(RunnerRoomController nextRoom)
+    {
+        if (nextRoom == null || nextRoom.LevelRoot == null)
+            return;
+
+        UnhookCurrentRoot();
+        currentRoot = nextRoom.LevelRoot;
+        HookupLevelRoot(currentRoot);
+    }
+
+    public void CompleteRunnerMode(Vector3 goalWorldPos)
+    {
+        if (currentState != LevelState.Playing)
+            return;
+
+        FreezePlayer();
+        ProgressionManager.Instance?.UnlockLoadoutAfterRun();
+        UnhookCurrentRoot();
+        activeRunnerService = null;
+        SetState(LevelState.Completed);
+
+        bool completedWithoutHazardContact = !hasTouchedHazardThisRun;
+        OnAnyRunCompletedValidly?.Invoke(this, currentRunId, completedWithoutHazardContact);
+        OnLevelCompleted?.Invoke();
+        LevelEvents.RaiseLevelCompleted(this);
+
+        if (cutsceneManager != null)
+            cutsceneManager.PlayGoal(goalWorldPos, OpenResultPanel);
+        else
+        {
+            ResolvePlayerVisual()?.PlayEndAnimation();
+            OpenResultPanel();
+        }
+    }
+
+    public void ClearRunnerMode()
+    {
+        UnhookCurrentRoot();
+        activeRunnerService = null;
+        currentRoot = null;
+    }
+
+    private void BeginPlayableRunState()
+    {
         currentRunId = ++nextRunIdCounter;
         hasTouchedHazardThisRun = false;
         movesUsedThisRun = 0;
@@ -241,11 +366,16 @@ public class LevelFlowController : MonoBehaviour
         SetState(LevelState.Playing);
         OnAnyRunStartedOrReset?.Invoke(this, currentRunId);
         OnLevelStarted?.Invoke();
+        LevelEvents.RaiseLevelStarted(this);
 
         // Opening sequence — covers the level load, reveals, unlocks input.
         cutsceneManager?.PlayOpening();
+    }
 
-        Debug.Log($"[LevelFlowController] Level '{levelData.LevelId}' started.");
+    private void UnhookCurrentRoot()
+    {
+        if (currentRoot != null)
+            currentRoot.OnHazardTriggered -= HandleHazardTriggered;
     }
 
     /// <summary>
@@ -260,7 +390,14 @@ public class LevelFlowController : MonoBehaviour
             return;
         }
 
+        cutsceneManager?.StopActiveSequence();
         UIManager.Instance?.ClosePanelIfOpen(UIPanelType.Revive);
+
+        if (activeRunnerService != null)
+        {
+            activeRunnerService.RestartRun();
+            return;
+        }
 
         // Unsubscribe to prevent double-firing
         objectiveSystem.OnPrimaryObjectiveCompleted -= HandleObjectiveCompleted;
@@ -285,6 +422,7 @@ public class LevelFlowController : MonoBehaviour
         SetState(LevelState.Playing);
         OnAnyRunStartedOrReset?.Invoke(this, currentRunId);
         OnLevelRestarted?.Invoke();
+        LevelEvents.RaiseLevelRestarted(this);
         Debug.Log($"[LevelFlowController] Level '{levelData.LevelId}' reset.");
     }
 
@@ -306,6 +444,8 @@ public class LevelFlowController : MonoBehaviour
         if (currentState != LevelState.Playing) return;
 
         FreezePlayer();
+        HaltActiveHazardsOnDeath();
+        GameHaptics.Play(HapticEvent.Death);
         LastFailReason = reason;
         int lostShards = currentRoot != null ? currentRoot.CollectedCount : 0;
 
@@ -313,6 +453,7 @@ public class LevelFlowController : MonoBehaviour
         {
             isAwaitingReviveDecision = true;
             SetState(LevelState.AwaitingRevive);
+            LevelEvents.RaisePlayerDiedAwaitingRevive(this, reason);
 
             if (cutsceneManager != null)
                 cutsceneManager.PlayDeath(lostShards, OpenReviveOrResultPanel);
@@ -395,18 +536,39 @@ public class LevelFlowController : MonoBehaviour
     {
         bool wasPlaying = currentState == LevelState.Playing || isAwaitingReviveDecision;
         isAwaitingReviveDecision = false;
+        cutsceneManager?.StopActiveSequence();
         ProgressionManager.Instance?.UnlockLoadoutAfterRun();
         UIManager.Instance?.ClosePanelIfOpen(UIPanelType.Revive);
-        levelLoader?.UnloadCurrentLevel();
+        UIManager.Instance?.ClosePanelIfOpen(UIPanelType.Result);
+
+        if (activeRunnerService != null)
+        {
+            MazeRunnerService runner = activeRunnerService;
+            UnhookCurrentRoot();
+            activeRunnerService = null;
+            currentRoot = null;
+            runner.ClearRunnerResultFlag();
+            runner.CleanupRunWorld();
+        }
+        else
+        {
+            levelLoader?.UnloadCurrentLevel();
+        }
+
         SetState(LevelState.Idle);
         if (wasPlaying)
         {
             OnAnyRunFailedOrAbandoned?.Invoke(this, currentRunId);
         }
         OnReturnToMapRequested?.Invoke();
+        LevelEvents.RaiseReturnToMapRequested(this);
         // MainMenuScreen is inactive at boot — UIManager activation is the
         // only reliable way to bring the menu shell back up.
-        UIManager.Instance?.OpenPanel(UIPanelType.MainMenu);
+        if (UIManager.Instance != null)
+        {
+            UIManager.Instance.OpenPanel(UIPanelType.MainMenu);
+            UIManager.Instance.ShowScreen(UIPanelType.Map);
+        }
     }
 
     /// <summary>
@@ -457,11 +619,22 @@ public class LevelFlowController : MonoBehaviour
     {
         isAwaitingReviveDecision = false;
         LastFailReason = reason;
+        HaltActiveHazardsOnDeath();
         ProgressionManager.Instance?.UnlockLoadoutAfterRun();
         IncrementProfileDeaths();
+
+        if (activeRunnerService != null)
+        {
+            MazeRunnerService runner = activeRunnerService;
+            UnhookCurrentRoot();
+            activeRunnerService = null;
+            runner.FinalizeRunOnDeath(reason);
+        }
+
         SetState(LevelState.Failed);
         OnAnyRunFailedOrAbandoned?.Invoke(this, currentRunId);
         OnLevelFailed?.Invoke(reason);
+        LevelEvents.RaiseLevelFailed(this, reason);
         Debug.Log($"[LevelFlowController] Level '{levelData?.LevelId}' FAILED: {reason}");
     }
 
@@ -482,8 +655,11 @@ public class LevelFlowController : MonoBehaviour
             player.Unfreeze();
             Physics2D.SyncTransforms();
 
+            if (player.TryGetComponent(out PlayerVisual visual))
+                visual.ResetToIdle();
+
             Animator anim = player.GetComponentInChildren<Animator>();
-            if (anim != null && anim.isActiveAndEnabled)
+            if (anim != null && anim.isActiveAndEnabled && anim.runtimeAnimatorController != null)
             {
                 anim.Rebind();
                 anim.Update(0f);
@@ -493,8 +669,10 @@ public class LevelFlowController : MonoBehaviour
         if (GameInput.Instance != null)
             GameInput.Instance.SetInputsEnabled(true);
 
+        RestoreActiveHazardsAfterRevive();
         SetState(LevelState.Playing);
         OnPlayerRevived?.Invoke();
+        LevelEvents.RaisePlayerRevived(this);
     }
 
     private Vector3 ResolveSafeRevivePosition(PlayerMovement player)
@@ -544,6 +722,7 @@ public class LevelFlowController : MonoBehaviour
         player.ResetDirectionHistory();
         player.TeleportTo(currentRoot != null ? currentRoot.PlayerSpawnPosition : player.transform.position);
         player.Unfreeze();
+        OnPlayerRespawned?.Invoke();
     }
 
     private void BindPlayerTracking(PlayerMovement player)
@@ -623,6 +802,7 @@ public class LevelFlowController : MonoBehaviour
         if (hazardResponse == HazardResponse.InstantRespawn)
         {
             // GDD instant-respawn: zero downtime, back on the start tile.
+            GameHaptics.Play(HapticEvent.Death);
             IncrementProfileDeaths();
             OnAnyRunFailedOrAbandoned?.Invoke(this, currentRunId);
             RespawnPlayer();
@@ -680,15 +860,27 @@ public class LevelFlowController : MonoBehaviour
         bool completedWithoutHazardContact = !hasTouchedHazardThisRun;
         OnAnyRunCompletedValidly?.Invoke(this, currentRunId, completedWithoutHazardContact);
         OnLevelCompleted?.Invoke();
+        LevelEvents.RaiseLevelCompleted(this);
 
         // Goal sequence — player slides into the exit, then the result UI
         // opens under the screen cover. Rewards above already granted once.
         if (cutsceneManager != null)
             cutsceneManager.PlayGoal(ResolveGoalPosition(), OpenResultPanel);
         else
+        {
+            ResolvePlayerVisual()?.PlayEndAnimation();
             OpenResultPanel();
+        }
 
         Debug.Log($"[LevelFlowController] Level '{levelData?.LevelId}' COMPLETED!");
+    }
+
+    private static PlayerVisual ResolvePlayerVisual()
+    {
+        PlayerMovement player = PlayerMovement.Instance != null
+            ? PlayerMovement.Instance
+            : FindAnyObjectByType<PlayerMovement>();
+        return player != null ? player.GetComponent<PlayerVisual>() : null;
     }
 
     private void OpenResultPanel()
@@ -710,11 +902,33 @@ public class LevelFlowController : MonoBehaviour
             : Vector3.zero;
     }
 
+    private void HaltActiveHazardsOnDeath()
+    {
+        if (activeRunnerService != null)
+            activeRunnerService.HaltAllActiveRoomHazards();
+
+        if (currentRoot != null)
+            currentRoot.HaltHazardsOnPlayerDeath();
+    }
+
+    private void RestoreActiveHazardsAfterRevive()
+    {
+        if (activeRunnerService != null)
+        {
+            activeRunnerService.RestoreAllActiveRoomHazards();
+            return;
+        }
+
+        if (currentRoot != null)
+            currentRoot.RestoreHazardsAfterRevive();
+    }
+
     private void SetState(LevelState newState)
     {
         if (currentState == newState) return;
         currentState = newState;
         OnStateChanged?.Invoke(currentState);
+        LevelEvents.RaiseStateChanged(this, currentState);
     }
 
     private void ValidateReferences()
@@ -746,5 +960,8 @@ public class LevelFlowController : MonoBehaviour
 
         if (currentRoot != null)
             currentRoot.OnHazardTriggered -= HandleHazardTriggered;
+
+        if (Instance == this)
+            Instance = null;
     }
 }

@@ -6,7 +6,7 @@ using UnityEngine.UI;
 
 public class MainMenuUI : MonoBehaviour, IUIPanel
 {
-    private enum Tab { Map, Runner, Powerups, Achievement, Multiplayer }
+    private enum Tab { Map, Runner, Powerups, Achievement, Event }
 
     [Header("System References")]
     [SerializeField] private RunnerUI runnerUI;
@@ -29,8 +29,12 @@ public class MainMenuUI : MonoBehaviour, IUIPanel
     [FormerlySerializedAs("shopTabButton")]
     [SerializeField] private Button runnerTabButton;
     [SerializeField] private Button powerupsTabButton;
+    // Named distinctly from legacy YAML key 'eventTabButton' so [FormerlySerializedAs] migrates
+    // AchievementTabBtn cleanly without colliding with the new Event slot ('multiplayerTabButton').
+    [FormerlySerializedAs("eventTabButton")]
     [SerializeField] private Button achievementTabButton;
-    [SerializeField] private Button multiplayerTabButton;
+    [FormerlySerializedAs("multiplayerTabButton")]
+    [SerializeField] private Button eventsTabButton;
 
     [SerializeField, Min(1f)] private float selectedTabScale = 1.3f;
     [SerializeField] private float tabScaleTweenDuration = 0.2f;
@@ -52,15 +56,17 @@ public class MainMenuUI : MonoBehaviour, IUIPanel
     private bool economySubscribed;
     private bool progressionSubscribed;
     private bool uiManagerSubscribed;
+    private bool blindBoxSubscribed;
 
     private UIPanelAnimator PanelAnimator => panelAnimator;
 
     private void Awake()
     {
         if (flowController == null)
-            flowController = FindAnyObjectByType<LevelFlowController>();
+            flowController = LevelFlowController.ResolveInstance();
 
         BindButtons();
+        SubscribeBlindBoxState();
 
         if (runnerUI != null)
             runnerUI.OnRunnerClosed += HandleRunnerClosed;
@@ -74,6 +80,25 @@ public class MainMenuUI : MonoBehaviour, IUIPanel
 
         if (flowController != null)
             flowController.OnStateChanged += HandleStateChanged;
+    }
+
+    private void OnEnable()
+    {
+        SubscribeBlindBoxState();
+        UpdateSideButtonsVisibility();
+    }
+
+    private void SubscribeBlindBoxState()
+    {
+        if (blindBoxSubscribed) return;
+        BlindBoxService.OnDailyBoxStateChanged -= HandleDailyBoxStateChanged;
+        BlindBoxService.OnDailyBoxStateChanged += HandleDailyBoxStateChanged;
+        blindBoxSubscribed = true;
+    }
+
+    private void HandleDailyBoxStateChanged()
+    {
+        UpdateSideButtonsVisibility();
     }
 
     private void OnDestroy()
@@ -106,6 +131,12 @@ public class MainMenuUI : MonoBehaviour, IUIPanel
             UIManager.Instance.OnPopupStackChanged -= HandlePopupStackChanged;
             uiManagerSubscribed = false;
         }
+
+        if (blindBoxSubscribed)
+        {
+            BlindBoxService.OnDailyBoxStateChanged -= HandleDailyBoxStateChanged;
+            blindBoxSubscribed = false;
+        }
     }
 
     private void BindButtons()
@@ -117,10 +148,10 @@ public class MainMenuUI : MonoBehaviour, IUIPanel
         if (runnerTabButton != null) runnerTabButton.onClick.AddListener(OnRunnerTabClicked);
         if (powerupsTabButton != null) powerupsTabButton.onClick.AddListener(OnPowerupsTabClicked);
         if (achievementTabButton != null) achievementTabButton.onClick.AddListener(OnAchievementTabClicked);
-        if (multiplayerTabButton != null) multiplayerTabButton.onClick.AddListener(OnMultiplayerTabClicked);
+        if (eventsTabButton != null) eventsTabButton.onClick.AddListener(OnEventTabClicked);
         if (settingButton != null) settingButton.onClick.AddListener(OnSettingClicked);
         if (missionButton != null) missionButton.onClick.AddListener(OnMissionClicked);
-        if (dailyRewardButton != null) dailyRewardButton.onClick.AddListener(OnDailyRewardClicked);
+        if (dailyRewardButton != null && dailyRewardButton != missionButton) dailyRewardButton.onClick.AddListener(OnDailyRewardClicked);
         if (bonusButton != null) bonusButton.onClick.AddListener(OnBonusClicked);
         if (blindBoxButton != null) blindBoxButton.onClick.AddListener(OnBlindBoxClicked);
         if (shopButton != null) shopButton.onClick.AddListener(OnShopClicked);
@@ -135,10 +166,10 @@ public class MainMenuUI : MonoBehaviour, IUIPanel
         if (runnerTabButton != null) runnerTabButton.onClick.RemoveListener(OnRunnerTabClicked);
         if (powerupsTabButton != null) powerupsTabButton.onClick.RemoveListener(OnPowerupsTabClicked);
         if (achievementTabButton != null) achievementTabButton.onClick.RemoveListener(OnAchievementTabClicked);
-        if (multiplayerTabButton != null) multiplayerTabButton.onClick.RemoveListener(OnMultiplayerTabClicked);
+        if (eventsTabButton != null) eventsTabButton.onClick.RemoveListener(OnEventTabClicked);
         if (settingButton != null) settingButton.onClick.RemoveListener(OnSettingClicked);
         if (missionButton != null) missionButton.onClick.RemoveListener(OnMissionClicked);
-        if (dailyRewardButton != null) dailyRewardButton.onClick.RemoveListener(OnDailyRewardClicked);
+        if (dailyRewardButton != null && dailyRewardButton != missionButton) dailyRewardButton.onClick.RemoveListener(OnDailyRewardClicked);
         if (bonusButton != null) bonusButton.onClick.RemoveListener(OnBonusClicked);
         if (blindBoxButton != null) blindBoxButton.onClick.RemoveListener(OnBlindBoxClicked);
         if (shopButton != null) shopButton.onClick.RemoveListener(OnShopClicked);
@@ -150,10 +181,16 @@ public class MainMenuUI : MonoBehaviour, IUIPanel
         else gameObject.SetActive(true);
 
         if (flowController == null || flowController.CurrentState == LevelState.Idle)
+        {
+            if (UIManager.Instance != null && UIManager.Instance.IsPanelRegistered(UIPanelType.GameplayHUD))
+                UIManager.Instance.GetPanel<InGameHUD>(UIPanelType.GameplayHUD)?.Hide();
             SelectTab(currentTab);
+        }
         else
             RefreshHeader();
     }
+
+    public void ReturnToMapTab() => SelectTab(Tab.Map);
 
     public void Hide()
     {
@@ -230,10 +267,10 @@ public class MainMenuUI : MonoBehaviour, IUIPanel
         SelectTab(Tab.Achievement, playSound: true);
     }
 
-    private void OnMultiplayerTabClicked()
+    private void OnEventTabClicked()
     {
         GameHaptics.Play(HapticEvent.UISelect);
-        SelectTab(Tab.Multiplayer, playSound: true);
+        SelectTab(Tab.Event, playSound: true);
     }
 
     private void SelectTab(Tab tab, bool playSound = false)
@@ -312,7 +349,7 @@ public class MainMenuUI : MonoBehaviour, IUIPanel
             bonusButton.gameObject.SetActive(showSideButtons);
 
         if (blindBoxButton != null && blindBoxButton != settingButton)
-            blindBoxButton.gameObject.SetActive(showSideButtons);
+            blindBoxButton.gameObject.SetActive(showSideButtons && BlindBoxService.CanClaimDailyBox());
     }
 
     private static UIPanelType TabToPanelType(Tab tab)
@@ -323,8 +360,8 @@ public class MainMenuUI : MonoBehaviour, IUIPanel
             case Tab.Runner: return UIPanelType.Runner;
             case Tab.Powerups: return UIPanelType.Powerups;
             case Tab.Achievement: return UIPanelType.Achievement;
+            case Tab.Event: return UIPanelType.Event;
             default: return UIPanelType.None;
-            case Tab.Multiplayer: return UIPanelType.Multiplayer;
         }
     }
 
@@ -344,8 +381,8 @@ public class MainMenuUI : MonoBehaviour, IUIPanel
             case UIPanelType.Achievement:
                 tab = Tab.Achievement;
                 return true;
-            case UIPanelType.Multiplayer:
-                tab = Tab.Multiplayer;
+            case UIPanelType.Event:
+                tab = Tab.Event;
                 return true;
             default:
                 tab = Tab.Map;
@@ -359,7 +396,7 @@ public class MainMenuUI : MonoBehaviour, IUIPanel
         ScaleTab(runnerTabButton, currentTab == Tab.Runner);
         ScaleTab(powerupsTabButton, currentTab == Tab.Powerups);
         ScaleTab(achievementTabButton, currentTab == Tab.Achievement);
-        ScaleTab(multiplayerTabButton, currentTab == Tab.Multiplayer);
+        ScaleTab(eventsTabButton, currentTab == Tab.Event);
     }
 
     private void ScaleTab(Button button, bool selected)

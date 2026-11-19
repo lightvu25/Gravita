@@ -87,7 +87,7 @@ public class LevelNodeWidget : MonoBehaviour
             if (stars[i] == null) continue;
             Sprite targetSprite = i < earnedStars ? starFilled : starEmpty;
             if (targetSprite != null)
-                stars[i].SetSpriteNative(targetSprite);
+                stars[i].sprite = targetSprite;
         }
     }
 

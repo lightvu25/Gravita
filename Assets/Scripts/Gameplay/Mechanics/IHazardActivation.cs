@@ -10,5 +10,11 @@ public interface IHazardActivation
 
     /// <summary>Evaluates whether the active hazard is lethal to <paramref name="player"/> right now.</summary>
     bool IsLethalTo(PlayerMovement player);
+
+    /// <summary>Forces the hazard into a non-lethal idle state when the player dies.</summary>
+    void EnterPlayerDeathIdle();
+
+    /// <summary>Restores evaluation from the current level clock after the player revives.</summary>
+    void RestoreFromPlayerDeathIdle();
 }
 

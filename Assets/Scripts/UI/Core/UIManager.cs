@@ -140,6 +140,7 @@ public class UIManager : MonoBehaviour
             case UIPanelType.Runner:
             case UIPanelType.Powerups:
             case UIPanelType.Achievement:
+            case UIPanelType.Event:
                 return true;
             default:
                 return false;
@@ -209,12 +210,7 @@ public class UIManager : MonoBehaviour
 
         if (currentScreen == type)
         {
-            if (mappingsDict.TryGetValue(type, out UIPanelMapping sameMapping)
-                && sameMapping.panelObject != null
-                && !sameMapping.panelObject.activeSelf)
-            {
-                nextPanel.Show();
-            }
+            nextPanel.Show();
             UpdateGlitchBackdrop();
             OnScreenChanged?.Invoke(currentScreen);
             return;
@@ -435,18 +431,24 @@ public class UIManager : MonoBehaviour
             && mm.panelObject.activeInHierarchy;
     }
 
+    public bool HasTimeFreezingPopupOpen
+    {
+        get
+        {
+            for (int i = 0; i < popupStack.Count; i++)
+            {
+                if (GetFreezeTime(popupStack[i]))
+                    return true;
+            }
+            return false;
+        }
+    }
+
+    public void RefreshTimeScale() => UpdateTimeScale();
+
     private void UpdateTimeScale()
     {
-        bool shouldFreeze = false;
-        for (int i = 0; i < popupStack.Count; i++)
-        {
-            if (GetFreezeTime(popupStack[i]))
-            {
-                shouldFreeze = true;
-                break;
-            }
-        }
-
+        bool shouldFreeze = PlayerImpactFeedback.IsHitStopActive || HasTimeFreezingPopupOpen;
         Time.timeScale = shouldFreeze ? 0f : 1f;
     }
 

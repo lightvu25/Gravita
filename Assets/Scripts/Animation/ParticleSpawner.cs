@@ -33,6 +33,24 @@ public class ParticleSpawner : MonoBehaviour
     [SerializeField, Min(0f)] private float maxLifetime = 15f;
 
     private readonly HashSet<GameObject> tracked = new HashSet<GameObject>();
+    private static readonly Dictionary<EntityId, bool> ValidParticlePrefabCache = new Dictionary<EntityId, bool>(32);
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStaticCache()
+    {
+        ValidParticlePrefabCache.Clear();
+    }
+
+    private static bool HasAnyParticleSystemCached(GameObject prefab)
+    {
+        EntityId id = prefab.GetEntityId();
+        if (ValidParticlePrefabCache.TryGetValue(id, out bool hasParticles))
+            return hasParticles;
+
+        hasParticles = prefab.GetComponentInChildren<ParticleSystem>(true) != null;
+        ValidParticlePrefabCache[id] = hasParticles;
+        return hasParticles;
+    }
 
     private void Awake()
     {
@@ -133,7 +151,7 @@ public class ParticleSpawner : MonoBehaviour
             return null;
         }
 
-        if (prefab.GetComponentInChildren<ParticleSystem>(true) == null)
+        if (!HasAnyParticleSystemCached(prefab))
         {
             Debug.LogWarning($"[ParticleSpawner] '{prefab.name}' contains no ParticleSystem — nothing to spawn.", prefab);
             return null;

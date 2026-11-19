@@ -1,3 +1,4 @@
+using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -31,53 +32,105 @@ public class PauseMenuUI : MonoBehaviour, IUIPanel
     [SerializeField] private Sprite hapticsOnSprite;
     [SerializeField] private Sprite hapticsOffSprite;
 
+    [Header("Sliders")]
+    [SerializeField] private Slider soundSlider;
+    [SerializeField] private Slider musicSlider;
+
     [Header("Volume")]
     [SerializeField] private int soundVolume = 5;
     [SerializeField] private int musicVolume = 5;
 
+    [Header("Optional Animation")]
+    [SerializeField] private UIPanelAnimator panelAnimator;
+
     public bool IsPaused => UIManager.Instance != null &&
                             UIManager.Instance.IsPanelOpen(UIPanelType.Pause);
 
-    private UIPanelAnimator panelAnimator;
-    private bool buttonsBound;
+    private const int VOLUME_MAX = 10;
 
-    private UIPanelAnimator PanelAnimator =>
-        panelAnimator != null ? panelAnimator : (panelAnimator = GetComponent<UIPanelAnimator>());
+    private bool buttonsBound;
+    private bool audioEventsSubscribed;
+    private AudioChannelControl soundControl;
+    private AudioChannelControl musicControl;
+
+    private UIPanelAnimator PanelAnimator => panelAnimator;
+
+    private void EnsureAudioControls()
+    {
+        soundControl ??= new AudioChannelControl(
+            VOLUME_MAX,
+            () => SoundManager.Instance != null,
+            () => SoundManager.Instance.GetSoundVolume(),
+            v => SoundManager.Instance.SetSoundVolume(v),
+            () => SoundManager.Instance.GetPreviousSoundVolume(),
+            v => SoundManager.Instance.SetPreviousSoundVolume(v),
+            () => SoundManager.Instance.SaveVolume(),
+            () => soundVolume,
+            v => soundVolume = v,
+            () => UIAudio.Play(UISoundType.ButtonClick));
+
+        musicControl ??= new AudioChannelControl(
+            VOLUME_MAX,
+            () => MusicManager.Instance != null,
+            () => MusicManager.Instance.GetMusicVolume(),
+            v => MusicManager.Instance.SetMusicVolume(v),
+            () => MusicManager.Instance.GetPreviousMusicVolume(),
+            v => MusicManager.Instance.SetPreviousMusicVolume(v),
+            () => MusicManager.Instance.SaveVolume(),
+            () => musicVolume,
+            v => musicVolume = v,
+            () => UIAudio.Play(UISoundType.ButtonClick));
+
+        soundControl.ConfigureWidgets(soundButton, soundSlider, soundIcon, soundOnSprite, soundOffSprite);
+        musicControl.ConfigureWidgets(musicButton, musicSlider, musicIcon, musicOnSprite, musicOffSprite);
+    }
 
     private void Awake()
     {
         if (flowController == null)
-            flowController = FindAnyObjectByType<LevelFlowController>();
+            flowController = LevelFlowController.ResolveInstance();
 
         BindButtons();
     }
 
     private void OnEnable()
     {
+        BindButtons();
         GameHaptics.OnEnabledChanged += HandleHapticsEnabledChanged;
+        SubscribeAudioEvents();
         RefreshAudioIcon();
+    }
+
+    private void Update()
+    {
+        soundControl?.TickPointerRelease();
+        musicControl?.TickPointerRelease();
     }
 
     private void OnDisable()
     {
         GameHaptics.OnEnabledChanged -= HandleHapticsEnabledChanged;
+        UnsubscribeAudioEvents();
     }
 
     private void OnDestroy()
     {
+        GameHaptics.OnEnabledChanged -= HandleHapticsEnabledChanged;
+        UnsubscribeAudioEvents();
         UnbindButtons();
     }
 
     internal void BindButtons()
     {
+        EnsureAudioControls();
         if (buttonsBound)
             return;
 
         if (resumeButton != null) resumeButton.onClick.AddListener(OnResumeClicked);
         if (restartButton != null) restartButton.onClick.AddListener(OnRestartClicked);
         if (quitToMenuButton != null) quitToMenuButton.onClick.AddListener(OnQuitClicked);
-        if (soundButton != null) soundButton.onClick.AddListener(OnSoundClicked);
-        if (musicButton != null) musicButton.onClick.AddListener(OnMusicClicked);
+        soundControl.Bind(OnSoundClicked);
+        musicControl.Bind(OnMusicClicked);
         if (hapticsButton != null) hapticsButton.onClick.AddListener(OnHapticsClicked);
         buttonsBound = true;
     }
@@ -96,16 +149,44 @@ public class PauseMenuUI : MonoBehaviour, IUIPanel
         if (quitToMenuButton != null)
             quitToMenuButton.onClick.RemoveListener(OnQuitClicked);
 
-        if (soundButton != null)
-            soundButton.onClick.RemoveListener(OnSoundClicked);
-
-        if (musicButton != null)
-            musicButton.onClick.RemoveListener(OnMusicClicked);
+        soundControl?.Unbind(OnSoundClicked);
+        musicControl?.Unbind(OnMusicClicked);
 
         if (hapticsButton != null)
             hapticsButton.onClick.RemoveListener(OnHapticsClicked);
 
         buttonsBound = false;
+    }
+
+    private void SubscribeAudioEvents()
+    {
+        if (audioEventsSubscribed)
+            return;
+
+        if (SoundManager.Instance != null)
+            SoundManager.Instance.OnSoundVolumeChanged += HandleExternalAudioChanged;
+        if (MusicManager.Instance != null)
+            MusicManager.Instance.OnMusicVolumeChanged += HandleExternalAudioChanged;
+
+        audioEventsSubscribed = SoundManager.Instance != null || MusicManager.Instance != null;
+    }
+
+    private void UnsubscribeAudioEvents()
+    {
+        if (!audioEventsSubscribed)
+            return;
+
+        if (SoundManager.Instance != null)
+            SoundManager.Instance.OnSoundVolumeChanged -= HandleExternalAudioChanged;
+        if (MusicManager.Instance != null)
+            MusicManager.Instance.OnMusicVolumeChanged -= HandleExternalAudioChanged;
+
+        audioEventsSubscribed = false;
+    }
+
+    private void HandleExternalAudioChanged(object sender, EventArgs e)
+    {
+        RefreshAudioIcon();
     }
 
     public void Show()
@@ -165,46 +246,14 @@ public class PauseMenuUI : MonoBehaviour, IUIPanel
 
     private void OnSoundClicked()
     {
-        GameHaptics.Play(HapticEvent.UISelect);
-
-        var sm = SoundManager.Instance;
-        if (sm == null) return;
-
-        if (sm.GetSoundVolume() > 0)
-        {
-            soundVolume = sm.GetSoundVolume();
-            sm.SetSoundVolume(0);
-        }
-        else
-        {
-            sm.SetSoundVolume(soundVolume);
-            UIAudio.Play(UISoundType.ButtonClick);
-        }
-
-        sm.SaveVolume();
-        RefreshAudioIcon();
+        EnsureAudioControls();
+        soundControl.ToggleMute();
     }
 
     private void OnMusicClicked()
     {
-        GameHaptics.Play(HapticEvent.UISelect);
-        UIAudio.Play(UISoundType.ButtonClick);
-
-        var mm = MusicManager.Instance;
-        if (mm == null) return;
-
-        if (mm.GetMusicVolume() > 0)
-        {
-            musicVolume = mm.GetMusicVolume();
-            mm.SetMusicVolume(0);
-        }
-        else
-        {
-            mm.SetMusicVolume(musicVolume);
-        }
-
-        mm.SaveVolume();
-        RefreshAudioIcon();
+        EnsureAudioControls();
+        musicControl.ToggleMute();
     }
 
     private void OnHapticsClicked()
@@ -224,18 +273,15 @@ public class PauseMenuUI : MonoBehaviour, IUIPanel
 
     private void RefreshAudioIcon()
     {
-        var sm = SoundManager.Instance;
-        var mm = MusicManager.Instance;
+        EnsureAudioControls();
+        soundControl.SyncUI();
+        musicControl.SyncUI();
 
-        if (soundIcon != null)
-            soundIcon.SetSpriteNative((sm != null && sm.GetSoundVolume() > 0) ? soundOnSprite : soundOffSprite);
-        if (musicIcon != null)
-            musicIcon.SetSpriteNative((mm != null && mm.GetMusicVolume() > 0) ? musicOnSprite : musicOffSprite);
         if (hapticsIcon != null)
         {
             Sprite targetSprite = GameHaptics.Enabled ? hapticsOnSprite : hapticsOffSprite;
             if (targetSprite != null)
-                hapticsIcon.SetSpriteNative(targetSprite);
+                hapticsIcon.sprite = targetSprite;
         }
     }
 }

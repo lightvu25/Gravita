@@ -161,8 +161,11 @@ public sealed class PlayerLineTrail : MonoBehaviour
         RefreshTierVisuals();
     }
 
-    private void HandlePhasingChanged(bool _)
+    private void HandlePhasingChanged(bool phasing)
     {
+        if (phasing && hasInitialPosition)
+            PushCornerIfNeeded(GetStableSamplePosition());
+
         RefreshTierVisuals();
     }
 
@@ -250,7 +253,7 @@ public sealed class PlayerLineTrail : MonoBehaviour
             return;
         }
 
-        float dt = Time.deltaTime;
+        float dt = PlayerImpactFeedback.IsHitStopActive ? Time.unscaledDeltaTime : Time.deltaTime;
         if (dt <= 0f)
             return;
 
@@ -289,7 +292,7 @@ public sealed class PlayerLineTrail : MonoBehaviour
                 currentHeadPosition = sampledPosition;
 
                 float instSpeed = frameDist / dt;
-                smoothedMoveSpeed = Mathf.Lerp(smoothedMoveSpeed, Mathf.Clamp(instSpeed, 4f, 28f), Mathf.Clamp01(dt * 12f));
+                smoothedMoveSpeed = Mathf.Lerp(smoothedMoveSpeed, Mathf.Clamp(instSpeed, 4f, 56f), Mathf.Clamp01(dt * 12f));
             }
         }
         else if (wasMovingLastFrame)

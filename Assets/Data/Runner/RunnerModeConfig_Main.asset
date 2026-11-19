@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5cb73bbadf1eba542a380bb60feb3d95, type: 3}
+  m_Name: RunnerModeConfig_Main
+  m_EditorClassIdentifier: Assembly-CSharp::RunnerModeConfig
+  defaultMode: 0
+  roomSourcePolicy: 0
+  proceduralMixChanceWhenHybrid: 0.5
+  roomTemplates: []
+  proceduralRoomShellPrefab: {fileID: 5490547407967614033, guid: b3b79684c80c5de49acdf1c48ff91afe, type: 3}
+  patternLibrary: {fileID: 11400000, guid: 67048146ce233994580ea494efa8155a, type: 2}
+  earlyDifficultyProfile: {fileID: 11400000, guid: c5dca64a6409f994ab27ca1280f54389, type: 2}
+  midDifficultyProfile: {fileID: 11400000, guid: 137bdf83b6e6a9e4ba671aa521a60b46, type: 2}
+  lateDifficultyProfile: {fileID: 11400000, guid: 36c30b6df92aacf48977cca8b1b763b4, type: 2}
+  proceduralSizePreset: 2
+  overrideSlotCols: 4
+  overrideSlotRows: 7
+  throatLengthCells: 2
+  lookaheadRooms: 1
+  retainedPreviousRooms: 1
+  wallRuleTile: {fileID: 11400000, guid: 5a2f340d387ea2e4990e4309b9f2892d, type: 2}
+  backgroundRuleTile: {fileID: 11400000, guid: 9060f4f094d505043954558ed90516cb, type: 2}
+  defaultPopulationProfile: {fileID: 11400000, guid: b2dec961e3d659a49a4819ad6267a97b, type: 2}
+  coinsPerClearedRoom: 15
+  expPerClearedRoom: 10
+  bonusCoins10Rooms: 100
+  bonusCoins20Rooms: 250

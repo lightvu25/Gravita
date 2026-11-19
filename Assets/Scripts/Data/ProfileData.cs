@@ -131,7 +131,19 @@ public class ProfileData
     public long lastCoinBonusClaimUtcTicks;
     public long lastDailyRewardClaimUtcTicks;
     public int dailyRewardStreakDay;
+    public string lastBlindBoxClaimDateKey = string.Empty;
     public bool tutorialCompleted;
+
+    // ── Maze Runner Progression ───────────────────────────────────────────
+    public int bestRunnerEndlessRooms;
+    public int bestRunner10RoomsClears;
+    public int bestRunner20RoomsClears;
+    public int lifetimeRunnerRoomsCleared;
+
+    // ── Live-Ops Events Tracking ──────────────────────────────────────────
+    public List<string> claimedEventTaskIds = new List<string>();
+    public List<string> eventStartIds = new List<string>();
+    public List<string> eventStartDateKeys = new List<string>();
 
     public void MigrateIfNeeded()
     {
@@ -198,6 +210,10 @@ public class ProfileData
         coins       = Mathf.Max(0, coins);
         gems        = Mathf.Max(0, gems);
         deaths      = Mathf.Max(0, deaths);
+        bestRunnerEndlessRooms = Mathf.Max(0, bestRunnerEndlessRooms);
+        bestRunner10RoomsClears = Mathf.Max(0, bestRunner10RoomsClears);
+        bestRunner20RoomsClears = Mathf.Max(0, bestRunner20RoomsClears);
+        lifetimeRunnerRoomsCleared = Mathf.Max(0, lifetimeRunnerRoomsCleared);
 
         unlockedSkillIDs ??= new List<string>();
         persistenceKeys ??= new List<string>();
@@ -274,6 +290,23 @@ public class ProfileData
 
         lootPackPityKeys ??= new List<string>();
         lootPackPityCounts ??= new List<int>();
+        claimedEventTaskIds ??= new List<string>();
+        eventStartIds ??= new List<string>();
+        eventStartDateKeys ??= new List<string>();
+
+        int eventPairCount = Mathf.Min(eventStartIds.Count, eventStartDateKeys.Count);
+        if (eventStartIds.Count > eventPairCount)
+            eventStartIds.RemoveRange(eventPairCount, eventStartIds.Count - eventPairCount);
+        if (eventStartDateKeys.Count > eventPairCount)
+            eventStartDateKeys.RemoveRange(eventPairCount, eventStartDateKeys.Count - eventPairCount);
+        for (int i = eventStartIds.Count - 1; i >= 0; i--)
+        {
+            if (string.IsNullOrEmpty(eventStartIds[i]) || string.IsNullOrEmpty(eventStartDateKeys[i]))
+            {
+                eventStartIds.RemoveAt(i);
+                eventStartDateKeys.RemoveAt(i);
+            }
+        }
         int pityPairCount = Mathf.Min(lootPackPityKeys.Count, lootPackPityCounts.Count);
         if (lootPackPityKeys.Count > pityPairCount)
             lootPackPityKeys.RemoveRange(pityPairCount, lootPackPityKeys.Count - pityPairCount);
@@ -291,6 +324,7 @@ public class ProfileData
         }
 
         dailyAdResetDateLocal ??= string.Empty;
+        lastBlindBoxClaimDateKey ??= string.Empty;
         dailyRewardedAdCount = Mathf.Max(0, dailyRewardedAdCount);
         interstitialCompletedLevelsSinceLastAd = Mathf.Max(0, interstitialCompletedLevelsSinceLastAd);
         interstitialTargetLevelsInterval = Mathf.Max(0, interstitialTargetLevelsInterval);
@@ -628,8 +662,31 @@ public class ProfileData
         }
     }
 
-    public bool HasSkill(string skillID) =>
-        unlockedSkillIDs != null && unlockedSkillIDs.Contains(skillID);
+    public bool HasSkill(string skillID)
+    {
+        if (unlockedSkillIDs == null || string.IsNullOrEmpty(skillID))
+            return false;
+
+        for (int i = 0; i < unlockedSkillIDs.Count; i++)
+        {
+            if (string.Equals(unlockedSkillIDs[i], skillID, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
+    }
+
+    public bool UnlockSkill(string skillID)
+    {
+        if (string.IsNullOrEmpty(skillID))
+            return false;
+
+        unlockedSkillIDs ??= new List<string>();
+        if (HasSkill(skillID))
+            return false;
+
+        unlockedSkillIDs.Add(skillID.Trim().ToLowerInvariant());
+        return true;
+    }
 
     public static string BuildLootPackPityKey(string packId, string entryId)
     {
@@ -655,6 +712,23 @@ public class ProfileData
     {
         lootPackPityKeys ??= new List<string>();
         lootPackPityCounts ??= new List<int>();
+        claimedEventTaskIds ??= new List<string>();
+        eventStartIds ??= new List<string>();
+        eventStartDateKeys ??= new List<string>();
+
+        int eventPairCount = Mathf.Min(eventStartIds.Count, eventStartDateKeys.Count);
+        if (eventStartIds.Count > eventPairCount)
+            eventStartIds.RemoveRange(eventPairCount, eventStartIds.Count - eventPairCount);
+        if (eventStartDateKeys.Count > eventPairCount)
+            eventStartDateKeys.RemoveRange(eventPairCount, eventStartDateKeys.Count - eventPairCount);
+        for (int i = eventStartIds.Count - 1; i >= 0; i--)
+        {
+            if (string.IsNullOrEmpty(eventStartIds[i]) || string.IsNullOrEmpty(eventStartDateKeys[i]))
+            {
+                eventStartIds.RemoveAt(i);
+                eventStartDateKeys.RemoveAt(i);
+            }
+        }
 
         string key = BuildLootPackPityKey(packId, entryId);
         int clamped = Mathf.Max(0, count);
@@ -693,5 +767,71 @@ public class ProfileData
         int i = powerUpLevelIds.IndexOf(id);
         if (i >= 0 && i < powerUpLevels.Count) powerUpLevels[i] = level;
         else { powerUpLevelIds.Add(id); powerUpLevels.Add(level); }
+    }
+
+    public int GetBestRunnerRooms(RunnerModeKind mode)
+    {
+        return mode switch
+        {
+            RunnerModeKind.Rooms10 => Mathf.Max(0, bestRunner10RoomsClears),
+            RunnerModeKind.Rooms20 => Mathf.Max(0, bestRunner20RoomsClears),
+            _                      => Mathf.Max(0, bestRunnerEndlessRooms),
+        };
+    }
+
+    public bool RecordRunnerRun(RunnerModeKind mode, int roomsCleared, bool completedTarget)
+    {
+        int safeCleared = Mathf.Max(0, roomsCleared);
+        lifetimeRunnerRoomsCleared = Mathf.Max(0, lifetimeRunnerRoomsCleared) + safeCleared;
+
+        bool isNewBest = false;
+        if (safeCleared > bestRunnerEndlessRooms)
+        {
+            bestRunnerEndlessRooms = safeCleared;
+            isNewBest = true;
+        }
+
+        if (completedTarget)
+        {
+            if (mode == RunnerModeKind.Rooms10)
+            {
+                bestRunner10RoomsClears = Mathf.Max(0, bestRunner10RoomsClears) + 1;
+                isNewBest = true;
+            }
+            else if (mode == RunnerModeKind.Rooms20)
+            {
+                bestRunner20RoomsClears = Mathf.Max(0, bestRunner20RoomsClears) + 1;
+                isNewBest = true;
+            }
+        }
+
+        return isNewBest;
+    }
+
+    public string GetEventStartDateKey(string eventId)
+    {
+        if (string.IsNullOrEmpty(eventId) || eventStartIds == null || eventStartDateKeys == null)
+            return string.Empty;
+
+        int index = eventStartIds.IndexOf(eventId);
+        return index >= 0 && index < eventStartDateKeys.Count ? eventStartDateKeys[index] : string.Empty;
+    }
+
+    public void SetEventStartDateKey(string eventId, string dateKey)
+    {
+        if (string.IsNullOrEmpty(eventId) || string.IsNullOrEmpty(dateKey))
+            return;
+
+        eventStartIds ??= new List<string>();
+        eventStartDateKeys ??= new List<string>();
+
+        int index = eventStartIds.IndexOf(eventId);
+        if (index >= 0 && index < eventStartDateKeys.Count)
+            eventStartDateKeys[index] = dateKey;
+        else
+        {
+            eventStartIds.Add(eventId);
+            eventStartDateKeys.Add(dateKey);
+        }
     }
 }

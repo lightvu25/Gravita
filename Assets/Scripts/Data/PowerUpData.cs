@@ -6,7 +6,9 @@ public enum PowerUpStatKind
 {
     None = 0,
     DurationSeconds = 1,
-    WallCells = 2
+    WallCells = 2,
+    Radius = 3,
+    CooldownSeconds = 4
 }
 
 public enum PowerUpStatsType
@@ -16,11 +18,19 @@ public enum PowerUpStatsType
     WallCells = 2
 }
 
+public enum PowerUpActivationMode
+{
+    ManualActive = 0,
+    AutoTrigger = 1,
+    HybridAutoAndManual = 2
+}
+
 [Serializable]
 public class PowerUpLevelStep
 {
     [Min(0)] public int upgradeCostCoins;
     [Min(0f)] public float statValue;
+    [Min(0f)] public float cooldownSeconds = 12f;
 }
 
 [CreateAssetMenu(fileName = "NewPowerUpData", menuName = "Gravita/Power-up Data")]
@@ -103,11 +113,29 @@ public class PowerUpData : ScriptableObject
     [Tooltip("Whether one unit of this power-up is consumed from the player's inventory upon use.")]
     [SerializeField] private bool isConsumable = true;
 
+    [Header("Modular Core System (Gravita)")]
+    [SerializeField] private PowerUpActivationMode activationMode = PowerUpActivationMode.ManualActive;
+    [SerializeField] private bool unlockedByDefault = true;
+    [Tooltip("Coin discount granted per owned shard when upgrading (Choice A).")]
+    [Min(0)]
+    [SerializeField] private int coinDiscountPerShard = 25;
+    [Tooltip("Time scale multiplier applied to level clock & hazards during Time Dilation.")]
+    [Range(0.1f, 1f)]
+    [SerializeField] private float timeDilationScale = 0.3f;
+    [Tooltip("Fallback base cooldown in seconds for modular usage when levelSteps do not specify one.")]
+    [Min(0f)]
+    [SerializeField] private float baseCooldownSeconds = 12f;
+
     public string Id => !string.IsNullOrWhiteSpace(id) ? id : name;
     public string DisplayName => !string.IsNullOrWhiteSpace(displayName) ? displayName : name;
     public string Description => description ?? string.Empty;
     public Sprite Icon => icon;
     public PowerUpType PowerUpType => powerUpType;
+    public PowerUpActivationMode ActivationMode => activationMode;
+    public bool UnlockedByDefault => unlockedByDefault;
+    public int CoinDiscountPerShard => Mathf.Max(0, coinDiscountPerShard);
+    public float TimeDilationScale => Mathf.Clamp(timeDilationScale, 0.1f, 1f);
+    public float BaseCooldownSeconds => Mathf.Max(0f, baseCooldownSeconds);
     public bool IsCampaignActiveSkill => isCampaignActiveSkill && EconomyBalanceConfig.Active.IsSkillActiveInCampaign(powerUpType);
     public int InventoryCap => EconomyBalanceConfig.Active.TryGetSkillConfig(powerUpType, out PowerSkillEconomyConfig cfg)
         ? cfg.inventoryCap
@@ -119,7 +147,7 @@ public class PowerUpData : ScriptableObject
     public float EffectValue => effectValue;
     public float PullSpeed => pullSpeed > 0f ? pullSpeed : 12f;
     public int BlockedDamageCount => effectValue > 0f ? Mathf.RoundToInt(effectValue) : 1;
-    public float AttractionRadius => effectValue > 0f ? effectValue : 3f;
+    public float AttractionRadius => effectValue > 0f ? effectValue : 3.5f;
     public int MaxWallCells => maxWallCells > 0 ? maxWallCells : (effectValue > 0f ? Mathf.RoundToInt(effectValue) : 2);
     public int MaxTrapsDestroyed => Mathf.Max(0, maxTrapsDestroyed);
     public int MinWallTraversal => Mathf.Max(1, minWallTraversal);
@@ -175,6 +203,22 @@ public class PowerUpData : ScriptableObject
         initialTutorialCharges = Mathf.Max(0, tutorialCharges);
     }
 
+    public void ConfigureModularCore(
+        PowerUpActivationMode mode,
+        bool defaultUnlocked,
+        int shardDiscountCoins = 25,
+        float dilationScale = 0.3f,
+        float cooldownSec = 12f)
+    {
+        activationMode = mode;
+        unlockedByDefault = defaultUnlocked;
+        coinDiscountPerShard = Mathf.Max(0, shardDiscountCoins);
+        timeDilationScale = Mathf.Clamp(dilationScale, 0.1f, 1f);
+        baseCooldownSeconds = Mathf.Max(0f, cooldownSec);
+        isConsumable = false;
+        usageLimit = 0;
+    }
+
     private void OnValidate()
     {
         duration = Mathf.Max(0f, duration);
@@ -188,6 +232,9 @@ public class PowerUpData : ScriptableObject
         cooldown = Mathf.Max(0f, cooldown);
         inventoryCap = Mathf.Max(1, inventoryCap);
         initialTutorialCharges = Mathf.Max(0, initialTutorialCharges);
+        coinDiscountPerShard = Mathf.Max(0, coinDiscountPerShard);
+        timeDilationScale = Mathf.Clamp(timeDilationScale, 0.1f, 1f);
+        baseCooldownSeconds = Mathf.Max(0f, baseCooldownSeconds);
         if (levelSteps != null && levelSteps.Count > 0 && levelSteps[0] != null)
             levelSteps[0].upgradeCostCoins = 0;
     }
@@ -203,6 +250,18 @@ public class PowerUpData : ScriptableObject
         if (levelSteps == null || levelSteps.Count == 0) return legacyFallback;
         return levelSteps[Mathf.Clamp(level, 1, levelSteps.Count) - 1].statValue;
     }
+
+    public float GetCooldownAtLevel(int level)
+    {
+        if (levelSteps != null && levelSteps.Count > 0)
+        {
+            float stepCooldown = levelSteps[Mathf.Clamp(level, 1, levelSteps.Count) - 1].cooldownSeconds;
+            if (stepCooldown > 0f)
+                return stepCooldown;
+        }
+        return baseCooldownSeconds > 0f ? baseCooldownSeconds : (cooldown > 0f ? cooldown : 12f);
+    }
+
     public string FormatStat(int level, float legacyFallback) =>
         GetStatAtLevel(level, legacyFallback).ToString(string.IsNullOrEmpty(statValueFormat) ? "0.##" : statValueFormat);
 

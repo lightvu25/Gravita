@@ -14,4 +14,21 @@ public static class PowerUpIds
     public const string Echo     = "echo";
     public const string Teleport = "teleport";
     public const string Freeze   = "freeze";
+
+    public static string FormatDisplayName(string powerUpId)
+    {
+        if (string.IsNullOrWhiteSpace(powerUpId))
+            return "Core";
+
+        switch (powerUpId.Trim().ToLowerInvariant())
+        {
+            case Breaker:  return "Kinetic Surge";
+            case Freeze:   return "Time Dilation";
+            case Teleport: return "Phase Shift";
+            case Shield:   return "Inertia Core";
+            case Magnet:   return "Gravity Lens";
+            case Echo:     return "Temporal Anchor";
+            default:       return powerUpId;
+        }
+    }
 }

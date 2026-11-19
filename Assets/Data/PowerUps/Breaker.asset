@@ -19,17 +19,21 @@ MonoBehaviour:
   levelSteps:
   - upgradeCostCoins: 0
     statValue: 2
+    cooldownSeconds: 14
   - upgradeCostCoins: 100
     statValue: 3
+    cooldownSeconds: 12.5
   - upgradeCostCoins: 200
     statValue: 4
+    cooldownSeconds: 11
   - upgradeCostCoins: 350
     statValue: 5
+    cooldownSeconds: 9.5
   - upgradeCostCoins: 500
     statValue: 6
-  displayName: Kinetic Burst
-  description: Discharges a forward shockwave that shatters up to two cracked bulkheads
-    and one mechanical trap ahead.
+    cooldownSeconds: 8
+  displayName: Kinetic Surge
+  description: Shatters cracked blocks, traps, and switches ahead.
   icon: {fileID: -7668348831761657352, guid: b39028a41d8a48c4a81c3a97c7a483ca, type: 3}
   powerUpType: 2
   isCampaignActiveSkill: 1
@@ -42,6 +46,11 @@ MonoBehaviour:
   maxTrapsDestroyed: 1
   minWallTraversal: 1
   maxWallTraversal: 3
-  usageLimit: 1
+  usageLimit: 0
   cooldown: 0
-  isConsumable: 1
+  isConsumable: 0
+  activationMode: 2
+  unlockedByDefault: 1
+  coinDiscountPerShard: 25
+  timeDilationScale: 0.3
+  baseCooldownSeconds: 14

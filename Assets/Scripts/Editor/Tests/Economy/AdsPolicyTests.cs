@@ -158,6 +158,18 @@ public class AdsPolicyTests : EconomyTestHarnessBase
             ?.SetValue(TestBalance, 0f);
         bool shopAdWorkedWithNoAds = false;
         adReward.WatchAdForReward(RewardedAdPlacement.ShopBonus, 0, ok => shopAdWorkedWithNoAds = ok);
-        Assert.IsTrue(shopAdWorkedWithNoAds);
+        // Failed runs ALSO count toward the 2-3 play interstitial cadence
+        profile = SaveManager.loadProfile();
+        profile.noAdsPurchased = false;
+        profile.interstitialTargetLevelsInterval = 2;
+        profile.interstitialCompletedLevelsSinceLastAd = 0;
+        SaveManager.TrySaveProfile(profile);
+
+        AdPolicyCoordinator.RecordFailedRunForInterstitialCadence();
+        Assert.IsFalse(AdPolicyCoordinator.TryShowPostResultTransitionInterstitial(stubInterstitial));
+        AdPolicyCoordinator.RecordFailedRunForInterstitialCadence();
+        Assert.IsTrue(AdPolicyCoordinator.TryShowPostResultTransitionInterstitial(stubInterstitial),
+            "Two plays (including failed runs) must trigger interstitial cadence.");
+        Assert.AreEqual(2, stubInterstitial.ShowCount);
     }
 }

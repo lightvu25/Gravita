@@ -105,6 +105,31 @@ public class SentinelDronePatrol : MonoBehaviour, ILevelClockListener
     }
 
     /// <summary>
+    /// Reconfigures patrol origin and relative cell waypoints when spawned/reused by <see cref="RuntimeLevelPopulator"/>.
+    /// </summary>
+    public void ConfigureRuntimeRoute(Vector2 worldOrigin, Vector2Int[] cellOffsets, DronePatrolMode mode = DronePatrolMode.PingPong)
+    {
+        if (hazard == null) hazard = GetComponent<Hazard>();
+        if (rb == null) rb = GetComponent<Rigidbody2D>();
+
+        patrolMode = mode;
+        waypointTransforms = System.Array.Empty<Transform>();
+        waypointCellOffsets = (cellOffsets != null && cellOffsets.Length > 0)
+            ? cellOffsets
+            : new[] { Vector2Int.zero };
+
+        initialWorldOrigin = worldOrigin;
+        originCaptured = true;
+        localPatrolTime = 0f;
+
+        if (rb != null)
+            rb.position = worldOrigin;
+        transform.position = new Vector3(worldOrigin.x, worldOrigin.y, transform.position.z);
+
+        BuildWaypoints(initialWorldOrigin, resolvedWaypoints);
+    }
+
+    /// <summary>
     /// Pure deterministic evaluator mapping <paramref name="patrolTime"/> to an exact world-space position
     /// along <paramref name="waypoints"/>.
     /// </summary>
@@ -212,10 +237,12 @@ public class SentinelDronePatrol : MonoBehaviour, ILevelClockListener
 
     public void OnLevelClockTick(float levelTime, float deltaTime)
     {
-        if (hazard != null && (hazard.IsFrozen || hazard.IsBroken))
+        if (hazard != null && (hazard.IsFrozen || hazard.IsBroken || hazard.IsHaltedOnDeath))
             return;
 
-        CaptureOriginAndBuildWaypoints();
+        if (!originCaptured || (waypointTransforms != null && waypointTransforms.Length > 0))
+            CaptureOriginAndBuildWaypoints();
+
         localPatrolTime += deltaTime;
 
         float speed = cellsPerSecond * cellSize;

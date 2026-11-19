@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using DG.Tweening;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 
@@ -67,34 +66,52 @@ public class PowerUpController : MonoBehaviour
 
     private readonly Dictionary<PowerUpType, int> usesThisLevel = new Dictionary<PowerUpType, int>();
     private readonly Dictionary<PowerUpType, float> cooldownRemaining = new Dictionary<PowerUpType, float>();
+    private readonly Dictionary<PowerUpType, float> cooldownTotals = new Dictionary<PowerUpType, float>();
+    private bool hasActiveCooldowns;
 
-    // Shield runtime state
+    // Shield / Inertia Core runtime state
     private int activeShieldHits;
+    private float inertiaGraceTimer;
 
-    // Magnet runtime state
+    // Magnet / Gravity Lens runtime state
     private bool isMagnetActive;
     private float magnetRemainingTime;
 
-    // Echo runtime state
+    // Echo / Temporal Anchor runtime state
     private bool isEchoActive;
     private float echoRemainingTime;
     private Vector3 storedEchoPosition;
     private GameObject activeEchoObject;
 
-    // Freeze runtime state
+    // Freeze / Time Dilation runtime state
     private bool isFreezeActive;
     private float freezeRemainingTime;
+    private float dilationGraceTimer;
+    private bool dilationUsingTimeWarp;
     private readonly List<IFreezable> activeFrozenTargets = new List<IFreezable>();
+
+    // Modular VFX Pool & Auto-Trigger helper
+    private readonly PowerUpVfxPool vfxPool = new PowerUpVfxPool();
+    private readonly PowerUpAutoTrigger autoTrigger = new PowerUpAutoTrigger();
+    private readonly List<CircuitSwitch> toggledSwitchScratch = new List<CircuitSwitch>(4);
 
     // Physics query buffers
     private readonly Collider2D[] cellOverlapBuffer = new Collider2D[16];
     private readonly RaycastHit2D[] boundsRayHits = new RaycastHit2D[8];
 
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStaticControllerState()
+    {
+        Instance = null;
+        OnAnyPowerUpUsed = null;
+        OnSkillActivationAttempted = null;
+    }
+
     // ─────────────────────────────────────────────────────────────
     //  Public Read-Only State Properties
     // ─────────────────────────────────────────────────────────────
 
-    public bool IsShieldActive => activeShieldHits > 0;
+    public bool IsShieldActive => activeShieldHits > 0 || inertiaGraceTimer > 0f;
     public int ActiveShieldHits => activeShieldHits;
 
     public bool IsMagnetActive => isMagnetActive;
@@ -146,6 +163,7 @@ public class PowerUpController : MonoBehaviour
     {
         UnsubscribeFlowEvents();
         ClearAllActiveEffects(resetLevelUsageCounts: false);
+        vfxPool.DisposeAll();
 
         if (Instance == this)
             Instance = null;
@@ -153,19 +171,29 @@ public class PowerUpController : MonoBehaviour
 
     private void Update()
     {
-        UpdateCooldowns(Time.deltaTime);
+        float dt = Time.deltaTime;
+        if (inertiaGraceTimer > 0f)
+        {
+            inertiaGraceTimer = Mathf.Max(0f, inertiaGraceTimer - dt);
+            if (inertiaGraceTimer <= 0f)
+                OnPowerUpStateChanged?.Invoke();
+        }
+
+        UpdateCooldowns(dt);
 
         if (!IsGameplayActive())
             return;
 
+        autoTrigger.Tick(this, playerMovement, ResolveCurrentLevelRoot(), dt);
+
         if (isMagnetActive)
-            UpdateMagnet(Time.deltaTime);
+            UpdateMagnet(dt);
 
         if (isEchoActive)
-            UpdateEcho(Time.deltaTime);
+            UpdateEcho(dt);
 
         if (isFreezeActive)
-            UpdateFreeze(Time.deltaTime);
+            UpdateFreeze(dt);
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -184,7 +212,14 @@ public class PowerUpController : MonoBehaviour
                 : FindAnyObjectByType<PlayerMovement>();
 
         if (flowController == null)
-            flowController = FindAnyObjectByType<LevelFlowController>();
+            flowController = LevelFlowController.ResolveInstance();
+    }
+
+    private LevelRoot ResolveCurrentLevelRoot()
+    {
+        if (flowController == null)
+            flowController = LevelFlowController.ResolveInstance();
+        return flowController != null ? flowController.CurrentRoot : null;
     }
 
     private void SubscribeFlowEvents()
@@ -245,11 +280,14 @@ public class PowerUpController : MonoBehaviour
 
     private void ResetUsageDictionaries()
     {
-        foreach (PowerUpType type in Enum.GetValues(typeof(PowerUpType)))
+        foreach (PowerUpType type in DefaultSupportedPowerUpTypes)
         {
             usesThisLevel[type] = 0;
             cooldownRemaining[type] = 0f;
+            cooldownTotals[type] = 0f;
         }
+        hasActiveCooldowns = false;
+        autoTrigger.ResetTimer();
     }
 
     /// <summary>
@@ -259,12 +297,13 @@ public class PowerUpController : MonoBehaviour
     public void ClearAllActiveEffects(bool resetLevelUsageCounts)
     {
         activeShieldHits = 0;
+        inertiaGraceTimer = 0f;
 
         isMagnetActive = false;
         magnetRemainingTime = 0f;
 
-        CleanupEchoState();
-        EndFreezeEffect();
+        CleanupEchoState(startCooldown: false);
+        EndFreezeEffect(startCooldown: false);
 
         if (resetLevelUsageCounts)
             ResetUsageDictionaries();
@@ -362,7 +401,7 @@ public class PowerUpController : MonoBehaviour
         return false;
     }
 
-    public static string GetFallbackDisplayName(PowerUpType type) => type.ToString();
+    public static string GetFallbackDisplayName(PowerUpType type) => PowerUpIds.FormatDisplayName(GetPowerUpId(type));
 
     public static string GetFallbackDisplayName(string skillId)
     {
@@ -405,6 +444,9 @@ public class PowerUpController : MonoBehaviour
     public int GetRemainingLevelUses(PowerUpType type)
     {
         PowerUpData data = GetPowerUpData(type);
+        if (data != null && !data.IsConsumable)
+            return int.MaxValue;
+
         int limit = data != null ? data.UsageLimit : 1;
         if (limit <= 0) return int.MaxValue;
 
@@ -412,9 +454,71 @@ public class PowerUpController : MonoBehaviour
         return Mathf.Max(0, limit - used);
     }
 
+    public bool IsModularSkill(PowerUpType type)
+    {
+        PowerUpData data = GetPowerUpData(type);
+        return data != null && !data.IsConsumable;
+    }
+
+    public PowerUpActivationMode GetActivationMode(PowerUpType type)
+    {
+        PowerUpData data = GetPowerUpData(type);
+        return data != null ? data.ActivationMode : PowerUpActivationMode.ManualActive;
+    }
+
     public float GetCooldownRemaining(PowerUpType type)
     {
         return cooldownRemaining.TryGetValue(type, out float cd) ? Mathf.Max(0f, cd) : 0f;
+    }
+
+    public float GetCooldownTotal(PowerUpType type)
+    {
+        return cooldownTotals.TryGetValue(type, out float total) ? Mathf.Max(0f, total) : 0f;
+    }
+
+    public float GetCooldownNormalized(PowerUpType type)
+    {
+        float total = GetCooldownTotal(type);
+        if (total <= 0f) return 0f;
+        return Mathf.Clamp01(GetCooldownRemaining(type) / total);
+    }
+
+    public float GetMagnetAttractionRadius() => GetMagnetRadius();
+
+    public bool CanManuallyActivate(PowerUpType type)
+    {
+        if (IsModularSkill(type) && GetActivationMode(type) == PowerUpActivationMode.AutoTrigger)
+            return false;
+
+        return CanActivate(type);
+    }
+
+    public bool CanAutoTriggerSkill(PowerUpType type)
+    {
+        if (!IsModularSkill(type))
+            return false;
+
+        PowerUpActivationMode mode = GetActivationMode(type);
+        if (mode != PowerUpActivationMode.AutoTrigger && mode != PowerUpActivationMode.HybridAutoAndManual)
+            return false;
+
+        return EvaluateActivationEligibility(type, out _);
+    }
+
+    public bool TryActivateFromUI(PowerUpType type)
+    {
+        return CanManuallyActivate(type) && TryActivate(type);
+    }
+
+    public bool TryAutoActivate(PowerUpType type)
+    {
+        return CanAutoTriggerSkill(type) && TryActivate(type);
+    }
+
+    public bool EvaluateAutoTriggersNow()
+    {
+        ResolveReferences();
+        return autoTrigger.EvaluateNow(this, playerMovement, ResolveCurrentLevelRoot());
     }
 
     /// <summary>
@@ -452,6 +556,13 @@ public class PowerUpController : MonoBehaviour
         PowerUpData data = GetPowerUpData(type);
         string skillId = data != null && !string.IsNullOrEmpty(data.Id) ? data.Id : GetPowerUpId(type);
 
+        // Enforce unlock gate when campaign/modular rules require Achievement unlocks
+        if (IsModularSkill(type) && !EconomyBalanceConfig.Active.IsSkillActiveInCampaign(skillId))
+        {
+            blockReason = "Locked";
+            return false;
+        }
+
         // Enforce locked 4-slot Loadout during active Campaign gameplay (GDD §5.5)
         if (ProgressionManager.Instance != null && ProgressionManager.Instance.IsLoadoutLocked)
         {
@@ -483,7 +594,7 @@ public class PowerUpController : MonoBehaviour
 
         bool availableState = type switch
         {
-            PowerUpType.Shield => activeShieldHits <= 0,
+            PowerUpType.Shield => activeShieldHits <= 0 && inertiaGraceTimer <= 0f,
             PowerUpType.Magnet => !isMagnetActive,
             PowerUpType.Freeze => !isFreezeActive,
             _                  => true
@@ -547,10 +658,12 @@ public class PowerUpController : MonoBehaviour
         usesThisLevel[type] = (usesThisLevel.TryGetValue(type, out int used) ? used : 0) + 1;
 
         PowerUpData data = GetPowerUpData(type);
-        if (data != null && data.Cooldown > 0f)
-            cooldownRemaining[type] = data.Cooldown;
-
         bool isConsumable = data == null || data.IsConsumable;
+        if (isConsumable || IsInstantCooldownSkill(type))
+        {
+            StartSkillCooldown(type);
+        }
+
         if (isConsumable && ProgressionManager.Instance != null)
         {
             ConsumeOwnedPowerUp(type);
@@ -561,6 +674,27 @@ public class PowerUpController : MonoBehaviour
         OnAnyPowerUpUsed?.Invoke(type);
         OnPowerUpStateChanged?.Invoke();
         return true;
+    }
+
+    private static bool IsInstantCooldownSkill(PowerUpType type) =>
+        type == PowerUpType.Breaker || type == PowerUpType.Teleport;
+
+    private void StartSkillCooldown(PowerUpType type)
+    {
+        PowerUpData data = GetPowerUpData(type);
+        if (data == null)
+            return;
+
+        float cd = !data.IsConsumable
+            ? data.GetCooldownAtLevel(CurrentLevel(GetPowerUpId(type)))
+            : data.Cooldown;
+
+        if (cd > 0f)
+        {
+            cooldownRemaining[type] = cd;
+            cooldownTotals[type] = cd;
+            hasActiveCooldowns = true;
+        }
     }
 
     private void ConsumeOwnedPowerUp(PowerUpType type)
@@ -591,26 +725,65 @@ public class PowerUpController : MonoBehaviour
 
     /// <summary>
     /// Checked by <see cref="LevelFlowController"/> when the player contacts a lethal <see cref="Hazard"/>.
-    /// If Shield is active, cancels the damage instance and consumes the protection.
+    /// Supports both manual/legacy pre-activated Shield AND modular Inertia Core auto-absorption on hit.
     /// </summary>
     public bool TryConsumeShieldHit(Hazard hazard = null)
     {
-        if (activeShieldHits <= 0)
-            return false;
+        bool modular = IsModularSkill(PowerUpType.Shield);
+        if (modular && inertiaGraceTimer > 0f)
+            return true;
 
-        activeShieldHits--;
-        Debug.Log($"[PowerUpController] Shield blocked damage from '{(hazard != null ? hazard.name : "Hazard")}'. Remaining shield hits: {activeShieldHits}.");
+        bool triggeredAuto = false;
+        if (activeShieldHits > 0)
+        {
+            activeShieldHits--;
+        }
+        else if (modular && CanAutoTriggerSkill(PowerUpType.Shield))
+        {
+            triggeredAuto = true;
+        }
+        else
+        {
+            return false;
+        }
+
+        if (hazard != null && hazard.CanBeBrokenByBreaker)
+            hazard.BreakTrap();
+
+        if (modular)
+        {
+            inertiaGraceTimer = 0.45f;
+            if (playerMovement != null)
+            {
+                playerMovement.EnforceMinimumTier(VelocityTier.KineticRam);
+                SpawnRadialPulseVFX(GetPlayerCenter(playerMovement), new Color(0.25f, 0.92f, 1f, 0.9f), 2.8f, 0.35f);
+            }
+            if (activeShieldHits <= 0)
+                StartSkillCooldown(PowerUpType.Shield);
+        }
+
+        if (triggeredAuto)
+        {
+            usesThisLevel[PowerUpType.Shield] = (usesThisLevel.TryGetValue(PowerUpType.Shield, out int used) ? used : 0) + 1;
+            OnSkillActivationAttempted?.Invoke(PowerUpType.Shield, true, "AutoTrigger");
+            OnPowerUpActivated?.Invoke(PowerUpType.Shield);
+            OnAnyPowerUpUsed?.Invoke(PowerUpType.Shield);
+        }
+
+        Debug.Log($"[PowerUpController] Shield/Inertia absorbed hit from '{(hazard != null ? hazard.name : "Hazard")}'.");
         OnPowerUpStateChanged?.Invoke();
         return true;
     }
 
     // ─────────────────────────────────────────────────────────────
-    //  B. Magnet Implementation (Duration: 6s)
+    //  B. Magnet / Gravity Lens Implementation (Pulls Coins & Stars)
     // ─────────────────────────────────────────────────────────────
 
     private float GetMagnetDuration()
     {
-        return magnetData != null && magnetData.Duration > 0f ? magnetData.Duration : 6f;
+        if (magnetData == null) return 6f;
+        float lvlDuration = magnetData.GetDuration(CurrentLevel(PowerUpIds.Magnet));
+        return lvlDuration > 0f ? lvlDuration : 6f;
     }
 
     private float GetMagnetRadius()
@@ -656,7 +829,7 @@ public class PowerUpController : MonoBehaviour
                 for (int i = 0; i < collectibles.Length; i++)
                 {
                     Collectible coin = collectibles[i];
-                    if (coin == null || !coin.IsCoin || coin.IsCollected || !coin.gameObject.activeInHierarchy)
+                    if (coin == null || (!coin.IsCoin && !coin.IsStar) || coin.IsCollected || !coin.gameObject.activeInHierarchy)
                         continue;
 
                     Vector3 coinPos = coin.transform.position;
@@ -679,7 +852,9 @@ public class PowerUpController : MonoBehaviour
         {
             isMagnetActive = false;
             magnetRemainingTime = 0f;
-            Debug.Log("[PowerUpController] Magnet ended.");
+            if (IsModularSkill(PowerUpType.Magnet))
+                StartSkillCooldown(PowerUpType.Magnet);
+            Debug.Log("[PowerUpController] Gravity Lens / Magnet ended.");
             OnPowerUpStateChanged?.Invoke();
         }
     }
@@ -711,23 +886,25 @@ public class PowerUpController : MonoBehaviour
         Vector2 primaryDir = GetEstablishedDirection(playerMovement);
         int wallsBroken = 0;
         int trapsBroken = 0;
+        int switchesToggled = 0;
         Vector2 resolvedDir = primaryDir;
+        toggledSwitchScratch.Clear();
 
         if (primaryDir != Vector2.zero)
         {
-            TryBreakAlongDirection(primaryDir, maxCells, maxWalls, maxTraps, ref wallsBroken, ref trapsBroken);
+            TryBreakAlongDirection(primaryDir, maxCells, maxWalls, maxTraps, ref wallsBroken, ref trapsBroken, ref switchesToggled);
         }
 
         // Fallback: if player has not moved yet or no breakable target was in the primary facing direction,
-        // scan the remaining cardinal directions so adjacent CrackedBlocks/traps can still be shattered.
-        if (wallsBroken == 0 && trapsBroken == 0)
+        // scan the remaining cardinal directions so adjacent CrackedBlocks/traps/switches can respond.
+        if (wallsBroken == 0 && trapsBroken == 0 && switchesToggled == 0)
         {
             Vector2[] cardinalDirs = { Vector2.up, Vector2.down, Vector2.left, Vector2.right };
             for (int d = 0; d < cardinalDirs.Length; d++)
             {
                 if (cardinalDirs[d] == primaryDir) continue;
-                TryBreakAlongDirection(cardinalDirs[d], maxCells, maxWalls, maxTraps, ref wallsBroken, ref trapsBroken);
-                if (wallsBroken > 0 || trapsBroken > 0)
+                TryBreakAlongDirection(cardinalDirs[d], maxCells, maxWalls, maxTraps, ref wallsBroken, ref trapsBroken, ref switchesToggled);
+                if (wallsBroken > 0 || trapsBroken > 0 || switchesToggled > 0)
                 {
                     resolvedDir = cardinalDirs[d];
                     break;
@@ -736,16 +913,16 @@ public class PowerUpController : MonoBehaviour
         }
 
         Vector2 vfxDir = resolvedDir != Vector2.zero ? resolvedDir : Vector2.up;
-        if (wallsBroken == 0 && trapsBroken == 0)
+        if (wallsBroken == 0 && trapsBroken == 0 && switchesToggled == 0)
         {
             SpawnDirectionalScanOrBurstVFX(vfxDir, maxCells, succeeded: false);
-            Debug.Log("[PowerUpController] Breaker failed — no eligible breakable wall or trap in range.");
+            Debug.Log("[PowerUpController] Kinetic Surge / Breaker failed — no eligible wall, trap, or switch in range.");
             return false;
         }
 
         SpawnDirectionalScanOrBurstVFX(vfxDir, maxCells, succeeded: true);
         Physics2D.SyncTransforms();
-        Debug.Log($"[PowerUpController] Breaker succeeded — broke {wallsBroken} wall(s) and {trapsBroken} trap(s).");
+        Debug.Log($"[PowerUpController] Kinetic Surge / Breaker succeeded — broke {wallsBroken} wall(s), {trapsBroken} trap(s), toggled {switchesToggled} switch(es).");
         return true;
     }
 
@@ -755,7 +932,8 @@ public class PowerUpController : MonoBehaviour
         int maxWalls,
         int maxTraps,
         ref int wallsBroken,
-        ref int trapsBroken)
+        ref int trapsBroken,
+        ref int switchesToggled)
     {
         float cellSize = Mathf.Max(0.1f, playerMovement.CellSize);
         Vector2 boxSize = Vector2.one * (cellSize * 0.75f);
@@ -776,7 +954,7 @@ public class PowerUpController : MonoBehaviour
                     CrackedBlock cracked = col.GetComponentInParent<CrackedBlock>();
                     if (cracked != null && !cracked.IsBroken)
                     {
-                        cracked.Break();
+                        cracked.Break(dir);
                         wallsBroken++;
                         continue;
                     }
@@ -792,6 +970,18 @@ public class PowerUpController : MonoBehaviour
                         {
                             trapsBroken++;
                         }
+                    }
+                }
+
+                // 3. Kinetic Surge remote pulse toggles CircuitSwitches along the shockwave beam
+                if (IsModularSkill(PowerUpType.Breaker))
+                {
+                    CircuitSwitch circuitSwitch = col.GetComponentInParent<CircuitSwitch>();
+                    if (circuitSwitch != null && !toggledSwitchScratch.Contains(circuitSwitch))
+                    {
+                        toggledSwitchScratch.Add(circuitSwitch);
+                        if (circuitSwitch.TriggerRemotePulse(dir))
+                            switchesToggled++;
                     }
                 }
             }
@@ -835,8 +1025,8 @@ public class PowerUpController : MonoBehaviour
         echoRemainingTime -= deltaTime;
         if (echoRemainingTime <= 0f)
         {
-            CleanupEchoState();
-            Debug.Log("[PowerUpController] Echo expired after 5s.");
+            CleanupEchoState(startCooldown: IsModularSkill(PowerUpType.Echo));
+            Debug.Log("[PowerUpController] Echo expired.");
             OnPowerUpStateChanged?.Invoke();
         }
     }
@@ -867,7 +1057,7 @@ public class PowerUpController : MonoBehaviour
         Vector3 targetPos = storedEchoPosition;
 
         // Immediately clear Echo state first to prevent duplicate rescue/return events
-        CleanupEchoState();
+        CleanupEchoState(startCooldown: IsModularSkill(PowerUpType.Echo));
 
         if (!TryResolveSafeEchoDestination(targetPos, out Vector3 resolvedDestination))
         {
@@ -961,11 +1151,13 @@ public class PowerUpController : MonoBehaviour
         }
     }
 
-    private void CleanupEchoState()
+    private void CleanupEchoState(bool startCooldown)
     {
         isEchoActive = false;
         echoRemainingTime = 0f;
         DestroyEchoVisual();
+        if (startCooldown)
+            StartSkillCooldown(PowerUpType.Echo);
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -1050,16 +1242,27 @@ public class PowerUpController : MonoBehaviour
         }
 
         Vector3 departurePos = GetPlayerCenter(playerMovement);
-        playerMovement.TeleportTo(destinationPos);
+        if (Application.isPlaying && playerMovement.IsMoving)
+        {
+            VelocityTier minTier = playerMovement.CurrentTier > VelocityTier.Cruise
+                ? playerMovement.CurrentTier
+                : VelocityTier.Cruise;
+            playerMovement.StartPhaseLaunch(playerMovement.transform.position, destinationPos, dir, minTier, 1.8f);
+        }
+        else
+        {
+            playerMovement.TeleportTo(destinationPos);
+        }
+
         SpawnRadialPulseVFX(departurePos, new Color(0.75f, 0.45f, 1f, 0.85f), 1.8f, 0.28f);
         SpawnRadialPulseVFX(destinationPos, new Color(0.35f, 0.95f, 1f, 0.95f), 2.2f, 0.32f);
         Physics2D.SyncTransforms();
-        Debug.Log($"[PowerUpController] Teleport succeeded — crossed {consecutiveWallCells} wall cell(s) to {destinationPos}.");
+        Debug.Log($"[PowerUpController] Teleport/Phase Shift succeeded — crossed {consecutiveWallCells} wall cell(s) to {destinationPos}.");
         return true;
     }
 
     // ─────────────────────────────────────────────────────────────
-    //  F. Freeze Implementation (Duration: 4s)
+    //  F. Freeze / Time Dilation Implementation
     // ─────────────────────────────────────────────────────────────
 
     private float GetFreezeDuration()
@@ -1076,12 +1279,21 @@ public class PowerUpController : MonoBehaviour
 
         isFreezeActive = true;
         freezeRemainingTime = GetFreezeDuration();
+        dilationUsingTimeWarp = IsModularSkill(PowerUpType.Freeze);
+        dilationGraceTimer = dilationUsingTimeWarp ? 0.6f : 0f;
         activeFrozenTargets.Clear();
+
+        if (dilationUsingTimeWarp)
+        {
+            LevelRoot root = ResolveCurrentLevelRoot();
+            if (root != null)
+                root.ClockTimeScale = freezeData != null ? freezeData.TimeDilationScale : 0.3f;
+        }
 
         FreezeAllEligibleTargetsInLevel();
         if (playerMovement != null)
             SpawnRadialPulseVFX(GetPlayerCenter(playerMovement), new Color(0.35f, 0.92f, 1f, 0.9f), 5.5f, 0.45f);
-        Debug.Log($"[PowerUpController] Freeze activated for {freezeRemainingTime:F1}s ({activeFrozenTargets.Count} target(s) frozen).");
+        Debug.Log($"[PowerUpController] {(dilationUsingTimeWarp ? "Time Dilation" : "Freeze")} activated for {freezeRemainingTime:F1}s ({activeFrozenTargets.Count} target(s)).");
         return true;
     }
 
@@ -1110,7 +1322,7 @@ public class PowerUpController : MonoBehaviour
     }
 
     /// <summary>
-    /// Freezes a newly enabled/spawned <see cref="IFreezable"/> target if Freeze is currently running.
+    /// Applies Freeze or Time Dilation to a newly enabled/spawned <see cref="IFreezable"/> target if active.
     /// </summary>
     public void RegisterAndFreezeIfActive(IFreezable target)
     {
@@ -1120,36 +1332,76 @@ public class PowerUpController : MonoBehaviour
         if (!activeFrozenTargets.Contains(target))
             activeFrozenTargets.Add(target);
 
-        target.FreezeTarget();
+        if (dilationUsingTimeWarp)
+        {
+            float scale = freezeData != null ? freezeData.TimeDilationScale : 0.3f;
+            target.ApplyTimeDilation(scale, suppressLethality: dilationGraceTimer > 0f);
+        }
+        else
+        {
+            target.FreezeTarget();
+        }
     }
 
     private void UpdateFreeze(float deltaTime)
     {
         if (!isFreezeActive) return;
 
+        if (dilationUsingTimeWarp && dilationGraceTimer > 0f)
+        {
+            dilationGraceTimer -= deltaTime;
+            if (dilationGraceTimer <= 0f)
+            {
+                dilationGraceTimer = 0f;
+                float scale = freezeData != null ? freezeData.TimeDilationScale : 0.3f;
+                for (int i = 0; i < activeFrozenTargets.Count; i++)
+                {
+                    if (activeFrozenTargets[i] != null)
+                        activeFrozenTargets[i].ApplyTimeDilation(scale, suppressLethality: false);
+                }
+            }
+        }
+
         freezeRemainingTime -= deltaTime;
         if (freezeRemainingTime <= 0f)
         {
-            EndFreezeEffect();
-            Debug.Log("[PowerUpController] Freeze ended — targets restored.");
+            EndFreezeEffect(startCooldown: IsModularSkill(PowerUpType.Freeze));
+            Debug.Log("[PowerUpController] Time Dilation / Freeze ended — targets restored.");
             OnPowerUpStateChanged?.Invoke();
         }
     }
 
-    private void EndFreezeEffect()
+    private void EndFreezeEffect(bool startCooldown)
     {
-        if (!isFreezeActive && activeFrozenTargets.Count == 0)
+        if (!isFreezeActive && activeFrozenTargets.Count == 0 && !dilationUsingTimeWarp)
             return;
 
+        bool wasTimeWarp = dilationUsingTimeWarp;
         isFreezeActive = false;
         freezeRemainingTime = 0f;
+        dilationGraceTimer = 0f;
+        dilationUsingTimeWarp = false;
+
+        if (wasTimeWarp)
+        {
+            LevelRoot root = ResolveCurrentLevelRoot();
+            if (root != null)
+                root.ClockTimeScale = 1f;
+        }
 
         for (int i = 0; i < activeFrozenTargets.Count; i++)
         {
-            if (activeFrozenTargets[i] != null)
-                activeFrozenTargets[i].UnfreezeTarget();
+            IFreezable t = activeFrozenTargets[i];
+            if (t == null) continue;
+            if (wasTimeWarp)
+                t.ClearTimeDilation();
+            else
+                t.UnfreezeTarget();
         }
         activeFrozenTargets.Clear();
+
+        if (startCooldown)
+            StartSkillCooldown(PowerUpType.Freeze);
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -1166,21 +1418,25 @@ public class PowerUpController : MonoBehaviour
 
     private void UpdateCooldowns(float deltaTime)
     {
-        if (deltaTime <= 0f) return;
+        if (deltaTime <= 0f || !hasActiveCooldowns) return;
 
         bool anyExpired = false;
-        PowerUpType[] types = (PowerUpType[])Enum.GetValues(typeof(PowerUpType));
-        for (int i = 0; i < types.Length; i++)
+        bool anyStillActive = false;
+        for (int i = 0; i < DefaultSupportedPowerUpTypes.Length; i++)
         {
-            PowerUpType t = types[i];
+            PowerUpType t = DefaultSupportedPowerUpTypes[i];
             if (cooldownRemaining.TryGetValue(t, out float cd) && cd > 0f)
             {
                 cd = Mathf.Max(0f, cd - deltaTime);
                 cooldownRemaining[t] = cd;
                 if (cd <= 0f)
                     anyExpired = true;
+                else
+                    anyStillActive = true;
             }
         }
+
+        hasActiveCooldowns = anyStillActive;
 
         if (anyExpired)
             OnPowerUpStateChanged?.Invoke();
@@ -1388,82 +1644,12 @@ public class PowerUpController : MonoBehaviour
     }
 
     // ─────────────────────────────────────────────────────────────
-    //  In-World Skill Feedback VFX (EMP Ring & Directional Cell Scan)
+    //  In-World Skill Feedback VFX (Pooled via PowerUpVfxPool)
     // ─────────────────────────────────────────────────────────────
-
-    private static Sprite cachedRingSprite;
-    private static Sprite cachedBoxSprite;
-
-    private static Sprite GetOrCreateRingSprite()
-    {
-        if (cachedRingSprite != null) return cachedRingSprite;
-
-        const int size = 32;
-        var tex = new Texture2D(size, size, TextureFormat.RGBA32, false)
-        {
-            filterMode = FilterMode.Point,
-            wrapMode = TextureWrapMode.Clamp
-        };
-
-        float center = (size - 1) * 0.5f;
-        for (int y = 0; y < size; y++)
-        {
-            for (int x = 0; x < size; x++)
-            {
-                float dist = Vector2.Distance(new Vector2(x, y), new Vector2(center, center));
-                bool isRing = dist >= 11.5f && dist <= 15.2f;
-                tex.SetPixel(x, y, isRing ? Color.white : Color.clear);
-            }
-        }
-        tex.Apply();
-        cachedRingSprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 32f);
-        return cachedRingSprite;
-    }
-
-    private static Sprite GetOrCreateBoxSprite()
-    {
-        if (cachedBoxSprite != null) return cachedBoxSprite;
-
-        const int size = 32;
-        var tex = new Texture2D(size, size, TextureFormat.RGBA32, false)
-        {
-            filterMode = FilterMode.Point,
-            wrapMode = TextureWrapMode.Clamp
-        };
-
-        for (int y = 0; y < size; y++)
-        {
-            for (int x = 0; x < size; x++)
-            {
-                bool isBorder = x < 3 || x >= size - 3 || y < 3 || y >= size - 3;
-                Color c = isBorder ? Color.white : new Color(1f, 1f, 1f, 0.25f);
-                tex.SetPixel(x, y, c);
-            }
-        }
-        tex.Apply();
-        cachedBoxSprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 32f);
-        return cachedBoxSprite;
-    }
 
     private void SpawnRadialPulseVFX(Vector3 centerPos, Color color, float targetScale, float duration)
     {
-        if (!Application.isPlaying) return;
-
-        var go = new GameObject("SkillPulseVFX");
-        go.transform.position = new Vector3(centerPos.x, centerPos.y, 0f);
-        go.transform.localScale = Vector3.one * 0.35f;
-
-        var sr = go.AddComponent<SpriteRenderer>();
-        sr.sprite = GetOrCreateRingSprite();
-        sr.color = color;
-        sr.sortingOrder = 25;
-
-        Sequence seq = DOTween.Sequence()
-            .SetUpdate(true)
-            .SetLink(go);
-        seq.Join(go.transform.DOScale(Vector3.one * targetScale, duration).SetEase(Ease.OutCubic));
-        seq.Join(sr.DOFade(0f, duration).SetEase(Ease.InQuad));
-        seq.OnComplete(() => Destroy(go));
+        vfxPool.SpawnRadialPulse(centerPos, color, targetScale, duration);
     }
 
     private void SpawnDirectionalScanOrBurstVFX(Vector2 dir, int cellCount, bool succeeded)
@@ -1477,29 +1663,7 @@ public class PowerUpController : MonoBehaviour
         for (int step = 1; step <= Mathf.Max(1, cellCount); step++)
         {
             Vector2 cellCenter = GetCellCenterInFront(playerMovement, dir, step);
-            var go = new GameObject(succeeded ? $"BreakerBurst_{step}" : $"SkillInvalidScan_{step}");
-            go.transform.position = new Vector3(cellCenter.x, cellCenter.y, 0f);
-            go.transform.localScale = Vector3.one * (succeeded ? 0.5f : 0.85f);
-
-            var sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = GetOrCreateBoxSprite();
-            sr.color = vfxColor;
-            sr.sortingOrder = 25;
-
-            Sequence seq = DOTween.Sequence()
-                .SetUpdate(true)
-                .SetLink(go);
-            if (succeeded)
-            {
-                seq.Join(go.transform.DOScale(Vector3.one * 1.25f, 0.28f).SetEase(Ease.OutBack));
-                seq.Join(sr.DOFade(0f, 0.28f).SetEase(Ease.InQuad));
-            }
-            else
-            {
-                seq.Join(go.transform.DOShakePosition(0.24f, new Vector3(0.08f, 0.08f, 0f), 20, 90f, false, true));
-                seq.Join(sr.DOFade(0f, 0.28f).SetEase(Ease.InQuad));
-            }
-            seq.OnComplete(() => Destroy(go));
+            vfxPool.SpawnBoxPulse(cellCenter, vfxColor, succeeded);
         }
     }
 }

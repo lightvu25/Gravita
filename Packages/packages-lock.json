@@ -10,8 +10,22 @@
       },
       "hash": "f7f876f5fa3bc6be0ecdc2ee2e2948dc6d1e06d8"
     },
+    "com.google.external-dependency-manager": {
+      "version": "file:com.google.external-dependency-manager",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
+    "com.google.play.games": {
+      "version": "file:C:/Users/VuQuang/Downloads/play-games-plugin-for-unity-2.3.0/play-games-plugin-for-unity-2.3.0/Assets/Public/GooglePlayGames/com.google.play.games",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {
+        "com.google.external-dependency-manager": "1.2.182"
+      }
+    },
     "com.ivanmurzak.unity.mcp": {
-      "version": "1.11.0",
+      "version": "1.12.0",
       "depth": 0,
       "source": "registry",
       "dependencies": {

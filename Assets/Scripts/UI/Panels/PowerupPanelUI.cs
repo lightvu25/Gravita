@@ -11,7 +11,10 @@ public class PowerupPanelUI : MonoBehaviour, IUIPanel
     {
         PowerUpIds.Breaker,
         PowerUpIds.Freeze,
-        PowerUpIds.Teleport
+        PowerUpIds.Teleport,
+        PowerUpIds.Shield,
+        PowerUpIds.Magnet,
+        PowerUpIds.Echo
     };
 
     public enum PowerupTab { Equip, Up }
@@ -28,30 +31,35 @@ public class PowerupPanelUI : MonoBehaviour, IUIPanel
     [SerializeField, Min(0.01f)] private float tabScaleTweenDuration = 0.18f;
 
     [Header("Equip Tab")]
-    [SerializeField] private Transform rowContainer;      // non-scrolling
-    [SerializeField] private PowerupRowWidget rowPrefab;
+    [SerializeField] private Transform rowContainer;      // scrollable or fixed row container
+    [SerializeField] private GameObject rowPrefab;
     [SerializeField] private PowerupLoadoutSlotWidget[] slotWidgets;   // 4 loadout slots
     [SerializeField] private RectTransform dragLayer;     // top-most RectTransform of the panel
+    [SerializeField] private Image dragGhostImage;        // pre-wired UI Image child under dragLayer
 
     [Header("Up Tab")]
     [SerializeField] private Transform upgradeContainer;
-    [SerializeField] private PowerupUpgradeCardWidget upgradeCardPrefab;
+    [SerializeField] private GameObject upgradeCardPrefab;
 
     [Header("Optional Animation")]
     [SerializeField] private UIPanelAnimator panelAnimator;
 
     private readonly List<PowerupRowWidget> spawnedRows = new List<PowerupRowWidget>();
+    private readonly List<PowerupRowWidget> rowPool = new List<PowerupRowWidget>();
     private readonly List<PowerupUpgradeCardWidget> spawnedUpgradeCards = new List<PowerupUpgradeCardWidget>();
+    private readonly List<PowerupUpgradeCardWidget> upgradeCardPool = new List<PowerupUpgradeCardWidget>();
 
     private PowerupTab activeTab = PowerupTab.Equip;
     public PowerupTab ActiveTab => activeTab;
+    public IReadOnlyList<PowerupRowWidget> SpawnedRows => spawnedRows;
+    public IReadOnlyList<PowerupUpgradeCardWidget> SpawnedUpgradeCards => spawnedUpgradeCards;
 
     private UIPanelAnimator PanelAnimator => panelAnimator;
     private ProgressionManager PM => ProgressionManager.Instance;
     private bool IsLocked() => PM == null || PM.IsLoadoutLocked;
 
     private PowerupDragGhost ghost;
-    private PowerupDragGhost Ghost => ghost ?? (ghost = new PowerupDragGhost(dragLayer != null ? dragLayer : (RectTransform)transform));
+    private PowerupDragGhost Ghost => ghost ?? (ghost = new PowerupDragGhost(dragGhostImage));
 
     private string dragSkillId;
     private int dragFromSlot = -1;
@@ -73,18 +81,16 @@ public class PowerupPanelUI : MonoBehaviour, IUIPanel
 
     private void Awake()
     {
-        if (rowPrefab != null && rowPrefab.gameObject.scene.IsValid())
-            rowPrefab.gameObject.SetActive(false);
-
-        if (upgradeCardPrefab != null && upgradeCardPrefab.gameObject.scene.IsValid())
-            upgradeCardPrefab.gameObject.SetActive(false);
-
+        ConfigureHorizontalScrollContainer(rowContainer);
+        ConfigureHorizontalScrollContainer(upgradeContainer);
         BindTabs();
         BindSlots();
     }
 
     private void OnEnable()
     {
+        ConfigureHorizontalScrollContainer(rowContainer);
+        ConfigureHorizontalScrollContainer(upgradeContainer);
         BindTabs();
         BindSlots();
         SelectTab(PowerupTab.Equip, playSound: false);
@@ -116,6 +122,19 @@ public class PowerupPanelUI : MonoBehaviour, IUIPanel
         }
     }
 
+    private static void ConfigureHorizontalScrollContainer(Transform container)
+    {
+        if (container == null)
+            return;
+
+        ScrollRect sr = container.GetComponentInParent<ScrollRect>();
+        if (sr != null && sr.content == container)
+        {
+            sr.horizontal = true;
+            sr.vertical = false;
+        }
+    }
+
     private void OnDestroy()
     {
         if (equipTabButton != null) equipTabButton.onClick.RemoveListener(OnEquipTabClicked);
@@ -124,7 +143,20 @@ public class PowerupPanelUI : MonoBehaviour, IUIPanel
     }
 
     private void HandlePowerUpUpgraded(string skillId, int newLevel) => RefreshAll();
-    private void HandleCoinsChanged(int newBalance, int delta) => RefreshAll();
+
+    private void HandleCoinsChanged(int newBalance, int delta)
+    {
+        RefreshUpgradeAffordabilityOnly(newBalance);
+    }
+
+    private void RefreshUpgradeAffordabilityOnly(int coins)
+    {
+        for (int i = 0; i < spawnedUpgradeCards.Count; i++)
+        {
+            if (spawnedUpgradeCards[i] != null)
+                spawnedUpgradeCards[i].RefreshAffordability(coins);
+        }
+    }
 
     private void BindTabs()
     {
@@ -210,7 +242,8 @@ public class PowerupPanelUI : MonoBehaviour, IUIPanel
     private void RefreshSlots()
     {
         if (slotWidgets == null) return;
-        IReadOnlyList<string> slots = PM != null ? PM.GetLoadoutSlots() : Array.Empty<string>();
+        ProgressionManager pm = PM;
+        IReadOnlyList<string> slots = pm != null ? pm.GetLoadoutSlots() : Array.Empty<string>();
         for (int i = 0; i < slotWidgets.Length; i++)
         {
             PowerupLoadoutSlotWidget widget = slotWidgets[i];
@@ -219,7 +252,8 @@ public class PowerupPanelUI : MonoBehaviour, IUIPanel
             Sprite icon = null;
             if (!string.IsNullOrEmpty(skillId))
                 ResolveSkillMetadata(skillId, out _, out icon);
-            widget.Refresh(skillId, icon);
+            int count = (!string.IsNullOrEmpty(skillId) && pm != null) ? pm.GetPowerUpCount(skillId) : 0;
+            widget.Refresh(skillId, icon, count);
         }
     }
 
@@ -228,20 +262,12 @@ public class PowerupPanelUI : MonoBehaviour, IUIPanel
         if (rowContainer == null || rowPrefab == null)
             return;
 
-        if (rowPrefab.gameObject.scene.IsValid())
-            rowPrefab.gameObject.SetActive(false);
-
-        for (int i = spawnedRows.Count - 1; i >= 0; i--)
-        {
-            PowerupRowWidget row = spawnedRows[i];
-            if (row != null && row != rowPrefab)
-                Destroy(row.gameObject);
-        }
-        spawnedRows.Clear();
+        DeactivatePool(rowPool, spawnedRows);
 
         List<string> activeSkillIds = CollectActiveCampaignSkillIds();
         ProgressionManager pm = PM;
         bool locked = IsLocked();
+        int activeIndex = 0;
 
         for (int i = 0; i < activeSkillIds.Count; i++)
         {
@@ -249,16 +275,27 @@ public class PowerupPanelUI : MonoBehaviour, IUIPanel
             if (string.IsNullOrEmpty(skillId))
                 continue;
 
+            PowerUpData data = FindPowerUpData(skillId);
+            bool isModular = data != null && !data.IsConsumable;
+            int count = pm != null ? pm.GetPowerUpCount(skillId) : 0;
+            if (!isModular && count <= 0)
+                continue;
+
             ResolveSkillMetadata(skillId, out string _, out Sprite icon);
 
-            int count = pm != null ? pm.GetPowerUpCount(skillId) : 0;
             int cap = pm != null
                 ? pm.GetPowerUpCap(skillId)
                 : EconomyBalanceConfig.Active.GetSkillInventoryCap(skillId);
             bool equipped = pm != null && pm.IsSkillEquippedInLoadout(skillId);
 
-            PowerupRowWidget row = Instantiate(rowPrefab, rowContainer);
+            PowerupRowWidget row = GetOrCreatePooledWidget(rowPool, rowPrefab, rowContainer, activeIndex);
+            if (row == null)
+                break;
+
+            row.transform.SetSiblingIndex(activeIndex);
+            row.transform.localScale = Vector3.one;
             row.gameObject.SetActive(true);
+            activeIndex++;
 
             string capturedId = skillId;
             row.Setup(
@@ -283,20 +320,12 @@ public class PowerupPanelUI : MonoBehaviour, IUIPanel
         if (upgradeContainer == null || upgradeCardPrefab == null)
             return;
 
-        if (upgradeCardPrefab.gameObject.scene.IsValid())
-            upgradeCardPrefab.gameObject.SetActive(false);
-
-        for (int i = spawnedUpgradeCards.Count - 1; i >= 0; i--)
-        {
-            PowerupUpgradeCardWidget card = spawnedUpgradeCards[i];
-            if (card != null && card != upgradeCardPrefab)
-                Destroy(card.gameObject);
-        }
-        spawnedUpgradeCards.Clear();
+        DeactivatePool(upgradeCardPool, spawnedUpgradeCards);
 
         List<string> activeSkillIds = CollectActiveCampaignSkillIds();
         ProgressionManager pm = PM;
         int coins = EconomyManager.Instance != null ? EconomyManager.Instance.Coins : 0;
+        int activeIndex = 0;
 
         for (int i = 0; i < activeSkillIds.Count; i++)
         {
@@ -307,14 +336,71 @@ public class PowerupPanelUI : MonoBehaviour, IUIPanel
             PowerUpData data = FindPowerUpData(skillId);
             ResolveSkillMetadata(skillId, out string displayName, out Sprite icon);
             int level = pm != null ? pm.GetPowerUpLevel(skillId) : 1;
+            int shardsUsed = 0;
+            int effectiveCost = pm != null && data != null
+                ? pm.GetEffectiveUpgradeCoinCost(skillId, data, out shardsUsed)
+                : (data != null ? data.GetUpgradeCost(level) : -1);
+            bool isUnlocked = pm == null || pm.IsSkillUnlocked(skillId);
 
-            PowerupUpgradeCardWidget card = Instantiate(upgradeCardPrefab, upgradeContainer);
+            PowerupUpgradeCardWidget card = GetOrCreatePooledWidget(upgradeCardPool, upgradeCardPrefab, upgradeContainer, activeIndex);
+            if (card == null)
+                break;
+
+            card.transform.SetSiblingIndex(activeIndex);
+            card.transform.localScale = Vector3.one;
             card.gameObject.SetActive(true);
+            activeIndex++;
 
             string capturedId = skillId;
-            card.Setup(data, icon, displayName, level, coins, () => OnUpgradeClicked(capturedId, data));
+            card.Setup(data, icon, displayName, level, coins, effectiveCost, shardsUsed, isUnlocked, () => OnUpgradeClicked(capturedId, data));
             spawnedUpgradeCards.Add(card);
         }
+    }
+
+    private static void DeactivatePool<T>(List<T> pool, List<T> activeView) where T : Component
+    {
+        activeView.Clear();
+        for (int i = pool.Count - 1; i >= 0; i--)
+        {
+            T item = pool[i];
+            if (item == null)
+            {
+                pool.RemoveAt(i);
+                continue;
+            }
+            item.gameObject.SetActive(false);
+        }
+    }
+
+    private T GetOrCreatePooledWidget<T>(List<T> pool, GameObject prefab, Transform container, int index) where T : Component
+    {
+        if (index < pool.Count && pool[index] != null)
+            return pool[index];
+
+        GameObject obj = Instantiate(prefab, container, false);
+        if (!obj.TryGetComponent(out T widget))
+        {
+            Debug.LogError($"[PowerupPanelUI] Assigned prefab '{prefab.name}' is missing {typeof(T).Name} component.", this);
+            DestroyObjectSafely(obj);
+            return null;
+        }
+
+        if (index < pool.Count)
+            pool[index] = widget;
+        else
+            pool.Add(widget);
+        return widget;
+    }
+
+    private static void DestroyObjectSafely(GameObject obj)
+    {
+        if (obj == null)
+            return;
+
+        if (Application.isPlaying)
+            Destroy(obj);
+        else
+            DestroyImmediate(obj);
     }
 
     private void OnUpgradeClicked(string id, PowerUpData data)

@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Tilemaps;
 
 /// <summary>
 /// Instantiates and manages the lifecycle of a level layout.
@@ -17,6 +18,13 @@ public class LevelLoader : MonoBehaviour
     [Header("Layout Parent")]
     [Tooltip("Optional parent transform for the instantiated layout. Leave null to parent to this GameObject.")]
     [SerializeField] private Transform layoutParent;
+
+    [Header("Tilemap Auto-Merge & Fill")]
+    [Tooltip("Optional RuntimeTilemapMerger in scene. Falls back to RuntimeTilemapMerger.Instance or in-place local fill if unassigned.")]
+    [SerializeField] private RuntimeTilemapMerger tilemapMerger;
+    [SerializeField] private TileBase defaultWallFillTile;
+    [SerializeField] private TileBase defaultBackgroundFillTile;
+    [SerializeField, Min(0)] private int autoFillPadding = 15;
 
     // ─────────────────────────────────────────────────────────────
     //  State
@@ -75,6 +83,23 @@ public class LevelLoader : MonoBehaviour
         }
 
         currentLevelData = levelData;
+
+        var merger = tilemapMerger != null
+            ? tilemapMerger
+            : (RuntimeTilemapMerger.Instance != null ? RuntimeTilemapMerger.Instance : FindAnyObjectByType<RuntimeTilemapMerger>());
+        if (merger != null)
+        {
+            merger.ProcessLevel(currentLayoutInstance);
+        }
+        else
+        {
+            RuntimeTilemapMerger.AutoFillLocalLevelTilemaps(
+                currentLayoutInstance,
+                defaultWallFillTile,
+                defaultBackgroundFillTile,
+                autoFillPadding);
+        }
+
         Debug.Log($"[LevelLoader] Loaded level '{levelData.LevelId}' — layout '{levelData.LayoutPrefab.name}'.");
         return currentLevelRoot;
     }
@@ -84,6 +109,11 @@ public class LevelLoader : MonoBehaviour
     /// </summary>
     public void UnloadCurrentLevel()
     {
+        var merger = tilemapMerger != null
+            ? tilemapMerger
+            : (RuntimeTilemapMerger.Instance != null ? RuntimeTilemapMerger.Instance : FindAnyObjectByType<RuntimeTilemapMerger>());
+        merger?.ClearGlobalTilemaps();
+
         if (currentLayoutInstance != null)
         {
             if (Application.isPlaying)
@@ -105,7 +135,7 @@ public class LevelLoader : MonoBehaviour
     {
         // If LevelFlowController is present in the scene, it manages loading.
         // Avoid double-loading the initial level.
-        if (FindAnyObjectByType<LevelFlowController>() != null)
+        if (LevelFlowController.ResolveInstance() != null)
             return;
 
         // Auto-load the initialLevelData if assigned in standalone testing mode.

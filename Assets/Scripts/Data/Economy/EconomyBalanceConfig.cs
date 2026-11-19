@@ -49,6 +49,7 @@ public class PowerSkillEconomyConfig
     public PowerUpType skillType = PowerUpType.Breaker;
     public string skillId = "breaker";
     public bool enabledInCampaign = true;
+    public bool unlockedByDefault = true;
 
     [Tooltip("Hard inventory cap specified in GDD §5.1 (Breaker=12, Freeze=12, Teleport=8).")]
     [Min(1)]
@@ -155,6 +156,7 @@ public class EconomyBalanceConfig : ScriptableObject
             skillType = PowerUpType.Breaker,
             skillId = PowerUpIds.Breaker,
             enabledInCampaign = true,
+            unlockedByDefault = true,
             inventoryCap = 12,
             initialTutorialCharges = 2
         },
@@ -163,6 +165,7 @@ public class EconomyBalanceConfig : ScriptableObject
             skillType = PowerUpType.Freeze,
             skillId = PowerUpIds.Freeze,
             enabledInCampaign = true,
+            unlockedByDefault = true,
             inventoryCap = 12,
             initialTutorialCharges = 2
         },
@@ -171,8 +174,36 @@ public class EconomyBalanceConfig : ScriptableObject
             skillType = PowerUpType.Teleport,
             skillId = PowerUpIds.Teleport,
             enabledInCampaign = true,
+            unlockedByDefault = true,
             inventoryCap = 8,
             initialTutorialCharges = 2
+        },
+        new PowerSkillEconomyConfig
+        {
+            skillType = PowerUpType.Shield,
+            skillId = PowerUpIds.Shield,
+            enabledInCampaign = true,
+            unlockedByDefault = false,
+            inventoryCap = 10,
+            initialTutorialCharges = 0
+        },
+        new PowerSkillEconomyConfig
+        {
+            skillType = PowerUpType.Magnet,
+            skillId = PowerUpIds.Magnet,
+            enabledInCampaign = true,
+            unlockedByDefault = false,
+            inventoryCap = 10,
+            initialTutorialCharges = 0
+        },
+        new PowerSkillEconomyConfig
+        {
+            skillType = PowerUpType.Echo,
+            skillId = PowerUpIds.Echo,
+            enabledInCampaign = true,
+            unlockedByDefault = false,
+            inventoryCap = 8,
+            initialTutorialCharges = 0
         }
     };
 
@@ -200,9 +231,12 @@ public class EconomyBalanceConfig : ScriptableObject
     [Min(1)]
     [SerializeField] private int maxCompletedLevelsBetweenInterstitials = 3;
 
-    [Tooltip("Minimum seconds between interstitial impressions.")]
+    [Tooltip("Minimum seconds between interstitial impressions (0 lets 2-3 play cadence show cleanly even on short levels).")]
     [Min(0f)]
-    [SerializeField] private float interstitialCooldownSeconds = 30f;
+    [SerializeField] private float interstitialCooldownSeconds = 0f;
+
+    [Tooltip("When true, both completed levels AND failed runs count toward the 2-3 play interstitial threshold.")]
+    [SerializeField] private bool countFailedRunsTowardInterstitial = true;
 
     [Header("5. Campaign Economy Guardrails (Approved Decisions)")]
     [Tooltip("Disables PlayerLevel / EXP lock checks on Campaign worlds so all 30 levels unlock purely by level completion.")]
@@ -229,6 +263,7 @@ public class EconomyBalanceConfig : ScriptableObject
     public int MinCompletedLevelsBetweenInterstitials => Mathf.Max(1, Mathf.Min(minCompletedLevelsBetweenInterstitials, maxCompletedLevelsBetweenInterstitials));
     public int MaxCompletedLevelsBetweenInterstitials => Mathf.Max(MinCompletedLevelsBetweenInterstitials, Mathf.Max(minCompletedLevelsBetweenInterstitials, maxCompletedLevelsBetweenInterstitials));
     public float InterstitialCooldownSeconds => Mathf.Max(0f, interstitialCooldownSeconds);
+    public bool CountFailedRunsTowardInterstitial => countFailedRunsTowardInterstitial;
 
     public bool BypassPlayerLevelAndExpWorldLocks => bypassPlayerLevelAndExpWorldLocks;
     public bool GrantWalletCoinsFromInLevelPickups => grantWalletCoinsFromInLevelPickups;
@@ -314,7 +349,7 @@ public class EconomyBalanceConfig : ScriptableObject
     public bool IsSkillActiveInCampaign(string skillId)
     {
         if (TryGetSkillConfig(skillId, out PowerSkillEconomyConfig cfg))
-            return cfg.enabledInCampaign;
+            return IsSkillConfigUnlocked(cfg);
 
         return false;
     }
@@ -322,9 +357,21 @@ public class EconomyBalanceConfig : ScriptableObject
     public bool IsSkillActiveInCampaign(PowerUpType type)
     {
         if (TryGetSkillConfig(type, out PowerSkillEconomyConfig cfg))
-            return cfg.enabledInCampaign;
+            return IsSkillConfigUnlocked(cfg);
 
         return false;
+    }
+
+    private static bool IsSkillConfigUnlocked(PowerSkillEconomyConfig cfg)
+    {
+        if (cfg == null || !cfg.enabledInCampaign)
+            return false;
+
+        if (cfg.unlockedByDefault)
+            return true;
+
+        ProfileData profile = SaveManager.loadProfile();
+        return profile != null && profile.HasSkill(cfg.skillId);
     }
 
     public int GetSkillInventoryCap(string skillId)
@@ -359,7 +406,17 @@ public class EconomyBalanceConfig : ScriptableObject
         rewardedAdCooldownSeconds = 0f;
         minCompletedLevelsBetweenInterstitials = 2;
         maxCompletedLevelsBetweenInterstitials = 3;
-        interstitialCooldownSeconds = 30f;
+        interstitialCooldownSeconds = 0f;
+        countFailedRunsTowardInterstitial = true;
+        powerSkills = new[]
+        {
+            new PowerSkillEconomyConfig { skillType = PowerUpType.Breaker, skillId = PowerUpIds.Breaker, enabledInCampaign = true, unlockedByDefault = true, inventoryCap = 12, initialTutorialCharges = 2 },
+            new PowerSkillEconomyConfig { skillType = PowerUpType.Freeze, skillId = PowerUpIds.Freeze, enabledInCampaign = true, unlockedByDefault = true, inventoryCap = 12, initialTutorialCharges = 2 },
+            new PowerSkillEconomyConfig { skillType = PowerUpType.Teleport, skillId = PowerUpIds.Teleport, enabledInCampaign = true, unlockedByDefault = true, inventoryCap = 8, initialTutorialCharges = 2 },
+            new PowerSkillEconomyConfig { skillType = PowerUpType.Shield, skillId = PowerUpIds.Shield, enabledInCampaign = true, unlockedByDefault = false, inventoryCap = 10, initialTutorialCharges = 0 },
+            new PowerSkillEconomyConfig { skillType = PowerUpType.Magnet, skillId = PowerUpIds.Magnet, enabledInCampaign = true, unlockedByDefault = false, inventoryCap = 10, initialTutorialCharges = 0 },
+            new PowerSkillEconomyConfig { skillType = PowerUpType.Echo, skillId = PowerUpIds.Echo, enabledInCampaign = true, unlockedByDefault = false, inventoryCap = 8, initialTutorialCharges = 0 }
+        };
         bypassPlayerLevelAndExpWorldLocks = true;
         grantWalletCoinsFromInLevelPickups = false;
         enableMidGameplayRevive = false;
@@ -372,7 +429,10 @@ public class EconomyBalanceConfig : ScriptableObject
     /// </summary>
     private static RewardItem SanitizeAdReward(RewardItem candidate)
     {
-        if (candidate.Type == RewardType.Gems || candidate.Type == RewardType.Cosmetic || candidate.Type == RewardType.Exp)
+        if (candidate.Type == RewardType.Gems
+            || candidate.Type == RewardType.Cosmetic
+            || candidate.Type == RewardType.Exp
+            || candidate.Type == RewardType.SkillUnlock)
         {
             return new RewardItem(RewardType.Coins, Mathf.Max(1, candidate.Amount));
         }
