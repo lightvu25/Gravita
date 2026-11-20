@@ -3,6 +3,10 @@
   "WorkspaceRootPath": "D:\\UnityProject\\Puzzle 2D\\",
   "Documents": [
     {
+      "AbsoluteMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|d:\\unityproject\\puzzle 2d\\assets\\scripts\\ui\\panels\\campaignmapui.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\ui\\panels\\campaignmapui.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|d:\\unityproject\\puzzle 2d\\assets\\scripts\\services\\analytics\\analyticseventobserver.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\services\\analytics\\analyticseventobserver.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
@@ -17,10 +21,6 @@
     {
       "AbsoluteMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|d:\\unityproject\\puzzle 2d\\assets\\scripts\\ui\\panels\\mainmenuui.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\ui\\panels\\mainmenuui.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|d:\\unityproject\\puzzle 2d\\assets\\scripts\\ui\\panels\\campaignmapui.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\ui\\panels\\campaignmapui.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|d:\\unityproject\\puzzle 2d\\assets\\scripts\\ui\\core\\uimanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
@@ -54,28 +54,28 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 0,
+          "SelectedChildIndex": 4,
           "Children": [
-            {
-              "$type": "Document",
-              "DocumentIndex": 0,
-              "Title": "AnalyticsEventObserver.cs",
-              "DocumentMoniker": "D:\\UnityProject\\Puzzle 2D\\Assets\\Scripts\\Services\\Analytics\\AnalyticsEventObserver.cs",
-              "RelativeDocumentMoniker": "Assets\\Scripts\\Services\\Analytics\\AnalyticsEventObserver.cs",
-              "ToolTip": "D:\\UnityProject\\Puzzle 2D\\Assets\\Scripts\\Services\\Analytics\\AnalyticsEventObserver.cs",
-              "RelativeToolTip": "Assets\\Scripts\\Services\\Analytics\\AnalyticsEventObserver.cs",
-              "ViewState": "AgIAAGcAAAAAAAAAAAAAwHEAAABSAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-10-25T05:40:34.282Z",
-              "EditorCaption": ""
-            },
             {
               "$type": "Bookmark",
               "Name": "ST:0:0:{34e76e81-ee4a-11d0-ae2e-00a0c90fffc3}"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 1,
+              "Title": "AnalyticsEventObserver.cs",
+              "DocumentMoniker": "D:\\UnityProject\\Puzzle 2D\\Assets\\Scripts\\Services\\Analytics\\AnalyticsEventObserver.cs",
+              "RelativeDocumentMoniker": "Assets\\Scripts\\Services\\Analytics\\AnalyticsEventObserver.cs",
+              "ToolTip": "D:\\UnityProject\\Puzzle 2D\\Assets\\Scripts\\Services\\Analytics\\AnalyticsEventObserver.cs",
+              "RelativeToolTip": "Assets\\Scripts\\Services\\Analytics\\AnalyticsEventObserver.cs",
+              "ViewState": "AgIAAGcAAAAAAAAAAAAAwHEAAABMAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-10-25T05:40:34.282Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
               "Title": "InGameHUD.cs",
               "DocumentMoniker": "D:\\UnityProject\\Puzzle 2D\\Assets\\Scripts\\UI\\Panels\\InGameHUD.cs",
               "RelativeDocumentMoniker": "Assets\\Scripts\\UI\\Panels\\InGameHUD.cs",
@@ -87,7 +87,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 2,
               "Title": "LevelNodeWidget.cs",
               "DocumentMoniker": "D:\\UnityProject\\Puzzle 2D\\Assets\\Scripts\\UI\\Widgets\\LevelNodeWidget.cs",
               "RelativeDocumentMoniker": "Assets\\Scripts\\UI\\Widgets\\LevelNodeWidget.cs",
@@ -95,24 +95,24 @@
               "RelativeToolTip": "Assets\\Scripts\\UI\\Widgets\\LevelNodeWidget.cs",
               "ViewState": "AgIAABoAAAAAAAAAAAAUwCwAAAAFAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-10-21T05:56:56.069Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-10-21T05:56:56.069Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 4,
+              "DocumentIndex": 0,
               "Title": "CampaignMapUI.cs",
               "DocumentMoniker": "D:\\UnityProject\\Puzzle 2D\\Assets\\Scripts\\UI\\Panels\\CampaignMapUI.cs",
               "RelativeDocumentMoniker": "Assets\\Scripts\\UI\\Panels\\CampaignMapUI.cs",
               "ToolTip": "D:\\UnityProject\\Puzzle 2D\\Assets\\Scripts\\UI\\Panels\\CampaignMapUI.cs",
               "RelativeToolTip": "Assets\\Scripts\\UI\\Panels\\CampaignMapUI.cs",
-              "ViewState": "AgIAAPsAAAAAAAAAAAAQwCIBAAAZAAAAAAAAAA==",
+              "ViewState": "AgIAAAQAAAAAAAAAAAAAAA8AAAA8AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-10-20T15:46:35.314Z"
+              "WhenOpened": "2026-10-20T15:46:35.314Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
+              "DocumentIndex": 4,
               "Title": "MainMenuUI.cs",
               "DocumentMoniker": "D:\\UnityProject\\Puzzle 2D\\Assets\\Scripts\\UI\\Panels\\MainMenuUI.cs",
               "RelativeDocumentMoniker": "Assets\\Scripts\\UI\\Panels\\MainMenuUI.cs",

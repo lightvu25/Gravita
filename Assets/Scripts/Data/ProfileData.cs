@@ -805,6 +805,9 @@ public class ProfileData
             }
         }
 
+        if (isNewBest && PlayGamesService.Instance != null)
+            _ = PlayGamesService.Instance.TryReportRunnerRecordAsync(mode, GetBestRunnerRooms(mode));
+
         return isNewBest;
     }
 

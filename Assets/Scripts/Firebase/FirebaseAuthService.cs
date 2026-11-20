@@ -136,6 +136,11 @@ public class FirebaseAuthService : IAuthService
             return AuthResult.Fail(tokenResult.ErrorMessage);
 
         Credential credential = GoogleAuthProvider.GetCredential(tokenResult.IdToken, tokenResult.AccessToken);
+        return await SignInOrLinkCredentialAsync(credential, "Google sign-in returned no user.");
+    }
+
+    private async Task<AuthResult> SignInOrLinkCredentialAsync(Credential credential, string emptyUserMessage)
+    {
         FirebaseUser signedInUser = null;
 
         if (IsAnonymous && auth.CurrentUser != null)
@@ -157,7 +162,7 @@ public class FirebaseAuthService : IAuthService
 
         string uid = signedInUser != null ? signedInUser.UserId : UserId;
         if (string.IsNullOrEmpty(uid))
-            return AuthResult.Fail("Google sign-in returned no user.");
+            return AuthResult.Fail(emptyUserMessage);
 
         RefreshState();
         OnUserSignedIn?.Invoke(uid);

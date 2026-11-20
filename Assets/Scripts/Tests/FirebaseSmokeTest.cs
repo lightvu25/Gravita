@@ -12,13 +12,28 @@ using UnityEngine;
 /// </summary>
 public class FirebaseSmokeTest : MonoBehaviour
 {
-    /// <summary>Master switch — set to false to stop auto-running the test.</summary>
-    public static bool AutoRun = true;
+    /// <summary>Master switch — disabled by default so production startup never writes test probes.</summary>
+    public static bool AutoRun = false;
 
     private const float TimeoutSeconds = 45f;
 
     [SerializeField] private string slot = "smoke_test";
 
+#if UNITY_EDITOR
+    [UnityEditor.MenuItem("Tools/Gravita/Run Firebase Cloud Smoke Test")]
+    public static void RunManualSmokeTest()
+    {
+        if (!Application.isPlaying)
+        {
+            Debug.LogWarning("[FirebaseSmokeTest] Enter Play Mode before running the Firebase Cloud Smoke Test.");
+            return;
+        }
+
+        Spawn();
+    }
+#endif
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Spawn()
     {
@@ -27,6 +42,7 @@ public class FirebaseSmokeTest : MonoBehaviour
         go.AddComponent<FirebaseSmokeTest>();
         DontDestroyOnLoad(go);
     }
+#endif
 
     [Serializable]
     private class SmokePayload

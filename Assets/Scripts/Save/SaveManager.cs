@@ -24,6 +24,13 @@ public static class SaveManager
     private static bool hasPendingDeferredSave;
     private static PlayerMovement boundSlideFlushPlayer;
     private static bool slideFlushAppHooksRegistered;
+    private static bool suppressOnProfileSaved;
+
+    /// <summary>
+    /// Fired after a non-test <see cref="ProfileData"/> save successfully commits to disk
+    /// (suppressed when applying a merged Cloud Save payload to avoid echo upload loops).
+    /// </summary>
+    public static event Action<ProfileData> OnProfileSaved;
 
     /// <summary>
     /// Optional testing hook to simulate a disk write failure and verify rollback/retry behavior.
@@ -56,6 +63,7 @@ public static class SaveManager
         ForceSlideSaveDeferralForTesting = false;
         SimulateSaveFailureForTesting = false;
         EnforceSaveIntegrity = !Application.isEditor;
+        suppressOnProfileSaved = false;
     }
 
     public static void ClearMemoryCacheForTesting()
@@ -250,12 +258,41 @@ public static class SaveManager
             if (GameSession.Instance != null)
                 GameSession.Instance.currentProfile = data;
 
+            if (!suppressOnProfileSaved && string.IsNullOrEmpty(CustomSaveDirectoryForTesting))
+            {
+                try
+                {
+                    OnProfileSaved?.Invoke(data);
+                }
+                catch (Exception callbackEx)
+                {
+                    Debug.LogWarning($"[SaveManager] OnProfileSaved listener failed: {callbackEx.Message}");
+                }
+            }
+
             return true;
         }
         catch (Exception ex)
         {
             Debug.LogError($"[SaveManager] Failed to save profile to '{ProfileFilePath}': {ex.Message}");
             return false;
+        }
+    }
+
+    /// <summary>
+    /// Persists a cloud-reconciled <see cref="ProfileData"/> snapshot atomically with HMAC signing
+    /// without re-triggering <see cref="OnProfileSaved"/>.
+    /// </summary>
+    public static bool TrySaveMergedCloudProfile(ProfileData mergedData)
+    {
+        suppressOnProfileSaved = true;
+        try
+        {
+            return TrySaveProfile(mergedData);
+        }
+        finally
+        {
+            suppressOnProfileSaved = false;
         }
     }
 

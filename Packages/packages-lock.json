@@ -17,15 +17,16 @@
       "dependencies": {}
     },
     "com.google.play.games": {
-      "version": "file:C:/Users/VuQuang/Downloads/play-games-plugin-for-unity-2.3.0/play-games-plugin-for-unity-2.3.0/Assets/Public/GooglePlayGames/com.google.play.games",
+      "version": "2.3.0",
       "depth": 0,
-      "source": "local",
+      "source": "registry",
       "dependencies": {
         "com.google.external-dependency-manager": "1.2.182"
-      }
+      },
+      "url": "https://package.openupm.com"
     },
     "com.ivanmurzak.unity.mcp": {
-      "version": "1.12.0",
+      "version": "1.13.0",
       "depth": 0,
       "source": "registry",
       "dependencies": {

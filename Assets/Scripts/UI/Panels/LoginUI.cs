@@ -1,8 +1,12 @@
-using System.Collections;
+using System.Threading.Tasks;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
+/// <summary>
+/// Account sign-in popup backed directly by Google Play Games Services (<see cref="PlayGamesService"/>).
+/// Preserves legacy TMP input references for Scene/Prefab compatibility without touching Scene files.
+/// </summary>
 public class LoginUI : MonoBehaviour, IUIPanel
 {
     [Header("Inputs (TextMeshPro)")]
@@ -23,11 +27,9 @@ public class LoginUI : MonoBehaviour, IUIPanel
 
     private bool busy;
     private bool buttonsBound;
-    private bool subscribed;
+    private PlayGamesService subscribedPlayGames;
 
     private UIPanelAnimator PanelAnimator => panelAnimator;
-
-    private IAuthService Auth => FirebaseService.Instance != null ? FirebaseService.Instance.Auth : null;
 
     private void Awake()
     {
@@ -39,29 +41,19 @@ public class LoginUI : MonoBehaviour, IUIPanel
     {
         BindButtons();
         EnsureInputsEditable();
-        StartCoroutine(WaitForAuth());
+        SubscribePlayGames();
+        RefreshView();
     }
 
     private void OnDisable()
     {
-        var auth = Auth;
-        if (subscribed && auth != null)
-        {
-            auth.OnStateChanged -= HandleStateChanged;
-            subscribed = false;
-        }
+        UnsubscribePlayGames();
         busy = false;
     }
 
     private void OnDestroy()
     {
-        var auth = Auth;
-        if (subscribed && auth != null)
-        {
-            auth.OnStateChanged -= HandleStateChanged;
-            subscribed = false;
-        }
-
+        UnsubscribePlayGames();
         UnbindButtons();
     }
 
@@ -118,106 +110,67 @@ public class LoginUI : MonoBehaviour, IUIPanel
 
     private void FinishHide() => gameObject.SetActive(false);
 
-    private IEnumerator WaitForAuth()
+    private void SubscribePlayGames()
     {
-        EnsureInputsEditable();
+        PlayGamesService pg = PlayGamesService.Instance;
+        if (pg == null || ReferenceEquals(subscribedPlayGames, pg))
+            return;
 
-        var initialAuth = Auth;
-        if (initialAuth != null && initialAuth.State != AuthState.Loading)
-        {
-            if (!subscribed)
-            {
-                initialAuth.OnStateChanged += HandleStateChanged;
-                subscribed = true;
-            }
-            RefreshView();
-            yield break;
-        }
+        UnsubscribePlayGames();
+        subscribedPlayGames = pg;
+        subscribedPlayGames.OnAuthenticationChanged += HandlePlayGamesAuthChanged;
+    }
 
-        ShowStatus("Connecting to Firebase...");
-        SetButtonsInteractable(false);
+    private void UnsubscribePlayGames()
+    {
+        if (subscribedPlayGames == null)
+            return;
 
-        float waited = 0f;
-        const float timeout = 30f;
-        while (waited < timeout)
-        {
-            var auth = Auth;
-            if (auth != null && auth.State != AuthState.Loading)
-            {
-                if (!subscribed)
-                {
-                    auth.OnStateChanged += HandleStateChanged;
-                    subscribed = true;
-                }
-                RefreshView();
-                yield break;
-            }
-            waited += Time.unscaledDeltaTime;
-            yield return null;
-        }
+        subscribedPlayGames.OnAuthenticationChanged -= HandlePlayGamesAuthChanged;
+        subscribedPlayGames = null;
+    }
 
-        ShowStatus("Firebase is unavailable - playing offline.");
-        EnsureInputsEditable();
-        SetButtonsInteractable(true);
+    private void HandlePlayGamesAuthChanged(bool isAuthenticated)
+    {
+        RefreshView();
     }
 
     private async void OnLoginClicked()
     {
-        GameHaptics.Play(HapticEvent.UISelect);
-        UIAudio.Play(UISoundType.ButtonClick);
-
-        if (!ValidateInputs(out string email, out string password)) return;
-        if (Auth == null)
-        {
-            ShowStatus("Firebase is unavailable.");
-            return;
-        }
-
-        SetBusy(true, "Signing in...");
-        AuthResult result = await Auth.SignInAsync(email, password);
-        if (this == null) return;
-        SetBusy(false, null);
-
-        if (!result.Success) ShowStatus(result.ErrorMessage);
+        await TriggerPlayGamesSignInAsync();
     }
 
     private async void OnRegisterClicked()
     {
-        GameHaptics.Play(HapticEvent.UISelect);
-        UIAudio.Play(UISoundType.ButtonClick);
-
-        if (!ValidateInputs(out string email, out string password)) return;
-        if (Auth == null)
-        {
-            ShowStatus("Firebase is unavailable.");
-            return;
-        }
-
-        SetBusy(true, "Creating account...");
-        AuthResult result = await Auth.RegisterAsync(email, password);
-        if (this == null) return;
-        SetBusy(false, null);
-
-        if (!result.Success) ShowStatus(result.ErrorMessage);
+        await TriggerPlayGamesSignInAsync();
     }
 
     private async void OnGoogleLoginClicked()
     {
+        await TriggerPlayGamesSignInAsync();
+    }
+
+    private async Task TriggerPlayGamesSignInAsync()
+    {
         GameHaptics.Play(HapticEvent.UISelect);
         UIAudio.Play(UISoundType.ButtonClick);
 
-        if (Auth == null)
+        PlayGamesService pg = PlayGamesService.Instance;
+        if (pg == null || !pg.IsSupported)
         {
-            ShowStatus("Firebase is unavailable.");
+            ShowStatus("Google Play Games sign-in is available on Android builds.");
             return;
         }
 
-        SetBusy(true, "Opening Google sign-in...");
-        AuthResult result = await Auth.SignInWithGoogleAsync();
+        SetBusy(true, "Signing in with Google Play Games...");
+        AuthResult result = await pg.SignInAsync(interactive: true);
         if (this == null) return;
         SetBusy(false, null);
 
-        if (!result.Success) ShowStatus(result.ErrorMessage);
+        if (result != null && result.Success)
+            CloseSelf();
+        else
+            ShowStatus(result != null ? result.ErrorMessage : "Google Play Games sign-in failed.");
     }
 
     private void OnCloseClicked()
@@ -227,67 +180,19 @@ public class LoginUI : MonoBehaviour, IUIPanel
         CloseSelf();
     }
 
-    private bool ValidateInputs(out string email, out string password)
-    {
-        email = emailInput != null && emailInput.text != null ? emailInput.text.Trim() : string.Empty;
-        password = passwordInput != null && passwordInput.text != null ? passwordInput.text : string.Empty;
-
-        if (string.IsNullOrEmpty(email))
-        {
-            ShowStatus("Enter your email.");
-            return false;
-        }
-        if (!email.Contains("@"))
-        {
-            ShowStatus("That doesn't look like an email address.");
-            return false;
-        }
-        if (string.IsNullOrEmpty(password))
-        {
-            ShowStatus("Enter your password.");
-            return false;
-        }
-        if (password.Length < 6)
-        {
-            ShowStatus("Password must be at least 6 characters.");
-            return false;
-        }
-        return true;
-    }
-
-    private void HandleStateChanged()
-    {
-        RefreshView();
-    }
-
     private void RefreshView()
     {
         EnsureInputsEditable();
+        SetButtonsInteractable(true);
 
-        var auth = Auth;
-        if (auth == null)
-        {
-            ShowStatus("Firebase is unavailable - playing offline.");
-            SetButtonsInteractable(true);
-            return;
-        }
-
-        if (auth.State == AuthState.Loading)
-        {
-            ShowStatus("Connecting to Firebase...");
-            SetButtonsInteractable(false);
-            return;
-        }
-
-        // Only auto-close when signed in with a non-anonymous account (Email or Google)
-        if (auth.State == AuthState.SignedIn && !auth.IsAnonymous)
+        PlayGamesService pg = PlayGamesService.Instance;
+        if (pg != null && pg.IsAuthenticated)
         {
             CloseSelf();
             return;
         }
 
         ShowStatus(string.Empty);
-        SetButtonsInteractable(true);
     }
 
     private void CloseSelf()

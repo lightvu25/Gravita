@@ -1,9 +1,13 @@
 using System;
 using System.Threading.Tasks;
 using Firebase;
-using Firebase.Auth;
 using UnityEngine;
 
+/// <summary>
+/// Analytics-only Firebase entry point. Checks Firebase native dependencies,
+/// activates <see cref="FirebaseAnalyticsProvider"/>, and mirrors GPGS PlayerId when signed in.
+/// Account authentication and cloud saves are owned directly by <see cref="PlayGamesService"/>.
+/// </summary>
 public class FirebaseService : MonoBehaviour
 {
     public enum Status
@@ -22,11 +26,15 @@ public class FirebaseService : MonoBehaviour
     public Status CurrentStatus { get; private set; } = Status.Uninitialized;
     public bool IsReady => CurrentStatus == Status.Ready;
 
-    public IAuthService Auth { get; private set; }
+    public IAuthService Auth => null;
 
-    public ICloudSaveProvider CloudSave { get; private set; }
+    public ICloudSaveProvider CloudSave =>
+        PlayGamesService.Instance != null ? PlayGamesService.Instance.CloudSave : null;
 
-    public string UserId => Auth != null ? Auth.UserId : null;
+    public string UserId =>
+        PlayGamesService.Instance != null && PlayGamesService.Instance.IsAuthenticated
+            ? PlayGamesService.Instance.PlayerId
+            : null;
 
     public event Action<Status> OnStatusChanged;
 
@@ -64,49 +72,30 @@ public class FirebaseService : MonoBehaviour
             DependencyStatus deps = await FirebaseApp.CheckAndFixDependenciesAsync();
             if (deps != DependencyStatus.Available)
             {
-                Debug.LogWarning($"[FirebaseService] Dependencies unavailable ({deps}). Cloud features disabled.");
+                Debug.LogWarning($"[FirebaseService] Dependencies unavailable ({deps}). Analytics fallback remains offline.");
                 SetStatus(Status.Unavailable);
                 return;
             }
 
             app = FirebaseApp.DefaultInstance;
-        }
-        catch (Exception e)
-        {
-            Debug.LogWarning($"[FirebaseService] Initialization failed: {e.Message}. Cloud features disabled.");
-            SetStatus(Status.Unavailable);
-            return;
-        }
+            if (app == null)
+            {
+                Debug.LogWarning("[FirebaseService] FirebaseApp.DefaultInstance returned null. Analytics fallback remains offline.");
+                SetStatus(Status.Unavailable);
+                return;
+            }
 
-        try
-        {
-            Auth = new FirebaseAuthService(FirebaseAuth.GetAuth(app));
-            CloudSave = new FirebaseCloudSaveProvider(app, () => Auth.UserId);
-        }
-        catch (Exception e)
-        {
-            Debug.LogWarning($"[FirebaseService] Auth setup failed: {e.Message}. Cloud features disabled.");
-            SetStatus(Status.Unavailable);
-            return;
-        }
+            if (Application.isPlaying)
+                AnalyticsService.ConnectFirebaseAnalytics(UserId);
 
-        if (Auth.IsSignedIn)
-        {
             SetStatus(Status.Ready);
-            Debug.Log($"[FirebaseService] Ready — restored session uid={Auth.UserId}");
-            return;
+            Debug.Log("[FirebaseService] Analytics ready.");
         }
-
-        string uid = await Auth.SignInAnonymouslyAsync();
-        if (string.IsNullOrEmpty(uid))
+        catch (Exception e)
         {
-            Debug.LogWarning("[FirebaseService] Anonymous auth failed — email login still available.");
-            SetStatus(Status.AuthFailed);
-            return;
+            Debug.LogWarning($"[FirebaseService] Analytics initialization failed: {e.Message}");
+            SetStatus(Status.Unavailable);
         }
-
-        SetStatus(Status.Ready);
-        Debug.Log($"[FirebaseService] Ready — uid={uid}");
     }
 
     private void SetStatus(Status status)

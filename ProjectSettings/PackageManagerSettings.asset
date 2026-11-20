@@ -37,6 +37,7 @@ MonoBehaviour:
     - com.ivanmurzak
     - extensions.unity
     - com.google.external-dependency-manager
+    - com.google.play.games
     m_IsDefault: 0
     m_Capabilities: 0
     m_ConfigSource: 4

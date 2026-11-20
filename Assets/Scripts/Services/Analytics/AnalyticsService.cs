@@ -24,6 +24,15 @@ public class AnalyticsService : MonoBehaviour, IAnalyticsService
     private IAnalyticsProvider provider;
     private static bool sessionStarted;
 
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStaticState()
+    {
+        Instance = null;
+        sessionStarted = false;
+    }
+
+    public static void ResetForTesting() => ResetStaticState();
+
     private void Awake()
     {
         if (Instance != null && !ReferenceEquals(Instance, this))
@@ -56,6 +65,48 @@ public class AnalyticsService : MonoBehaviour, IAnalyticsService
     public void SetProvider(IAnalyticsProvider newProvider)
     {
         provider = newProvider ?? new MockAnalyticsProvider();
+    }
+
+    /// <summary>
+    /// Connects the live <see cref="FirebaseAnalyticsProvider"/>, replaying any events recorded
+    /// by the startup <see cref="MockAnalyticsProvider"/> before Firebase dependencies resolved.
+    /// </summary>
+    public static void ConnectFirebaseAnalytics(
+        string initialUserId = null,
+        FirebaseAnalyticsProvider customProvider = null)
+    {
+        if (!(Instance is AnalyticsService svc))
+            return;
+
+        if (customProvider == null && svc.provider is FirebaseAnalyticsProvider existingFb)
+        {
+            existingFb.MarkBackendReady(initialUserId);
+            return;
+        }
+
+        FirebaseAnalyticsProvider fbProvider = customProvider ?? new FirebaseAnalyticsProvider();
+        if (svc.provider is MockAnalyticsProvider mock)
+        {
+            IReadOnlyList<AnalyticsEventRecord> buffered = mock.Events;
+            for (int i = 0; i < buffered.Count; i++)
+            {
+                AnalyticsEventRecord rec = buffered[i];
+                if (rec != null)
+                    fbProvider.TrackEvent(rec.EventName, FirebaseAnalyticsProvider.CloneDictionary(rec.Parameters));
+            }
+        }
+
+        svc.SetProvider(fbProvider);
+        fbProvider.MarkBackendReady(initialUserId);
+    }
+
+    /// <summary>
+    /// Updates the analytics user identifier whenever authentication transitions.
+    /// </summary>
+    public static void UpdateUserId(string userId)
+    {
+        if (Instance is AnalyticsService svc && svc.provider is FirebaseAnalyticsProvider fbProvider)
+            fbProvider.SetUserId(userId);
     }
 
     /// <summary>

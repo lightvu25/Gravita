@@ -62,6 +62,28 @@ public class EconomyManager : MonoBehaviour
         LoadFromProfile();
     }
 
+    /// <summary>
+    /// Synchronizes wallet balances from a Cloud-merged <see cref="ProfileData"/> snapshot
+    /// and updates UI listeners without emitting false currency-earned ledger analytics.
+    /// </summary>
+    public void SyncFromCloudMergedProfile()
+    {
+        int oldCoins = coins;
+        int oldGems = gems;
+
+        ProfileData profile = SaveManager.loadProfile();
+        coins = profile != null ? Mathf.Max(0, profile.coins) : 0;
+        gems = profile != null ? Mathf.Max(0, profile.gems) : 0;
+
+        int coinDelta = coins - oldCoins;
+        int gemDelta = gems - oldGems;
+
+        if (coinDelta != 0)
+            OnCoinsChanged?.Invoke(coins, coinDelta);
+        if (gemDelta != 0)
+            OnGemsChanged?.Invoke(gems, gemDelta);
+    }
+
     private void OnDestroy()
     {
         if (Instance == this)

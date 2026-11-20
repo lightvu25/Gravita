@@ -1,10 +1,8 @@
 ﻿<Solution>
-  <Project Path="Google.Play.Games.csproj" />
   <Project Path="Firebase.FirebaseAI.csproj" />
   <Project Path="Assembly-CSharp.csproj" />
   <Project Path="Assembly-CSharp-Editor.csproj" />
   <Project Path="GoogleMobileAds.Editor.csproj" />
-  <Project Path="Google.Play.Games.Editor.csproj" />
   <Project Path="Firebase.Functions.csproj" />
   <Project Path="FirebaseMessagingActivityGenerator.csproj" />
   <Project Path="Firebase.App.Internal.csproj" />

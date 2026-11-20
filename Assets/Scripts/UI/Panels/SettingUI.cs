@@ -178,10 +178,10 @@ public class SettingUI : MonoBehaviour, IUIPanel
 
     private void SubscribeAuth()
     {
-        var auth = FirebaseService.Instance != null ? FirebaseService.Instance.Auth : null;
-        if (!authSubscribed && auth != null)
+        var pg = PlayGamesService.Instance;
+        if (!authSubscribed && pg != null)
         {
-            auth.OnStateChanged += RefreshAccountButtons;
+            pg.OnAuthenticationChanged += HandlePlayGamesAuthChanged;
             authSubscribed = true;
         }
     }
@@ -189,10 +189,15 @@ public class SettingUI : MonoBehaviour, IUIPanel
     private void UnsubscribeAuth()
     {
         if (!authSubscribed) return;
-        var auth = FirebaseService.Instance != null ? FirebaseService.Instance.Auth : null;
-        if (auth != null)
-            auth.OnStateChanged -= RefreshAccountButtons;
+        var pg = PlayGamesService.Instance;
+        if (pg != null)
+            pg.OnAuthenticationChanged -= HandlePlayGamesAuthChanged;
         authSubscribed = false;
+    }
+
+    private void HandlePlayGamesAuthChanged(bool isAuthenticated)
+    {
+        RefreshAccountButtons();
     }
 
     public void Show()
@@ -258,8 +263,21 @@ public class SettingUI : MonoBehaviour, IUIPanel
         GameHaptics.Play(HapticEvent.UISelect);
         UIAudio.Play(UISoundType.ButtonClick);
 
+        if (PlayGamesService.Instance != null && PlayGamesService.Instance.IsSupported)
+        {
+            _ = SignInPlayGamesAsync();
+            return;
+        }
+
         if (UIManager.Instance != null)
             UIManager.Instance.OpenPanel(UIPanelType.Login);
+    }
+
+    private async System.Threading.Tasks.Task SignInPlayGamesAsync()
+    {
+        await PlayGamesService.Instance.SignInAsync(interactive: true);
+        if (this != null)
+            RefreshAccountButtons();
     }
 
     private void HandleHapticsEnabledChanged(bool _)
@@ -288,18 +306,14 @@ public class SettingUI : MonoBehaviour, IUIPanel
     {
         GameHaptics.Play(HapticEvent.UISelect);
         UIAudio.Play(UISoundType.ButtonClick);
-
-        var auth = FirebaseService.Instance != null ? FirebaseService.Instance.Auth : null;
-        auth?.SignOut();
         RefreshAccountButtons();
     }
 
     private void RefreshAccountButtons()
     {
-        var auth = FirebaseService.Instance != null ? FirebaseService.Instance.Auth : null;
-        bool signedInWithRealAccount = auth != null && auth.State == AuthState.SignedIn && !auth.IsAnonymous;
+        bool signedIn = PlayGamesService.Instance != null && PlayGamesService.Instance.IsAuthenticated;
 
-        if (loginButton != null) loginButton.gameObject.SetActive(!signedInWithRealAccount);
-        if (logoutButton != null) logoutButton.gameObject.SetActive(signedInWithRealAccount);
+        if (loginButton != null) loginButton.gameObject.SetActive(!signedIn);
+        if (logoutButton != null) logoutButton.gameObject.SetActive(false);
     }
 }

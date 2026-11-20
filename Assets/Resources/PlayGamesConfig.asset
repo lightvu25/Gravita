@@ -1,0 +1,45 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3064d1a9decab4b4aa7c40036bf9a6eb, type: 3}
+  m_Name: PlayGamesConfig
+  m_EditorClassIdentifier: Assembly-CSharp::PlayGamesConfig
+  enablePlayGames: 1
+  autoSignInOnStartup: 1
+  enableSavedGamesCloudSync: 1
+  syncAchievements: 1
+  syncLeaderboards: 1
+  achievementMappings:
+  - internalAchievementId: ach_01
+    gpgsAchievementId: 
+  - internalAchievementId: ach_02
+    gpgsAchievementId: 
+  - internalAchievementId: ach_03
+    gpgsAchievementId: 
+  - internalAchievementId: ach_04
+    gpgsAchievementId: 
+  - internalAchievementId: ach_05
+    gpgsAchievementId: 
+  - internalAchievementId: ach_06
+    gpgsAchievementId: 
+  - internalAchievementId: ach_07
+    gpgsAchievementId: 
+  - internalAchievementId: ach_08
+    gpgsAchievementId: 
+  - internalAchievementId: ach_09
+    gpgsAchievementId: 
+  leaderboardMappings:
+  - leaderboardKey: runner_endless_best
+    gpgsLeaderboardId: 
+  - leaderboardKey: runner_10rooms_clears
+    gpgsLeaderboardId: 
+  - leaderboardKey: runner_20rooms_clears
+    gpgsLeaderboardId: 
