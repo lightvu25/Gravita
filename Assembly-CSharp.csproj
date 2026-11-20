@@ -341,7 +341,6 @@
     <None Include="Assets\TextMesh Pro\Shaders\TMPro.cginc" />
     <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF-Mobile Overlay.shader" />
     <None Include="Assets\Firebase\Plugins\x86_64\FirebaseCppInstallations.dll" />
-    <None Include="Assets\Shaders\Effect\Halftone\Lighting.hlsl" />
     <None Include="Assets\TextMesh Pro\Examples &amp; Extras\Fonts\Roboto-Bold - License.txt" />
     <None Include="Assets\Firebase\Plugins\x86_64\FirebaseCppFirestore.dll" />
     <None Include="Assets\Firebase\Plugins\Firebase.Messaging.dll" />
